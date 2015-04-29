@@ -36,6 +36,9 @@
 #include "subsystems/actuators/motor_mixing.h"
 #include "firmwares/rotorcraft/guidance/guidance_h.h"
 
+//for step input
+#include "subsystems/radio_control.h"
+
 
 int32_t stabilization_att_indi_cmd[COMMANDS_NB];
 struct FloatRates inv_control_effectiveness = {STABILIZATION_INDI_CONTROL_EFFECTIVENESS_P, STABILIZATION_INDI_CONTROL_EFFECTIVENESS_Q, STABILIZATION_INDI_CONTROL_EFFECTIVENESS_R};
@@ -64,6 +67,9 @@ struct FloatRates filt_rate = {0., 0., 0.};
 float act_obs_rpm[ACTUATORS_NB];
 
 float dx_error_disp[3];
+int32_t step_timer = 0;
+
+struct FloatQuat quat_saved;
 
 struct FloatMat33 G1G2_trans_mult;
 struct FloatMat33 G1G2inv;
@@ -85,10 +91,14 @@ struct FloatRates ratedot_estimation = {0., 0., 0.};
 struct FloatRates ratedotdot_estimation = {0., 0., 0.};
 float u_in_estimation[4] = {0.0, 0.0, 0.0, 0.0};
 float indi_u_in_estimation[4] = {0.0, 0.0, 0.0, 0.0};
-float G1G2_pseudo_inv[4][3] = {{ -14.0 , 18.0, 4.0},
-{ 14.0, 18.0, -4.0},
-{ 14.0, -18.0, 4.0},
-{-14.0 , -18.0, -4.0}};
+// float G1G2_pseudo_inv[4][3] = {{ -14.0 , 18.0, 4.0},
+// { 14.0, 18.0, -4.0},
+// { 14.0, -18.0, 4.0},
+// {-14.0 , -18.0, -4.0}};
+float G1G2_pseudo_inv[4][3] = {{-12.5000,   17.8571,    4.0984},
+{  12.5000,   17.8571,   -4.0984},
+{  12.5000,  -17.8571,    4.0984},
+{ -12.5000,  -17.8571,   -4.0984}};
 float G1[3][4] = {{-20 , 20, 20 , -20 }, //scaled by 1000
 {14 , 14, -14 , -14 },
 {1, -1, 1, -1}};
@@ -122,8 +132,8 @@ static void rpm_cb(uint8_t sender_id, const uint16_t *rpm, const uint8_t *count)
 
 #define STABILIZATION_INDI_FILT_OMEGA2_R (STABILIZATION_INDI_FILT_OMEGA_R*STABILIZATION_INDI_FILT_OMEGA_R)
 
-#define IDENTIFICATION_INDI_FILT_OMEGA 40
-#define IDENTIFICATION_INDI_FILT_OMEGA2 1600
+#define IDENTIFICATION_INDI_FILT_OMEGA 25
+#define IDENTIFICATION_INDI_FILT_OMEGA2 625
 #define IDENTIFICATION_FILT_ZETA 0.55
 
 
@@ -324,12 +334,20 @@ static void attitude_run_indi(int32_t indi_commands[], struct Int32Quat *att_err
 
   float avg_u_in = (indi_u_in_actuators[0] + indi_u_in_actuators[1] + indi_u_in_actuators[2] + indi_u_in_actuators[3])/4.0;
 
+#warning "saturation at 8100 instead of max_pprz because of bebop motors"
+  Bound(stabilization_cmd[COMMAND_THRUST],0, 8100);
+
   if(avg_u_in > 1.0) {
     indi_u_in_actuators[0] = indi_u_in_actuators[0] /avg_u_in * stabilization_cmd[COMMAND_THRUST];
     indi_u_in_actuators[1] = indi_u_in_actuators[1] /avg_u_in * stabilization_cmd[COMMAND_THRUST];
     indi_u_in_actuators[2] = indi_u_in_actuators[2] /avg_u_in * stabilization_cmd[COMMAND_THRUST];
     indi_u_in_actuators[3] = indi_u_in_actuators[3] /avg_u_in * stabilization_cmd[COMMAND_THRUST];
   }
+
+  Bound(indi_u_in_actuators[0],0,8100);
+  Bound(indi_u_in_actuators[1],0,8100);
+  Bound(indi_u_in_actuators[2],0,8100);
+  Bound(indi_u_in_actuators[3],0,8100);
 
   indi_u_in_estimation_i[0] = (int32_t) indi_u_in_actuators[0];
   indi_u_in_estimation_i[1] = (int32_t) indi_u_in_actuators[1];
@@ -367,7 +385,9 @@ static void attitude_run_indi(int32_t indi_commands[], struct Int32Quat *att_err
     FLOAT_RATES_ZERO(udotdot);
   }
   else {
+#if ADAPTIVE_INDI
     lms_estimation();
+#endif
   }
 
   /*  INDI feedback */
@@ -385,6 +405,37 @@ void stabilization_attitude_run(bool_t enable_integrator)
   /*
    * Compute error for feedback
    */
+
+#if STEP_INPUT_ON_MODE_AUTO1
+#warning "Using step input on auto1!!! Only for testing/experiment!!"
+  struct FloatQuat q_sp;
+  if((radio_control.values[RADIO_MODE] > -4000) && (step_timer < 256)) {
+    //doublet input
+    if(step_timer < 128) {
+      struct FloatEulers rotation_eulers = {0.5236, 0, 0};
+      struct FloatQuat rotation_quat;
+      float_quat_of_eulers(&rotation_quat, &rotation_eulers);
+      float_quat_comp(&q_sp, &quat_saved, &rotation_quat);
+      float_quat_normalize(&q_sp);
+    }
+    else {
+      struct FloatEulers rotation_eulers = {-0.5236, 0, 0};
+      struct FloatQuat rotation_quat;
+      float_quat_of_eulers(&rotation_quat, &rotation_eulers);
+      float_quat_comp(&q_sp, &quat_saved, &rotation_quat);
+      float_quat_normalize(&q_sp);
+    }
+    step_timer = step_timer + 1;
+    QUAT_BFP_OF_REAL(stab_att_sp_quat, q_sp);
+  }
+  else if(radio_control.values[RADIO_MODE] < -4000) {
+    //normal flying
+    step_timer = 0;
+    QUAT_FLOAT_OF_BFP(q_sp, stab_att_sp_quat);
+    QUAT_COPY(quat_saved,q_sp);
+  }
+
+#endif
 
   /* attitude error                          */
   struct Int32Quat att_err;
@@ -415,6 +466,7 @@ void stabilization_attitude_read_rc(bool_t in_flight, bool_t in_carefree, bool_t
 #else
   stabilization_attitude_read_rc_setpoint_quat_f(&q_sp, in_flight, in_carefree, coordinated_turn);
 #endif
+  
   QUAT_BFP_OF_REAL(stab_att_sp_quat, q_sp);
 }
 
@@ -440,6 +492,7 @@ void filter_inputs_actuators(void) {
   u_act_dyn_actuators[2] = act_obs_rpm[2];
   u_act_dyn_actuators[3] = act_obs_rpm[3];
 #else
+#warning "not using rpm feedback"
   //actuator dynamics
   u_act_dyn_actuators[0] = u_act_dyn_actuators[0] + STABILIZATION_INDI_ACT_DYN_P*( indi_u_in_actuators[0] - u_act_dyn_actuators[0]);
   u_act_dyn_actuators[1] = u_act_dyn_actuators[1] + STABILIZATION_INDI_ACT_DYN_P*( indi_u_in_actuators[1] - u_act_dyn_actuators[1]);

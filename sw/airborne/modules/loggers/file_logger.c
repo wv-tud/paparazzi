@@ -82,23 +82,33 @@ void file_logger_periodic(void)
 
   struct FloatRates float_rates = *stateGetBodyRates_f();
   struct Int32Quat *quat = stateGetNedToBodyQuat_i();
+  struct Int32Quat *quatsp = &stab_att_sp_quat;
 
-  fprintf(file_logger, "%d,%f,%f,%f,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%f,%f,%f,%f\n",
+  fprintf(file_logger, "%d,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%d,%d,%d,%d,%f,%f,%f,%f,%f,%f,%f,%d,%d,%d,%d\n",
           counter,
           float_rates.p,
           float_rates.q,
           float_rates.r,
-          0,
-          0,
-          0,
-          0,
-          0,
-          0,
-          0,
-          stabilization_cmd[COMMAND_THRUST],
-          stabilization_cmd[COMMAND_ROLL],
-          stabilization_cmd[COMMAND_PITCH],
-          stabilization_cmd[COMMAND_YAW],
+          G1[0][0],
+          G1[0][1],
+          G1[0][2],
+          G1[0][3],
+          G1[1][0],
+          G1[1][1],
+          G1[1][2],
+          G1[1][3],
+          G1[2][0],
+          G1[2][1],
+          G1[2][2],
+          G1[2][3],
+          G2[0],
+          G2[1],
+          G2[2],
+          G2[3],
+          indi_u_in_actuators[0],
+          indi_u_in_actuators[1],
+          indi_u_in_actuators[2],
+          indi_u_in_actuators[3],
           quat->qi,
           quat->qx,
           quat->qy,
@@ -106,7 +116,14 @@ void file_logger_periodic(void)
           act_obs_rpm[0],
           act_obs_rpm[1],
           act_obs_rpm[2],
-          act_obs_rpm[3]
+          act_obs_rpm[3],
+          angular_accel_ref.p,
+          angular_accel_ref.q,
+          angular_accel_ref.r,
+          quatsp->qi,
+          quatsp->qx,
+          quatsp->qy,
+          quatsp->qz
          );
   counter++;
 }

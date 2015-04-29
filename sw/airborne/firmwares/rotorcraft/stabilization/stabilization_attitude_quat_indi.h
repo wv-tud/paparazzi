@@ -50,6 +50,9 @@ extern struct FloatRates u_in;
 extern struct FloatRates udot;
 extern struct FloatRates udotdot;
 extern int32_t indi_u_in_estimation_i[4];
+extern float G1[3][4];
+extern float G2[4];
+extern float indi_u_in_actuators[4];
 
 void stabilization_indi_filter_gyro(void);
 void stabilization_indi_filter_inputs(void);
