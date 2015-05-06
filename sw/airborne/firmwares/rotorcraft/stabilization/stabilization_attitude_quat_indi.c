@@ -69,6 +69,11 @@ float act_obs_rpm[ACTUATORS_NB];
 float dx_error_disp[3];
 int32_t step_timer = 0;
 
+float pgain[3] = {11250, 16200, 30000};
+float dgain[3] = {498, 720, 1200};
+float igain[3] = {30, 30, 30};
+float sum_error[3] = {0, 0, 0};
+
 struct FloatQuat quat_saved;
 
 struct FloatMat33 G1G2_trans_mult;
@@ -302,6 +307,24 @@ void stabilization_attitude_set_earth_cmd_i(struct Int32Vect2 *cmd, int32_t head
   quat_from_earth_cmd_i(&stab_att_sp_quat, cmd, heading);
 }
 
+static void attitude_run_pid(int32_t pid_commands[], struct Int32Quat *att_err) {
+
+  sum_error[0] = sum_error[0] + QUAT1_FLOAT_OF_BFP(att_err->qx);
+  sum_error[1] = sum_error[1] + QUAT1_FLOAT_OF_BFP(att_err->qy);
+  sum_error[2] = sum_error[2] + QUAT1_FLOAT_OF_BFP(att_err->qz);
+
+  if(stabilization_cmd[COMMAND_THRUST] < 800) {
+    sum_error[0] = 0;
+    sum_error[1] = 0;
+    sum_error[2] = 0;
+  }
+
+  /*  PID feedback */
+  pid_commands[COMMAND_ROLL] = pgain[0] * QUAT1_FLOAT_OF_BFP(att_err->qx) - dgain[0] * stateGetBodyRates_f()->p + igain[0] * sum_error[0];
+  pid_commands[COMMAND_PITCH] = pgain[1] * QUAT1_FLOAT_OF_BFP(att_err->qy) - dgain[1] * stateGetBodyRates_f()->q + igain[1] * sum_error[1];
+  pid_commands[COMMAND_YAW] = pgain[2] * QUAT1_FLOAT_OF_BFP(att_err->qz) - dgain[2] * stateGetBodyRates_f()->r + igain[2] * sum_error[2];
+}
+
 static void attitude_run_indi(int32_t indi_commands[], struct Int32Quat *att_err)
 {
   angular_accel_ref.p = reference_acceleration.err_p * QUAT1_FLOAT_OF_BFP(att_err->qx)
@@ -409,17 +432,21 @@ void stabilization_attitude_run(bool_t enable_integrator)
 #if STEP_INPUT_ON_MODE_AUTO1
 #warning "Using step input on auto1!!! Only for testing/experiment!!"
   struct FloatQuat q_sp;
-  if((radio_control.values[RADIO_MODE] > -4000) && (step_timer < 256)) {
+//   if((radio_control.values[RADIO_MODE] > -4000) && (step_timer < 256)) {
+  if((radio_control.values[RADIO_MODE] > -4000) && (step_timer < 512)) {
     //doublet input
-    if(step_timer < 128) {
-      struct FloatEulers rotation_eulers = {0.5236, 0, 0};
+//     if(step_timer < 128) {
+    if(step_timer < 256) {
+//       struct FloatEulers rotation_eulers = {0.5236, 0, 0};
+      struct FloatEulers rotation_eulers = {0, 0, 0.08727};
       struct FloatQuat rotation_quat;
       float_quat_of_eulers(&rotation_quat, &rotation_eulers);
       float_quat_comp(&q_sp, &quat_saved, &rotation_quat);
       float_quat_normalize(&q_sp);
     }
     else {
-      struct FloatEulers rotation_eulers = {-0.5236, 0, 0};
+//       struct FloatEulers rotation_eulers = {-0.5236, 0, 0};
+      struct FloatEulers rotation_eulers = {0, 0, -0.08727};
       struct FloatQuat rotation_quat;
       float_quat_of_eulers(&rotation_quat, &rotation_eulers);
       float_quat_comp(&q_sp, &quat_saved, &rotation_quat);
@@ -446,7 +473,11 @@ void stabilization_attitude_run(bool_t enable_integrator)
   INT32_QUAT_NORMALIZE(att_err);
 
   /* compute the INDI command */
+#if ATTITUDE_PID
+  attitude_run_pid(stabilization_att_indi_cmd, &att_err);
+#else
   attitude_run_indi(stabilization_att_indi_cmd, &att_err);
+#endif
 
   stabilization_cmd[COMMAND_ROLL] = stabilization_att_indi_cmd[COMMAND_ROLL];
   stabilization_cmd[COMMAND_PITCH] = stabilization_att_indi_cmd[COMMAND_PITCH];

@@ -190,7 +190,7 @@ void motor_mixing_run(bool_t motors_on, bool_t override_on, pprz_t in_cmd[])
     int32_t max_cmd = INT32_MIN;
     /* do the mixing in float to avoid overflows, implicitly casted back to int32_t */
     for (i = 0; i < MOTOR_MIXING_NB_MOTOR; i++) {
-#if USE_FULL_INDI
+#if (USE_FULL_INDI && !ATTITUDE_PID)
       motor_mixing.commands[i] = MOTOR_MIXING_MIN_MOTOR +
 //         (thrust_coef[i] * in_cmd[COMMAND_THRUST] +
         // yaw_coef[i] * in_cmd[COMMAND_YAW] +

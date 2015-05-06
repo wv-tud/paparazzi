@@ -1,0 +1,19 @@
+<!DOCTYPE settings SYSTEM "../settings.dtd">
+
+<settings>
+  <dl_settings>
+
+    <dl_settings NAME="indi">
+      <dl_setting var="pgain[0]" min="0" step="1" max="30000" module="stabilization/stabilization_attitude_quat_indi" shortname="Pgain_roll"/>
+      <dl_setting var="pgain[1]" min="0" step="1" max="30000" module="stabilization/stabilization_attitude_quat_indi" shortname="Pgain_pitch"/>
+      <dl_setting var="pgain[2]" min="0" step="1" max="300000" module="stabilization/stabilization_attitude_quat_indi" shortname="Pgain_yaw"/>
+      <dl_setting var="dgain[0]" min="0" step="1" max="2000" module="stabilization/stabilization_attitude_quat_indi" shortname="Dgain_roll"/>
+      <dl_setting var="dgain[1]" min="0" step="1" max="2000" module="stabilization/stabilization_attitude_quat_indi" shortname="Dgain_pitch"/>
+      <dl_setting var="dgain[2]" min="0" step="1" max="5000" module="stabilization/stabilization_attitude_quat_indi" shortname="Dgain_yaw"/>
+      <dl_setting var="igain[0]" min="0" step="1" max="2000" module="stabilization/stabilization_attitude_quat_indi" shortname="Igain_roll"/>
+      <dl_setting var="igain[1]" min="0" step="1" max="2000" module="stabilization/stabilization_attitude_quat_indi" shortname="Igain_pitch"/>
+      <dl_setting var="igain[2]" min="0" step="1" max="2000" module="stabilization/stabilization_attitude_quat_indi" shortname="Igain_yaw"/>
+    </dl_settings>
+
+  </dl_settings>
+</settings>

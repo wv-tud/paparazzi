@@ -23,6 +23,9 @@
     <subsystem name="stabilization" type="indi">
       <define name="INDI_RPM_FEEDBACK" value="TRUE"/>
       <define name="USE_FULL_INDI" value="TRUE"/>
+      <define name="ATTITUDE_PID" value="TRUE"/>
+      <define name="STEP_INPUT_ON_MODE_AUTO1" value="TRUE"/>
+      <define name="ADAPTIVE_INDI" value="TRUE"/>
     </subsystem>
     <subsystem name="ahrs" type="int_cmpl_quat"/>
     <subsystem name="ins" type="extended"/>
@@ -126,7 +129,7 @@
     <!-- reference acceleration for attitude control -->
     <define name="REF_ERR_P" value="900.0"/>
     <define name="REF_ERR_Q" value="900.0"/>
-    <define name="REF_ERR_R" value="500.0"/>
+    <define name="REF_ERR_R" value="600.0"/>
     <define name="REF_RATE_P" value="40.0"/>
     <define name="REF_RATE_Q" value="40.0"/>
     <define name="REF_RATE_R" value="28.0"/>
@@ -242,9 +245,6 @@
     <define name="MODE_MANUAL" value="AP_MODE_ATTITUDE_DIRECT"/>
     <define name="MODE_AUTO1" value="AP_MODE_ATTITUDE_DIRECT"/>
     <define name="MODE_AUTO2" value="AP_MODE_ATTITUDE_DIRECT"/>
-
-    <define name="STEP_INPUT_ON_MODE_AUTO1" value="TRUE"/>
-    <define name="ADAPTIVE_INDI" value="TRUE"/>
   </section>
 
   <section name="BAT">

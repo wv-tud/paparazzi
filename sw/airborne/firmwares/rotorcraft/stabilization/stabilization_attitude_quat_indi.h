@@ -54,6 +54,10 @@ extern float G1[3][4];
 extern float G2[4];
 extern float indi_u_in_actuators[4];
 
+extern float pgain[3];
+extern float dgain[3];
+extern float igain[3];
+
 void stabilization_indi_filter_gyro(void);
 void stabilization_indi_filter_inputs(void);
 void lms_estimation(void);
