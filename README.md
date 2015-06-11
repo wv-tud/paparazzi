@@ -1,3 +1,23 @@
+# INDI Experiment Explanation:
+To install and use Paparazzi, see the info below.
+
+For the INDI experiment, select the following in Paparazzi Center:
+Airframe: airframes/bebop\_indi.xml
+Flight plan: flight\_plans/rotorcraft\_basic.xml (irrelevant, the experiment is not autonomous)
+Settings: settings/rotorcraft\_basic.xml
+Radio: radios/cockpitSX.xml (irrelevant, the Bebop does not have radio)
+Telemetry: telemetry/default\_rotorcraft.xml
+
+The Bebop has to be flown with a joystick connected to the computer that has a telemetry link with the drone. In Paparazzi, choose tools->joystick and follow the instructions.
+
+The airframe file contains important settings, such as whether ADAPTIVE\_INDI is defined TRUE or FALSE or if the comparison PID controller is enabled (ATTITUDE\_PID TRUE/FALSE)
+
+The INDI code is located in sw/airborne/firmwares/rotorcraft/stabilization/stabilization\_attitude\_quat\_indi.c
+
+The doublet input can be applied by switching from MODE\_MANUAL to MODE\_AUTO1 (they are both defined to be attitude rc control in the airframe file)
+
+Full speed logs can be made by using the file\_logger module
+
 # MAIN README
 
 Paparazzi UAS

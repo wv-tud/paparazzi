@@ -23,7 +23,7 @@
     <subsystem name="stabilization" type="indi">
       <define name="INDI_RPM_FEEDBACK" value="TRUE"/>
       <define name="USE_FULL_INDI" value="TRUE"/>
-      <define name="ATTITUDE_PID" value="TRUE"/>
+      <define name="ATTITUDE_PID" value="FALSE"/>
       <define name="STEP_INPUT_ON_MODE_AUTO1" value="TRUE"/>
       <define name="ADAPTIVE_INDI" value="TRUE"/>
     </subsystem>
