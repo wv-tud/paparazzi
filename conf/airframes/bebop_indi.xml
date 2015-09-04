@@ -24,8 +24,12 @@
       <define name="INDI_RPM_FEEDBACK" value="TRUE"/>
       <define name="USE_FULL_INDI" value="TRUE"/>
       <define name="ATTITUDE_PID" value="FALSE"/>
-      <define name="STEP_INPUT_ON_MODE_AUTO1" value="TRUE"/>
-      <define name="ADAPTIVE_INDI" value="TRUE"/>
+      <define name="STEP_INPUT_ON_MODE_AUTO1_ROLL" value="TRUE"/>
+      <define name="STEP_INPUT_ON_MODE_AUTO1_YAW" value="FALSE"/>
+      <define name="INDI_TEST_WITHOUT_FILTERING" value="FALSE"/>
+      <define name="ADAPTIVE_INDI" value="FALSE"/>
+      <define name="GAINS_FOR_BUMPERS" value="FALSE"/>
+      <define name="NO_G2_MATRIX" value="FALSE"/>
     </subsystem>
     <subsystem name="ahrs" type="int_cmpl_quat"/>
     <subsystem name="ins" type="extended"/>
@@ -249,9 +253,9 @@
 
   <section name="BAT">
     <define name="MILLIAMP_AT_FULL_THROTTLE" value="8700"/>
-    <define name="CATASTROPHIC_BAT_LEVEL" value="9.3" unit="V"/>
-    <define name="CRITIC_BAT_LEVEL" value="9.6" unit="V"/>
-    <define name="LOW_BAT_LEVEL" value="9.7" unit="V"/>
+    <define name="CATASTROPHIC_BAT_LEVEL" value="9.9" unit="V"/>
+    <define name="CRITIC_BAT_LEVEL" value="10.3" unit="V"/>
+    <define name="LOW_BAT_LEVEL" value="10.9" unit="V"/>
     <define name="MAX_BAT_LEVEL" value="12.4" unit="V"/>
   </section>
 </airframe>

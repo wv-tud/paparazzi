@@ -96,24 +96,45 @@ struct FloatRates ratedot_estimation = {0., 0., 0.};
 struct FloatRates ratedotdot_estimation = {0., 0., 0.};
 float u_in_estimation[4] = {0.0, 0.0, 0.0, 0.0};
 float indi_u_in_estimation[4] = {0.0, 0.0, 0.0, 0.0};
-// float G1G2_pseudo_inv[4][3] = {{ -14.0 , 18.0, 4.0},
-// { 14.0, 18.0, -4.0},
-// { 14.0, -18.0, 4.0},
-// {-14.0 , -18.0, -4.0}};
-float G1G2_pseudo_inv[4][3] = {{-12.5000,   17.8571,    4.0984},
+/*float G1G2_pseudo_inv[4][3] = {{-12.5000,   17.8571,    4.0984}, //using roll effectiveness of 20 (no bumpers)
 {  12.5000,   17.8571,   -4.0984},
 {  12.5000,  -17.8571,    4.0984},
-{ -12.5000,  -17.8571,   -4.0984}};
-float G1[3][4] = {{-20 , 20, 20 , -20 }, //scaled by 1000
-{14 , 14, -14 , -14 },
-{1, -1, 1, -1}};
-float G2[4] = {60.0, -60.0, 60.0, -60.0}; //scaled by 1000
-float G1G2[3][4] = {{-0.01 , 0.01 , 0.01 , -0.01 },
-{0.01 , 0.01, -0.01 , -0.01 },
-{-0.0025, 0.0025, -0.0025, 0.0025}};
-float G1_new[3][4] = {{0.015 , -0.015, -0.015 , 0.015 },
-{0.015 , 0.015, -0.015 , -0.015 },
-{-0.0025, 0.0025, -0.0025, 0.0025}};
+{ -12.5000,  -17.8571,   -4.0984}};*/
+#if GAINS_FOR_BUMPERS
+float G1G2_pseudo_inv[4][3] = {{  -17.0224,   20.6443,    4.3914}, //bumpers
+{   17.3484,   20.5411,   -4.3467},
+{   17.3326,  -19.7996,    4.5046},
+{  -17.0271,  -20.3150,   -4.4629}};
+float G1[3][4] = {{  -14.6799,   14.7953,   14.5650,  -14.1534}, //scaled by 1000
+{   12.4613,   12.4566,  -12.1451,  -12.1292},
+{    0.2730,   -0.3795,    0.4571,   -0.4933}};
+float G2[4] = {56.0281,  -56.2616,   56.7242,  -55.2949}; //scaled by 1000, bumpers
+#elif NO_G2_MATRIX //no bumpers
+float G1G2_pseudo_inv[4][3] =
+{{  -13.5002,   18.8801,  22.28347*1.7},
+{    14.3057,   16.1346, -22.81834*1.7},
+{     9.2510,  -14.7780,  22.45837*1.7},
+{    -8.7323,  -17.9165, -23.28672*1.7}};
+float G1[3][4] = {{  -21.5198,   22.3571,   22.3314,  -20.9631}, //scaled by 1000
+{   15.3528,   15.1991,  -14.3894,  -14.0796},
+{    0.7517,   -0.9730,    1.4182,   -1.2538}};
+float G2[4] = {0.0, 0.0, 0.0, 0.0}; //scaled by 1000, no bumpers
+#else
+float G1G2_pseudo_inv[4][3] = {{ -11.1628,   17.4307,    3.0750}, //no bumpers
+{   11.9122,   17.6181,   -3.2069},
+{   11.6066,  -16.2388,    3.0988},
+{  -11.1750,  -16.4026,   -3.2758}};
+float G1[3][4] = {{  -21.5198,   22.3571,   22.3314,  -20.9631}, //scaled by 1000
+{   15.3528,   15.1991,  -14.3894,  -14.0796},
+{    0.7517,   -0.9730,    1.4182,   -1.2538}};
+float G2[4] = {75.8128,  -79.2725,   76.0685,  -80.2873}; //scaled by 1000, no bumpers
+#endif
+float G1G2[3][4] = {{0.0 , 0.0, 0.0 , 0.0 },
+{0.0 , 0.0, 0.0 , 0.0 },
+{0.0, 0.0, 0.0, 0.0}};
+float G1_new[3][4] = {{0.0 , 0.0, 0.0 , 0.0 },
+{0.0 , 0.0, 0.0 , 0.0 },
+{0.0, 0.0, 0.0, 0.0}};
 float G2_new[4];
 float mu1 = 0.00001;
 float mu2 = 0.00001*600.0;
@@ -429,8 +450,40 @@ void stabilization_attitude_run(bool_t enable_integrator)
    * Compute error for feedback
    */
 
-#if STEP_INPUT_ON_MODE_AUTO1
+#if STEP_INPUT_ON_MODE_AUTO1_ROLL && STEP_INPUT_ON_MODE_AUTO1_YAW
+#error step inputs on both axes are enabled!
+#endif
+
+#if STEP_INPUT_ON_MODE_AUTO1_ROLL
 #warning "Using step input on auto1!!! Only for testing/experiment!!"
+  struct FloatQuat q_sp;
+  if((radio_control.values[RADIO_MODE] > -4000) && (step_timer < 256)) {
+//   if((radio_control.values[RADIO_MODE] > -4000) && (step_timer < 512))
+    //doublet input
+    if(step_timer < 128) {
+      struct FloatEulers rotation_eulers = {0.5236, 0, 0};
+      struct FloatQuat rotation_quat;
+      float_quat_of_eulers(&rotation_quat, &rotation_eulers);
+      float_quat_comp(&q_sp, &quat_saved, &rotation_quat);
+      float_quat_normalize(&q_sp);
+    }
+    else {
+      struct FloatEulers rotation_eulers = {-0.5236, 0, 0};
+      struct FloatQuat rotation_quat;
+      float_quat_of_eulers(&rotation_quat, &rotation_eulers);
+      float_quat_comp(&q_sp, &quat_saved, &rotation_quat);
+      float_quat_normalize(&q_sp);
+    }
+    step_timer = step_timer + 1;
+    QUAT_BFP_OF_REAL(stab_att_sp_quat, q_sp);
+  }
+  else if(radio_control.values[RADIO_MODE] < -4000) {
+    //normal flying
+    step_timer = 0;
+    QUAT_FLOAT_OF_BFP(q_sp, stab_att_sp_quat);
+    QUAT_COPY(quat_saved,q_sp);
+  }
+#elif STEP_INPUT_ON_MODE_AUTO1_YAW
   struct FloatQuat q_sp;
 //   if((radio_control.values[RADIO_MODE] > -4000) && (step_timer < 256)) {
   if((radio_control.values[RADIO_MODE] > -4000) && (step_timer < 512)) {
@@ -461,7 +514,6 @@ void stabilization_attitude_run(bool_t enable_integrator)
     QUAT_FLOAT_OF_BFP(q_sp, stab_att_sp_quat);
     QUAT_COPY(quat_saved,q_sp);
   }
-
 #endif
 
   /* attitude error                          */
@@ -531,6 +583,12 @@ void filter_inputs_actuators(void) {
   u_act_dyn_actuators[3] = u_act_dyn_actuators[3] + STABILIZATION_INDI_ACT_DYN_P*( indi_u_in_actuators[3] - u_act_dyn_actuators[3]);
 #endif
 
+#if INDI_TEST_WITHOUT_FILTERING
+  u_actuators[0] = u_act_dyn_actuators[0];
+  u_actuators[1] = u_act_dyn_actuators[1];
+  u_actuators[2] = u_act_dyn_actuators[2];
+  u_actuators[3] = u_act_dyn_actuators[3];
+#else
   //Sensor dynamics (same filter as on gyro measurements)
   VECT4_INTEGRATE(u_actuators,udot_actuators,512.0);
 
@@ -540,6 +598,7 @@ void filter_inputs_actuators(void) {
   udotdot_actuators[1] = -udot_actuators[1] * 2*STABILIZATION_INDI_FILT_ZETA*STABILIZATION_INDI_FILT_OMEGA + (u_act_dyn_actuators[1] - u_actuators[1])*STABILIZATION_INDI_FILT_OMEGA2;
   udotdot_actuators[2] = -udot_actuators[2] * 2*STABILIZATION_INDI_FILT_ZETA*STABILIZATION_INDI_FILT_OMEGA + (u_act_dyn_actuators[2] - u_actuators[2])*STABILIZATION_INDI_FILT_OMEGA2;
   udotdot_actuators[3] = -udot_actuators[3] * 2*STABILIZATION_INDI_FILT_ZETA*STABILIZATION_INDI_FILT_OMEGA + (u_act_dyn_actuators[3] - u_actuators[3])*STABILIZATION_INDI_FILT_OMEGA2;
+#endif
 }
 
 void stabilization_indi_filter_inputs(void)
