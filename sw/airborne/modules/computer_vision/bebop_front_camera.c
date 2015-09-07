@@ -40,13 +40,14 @@
 #include "lib/vision/bayern.h"
 #include "lib/encoding/jpeg.h"
 #include "lib/encoding/rtp.h"
+#include "lib/isp/libisp.h"
 #include "udp_socket.h"
 
 // Threaded computer vision
 #include <pthread.h>
 
-#define MT9F002_WIDTH 1408
-#define MT9F002_HEIGHT 2112
+#define MT9F002_WIDTH 1280
+#define MT9F002_HEIGHT 720
 #define BEBOP_FRONT_CAMERA_WIDTH 272
 #define BEBOP_FRONT_CAMERA_HEIGHT 272
 
@@ -94,7 +95,7 @@ static void *bebop_front_camera_thread(void *data __attribute__((unused)))
 
   // Start the streaming of the V4L2 device
   if (!v4l2_start_capture(bebop_front_camera.dev)) {
-    printf("[bebop_front_camera-thread] Could not start capture of %s.\n", bebop_front_camera.dev->name);
+    printf("[bebop_front_camera-thread] Could not start capture of AVI_ISP_IOGET_OFFSETS%s.\n", bebop_front_camera.dev->name);
     return 0;
   }
 
@@ -105,15 +106,15 @@ static void *bebop_front_camera_thread(void *data __attribute__((unused)))
     struct image_t img;
     v4l2_image_get(bebop_front_camera.dev, &img);
 
-    BayernToYUV(&img, &img_color, 0, 0);
+    //BayernToYUV(&img, &img_color, 0, 0);
 
     if (bebop_front_camera.take_shot) {
       // Save the image
-      bebop_front_camera_save_shot(&img_color, &img_jpeg, &img);
+      bebop_front_camera_save_shot(NULL, NULL, &img);
       bebop_front_camera.take_shot = FALSE;
     }
 
-    jpeg_encode_image(&img_color, &img_jpeg, 80, 0);
+    /*jpeg_encode_image(&img_color, &img_jpeg, 80, 0);
 
     // Send image with RTP
     rtp_frame_send(
@@ -123,7 +124,7 @@ static void *bebop_front_camera_thread(void *data __attribute__((unused)))
       80, // Jpeg-Quality
       0,                        // DRI Header
       0    // 90kHz time increment
-    );
+    );*/
 
 
     // Free the image
@@ -145,11 +146,16 @@ void bebop_front_camera_init(void)
   }
 
   // Initialize the V4L2 device
-  bebop_front_camera.dev = v4l2_init("/dev/video1", MT9F002_WIDTH, MT9F002_HEIGHT, 10, V4L2_PIX_FMT_SGBRG10);
+  bebop_front_camera.dev = v4l2_init("/dev/video1", MT9F002_WIDTH, MT9F002_HEIGHT, 10, V4L2_PIX_FMT_NV12);
   if (bebop_front_camera.dev == NULL) {
     printf("[bebop_front_camera] Could not initialize the /dev/video1 V4L2 device.\n");
     return;
   }
+
+  int test = open("/dev/video4");
+  configure_isp(test);
+  close(test);
+  printf("Cool!!!\n");
 
   // Create the shot directory
   char save_name[128];
@@ -214,7 +220,7 @@ static void bebop_front_camera_save_shot(struct image_t *img, struct image_t *im
       if (fp == NULL) {
         printf("[bebop_front_camera-thread] Could not write shot %s.\n", save_name);
       } else {
-        // Save it to the file and close it
+        /*// Save it to the file and close it
         char pgm_header[] = "P5\n272 272\n255\n";
         fwrite(pgm_header, sizeof(char), 15, fp);
         fwrite(img->buf, sizeof(uint8_t), img->buf_size, fp);
@@ -225,8 +231,9 @@ static void bebop_front_camera_save_shot(struct image_t *img, struct image_t *im
         sprintf(save_name, "%s/img_%05d.jpg", STRINGIFY(BEBOP_FRONT_CAMERA_SHOT_PATH), bebop_front_camera.shot_number);
         fp = fopen(save_name, "w");
         fwrite(img_jpeg->buf, sizeof(uint8_t), img_jpeg->buf_size, fp);
-        fclose(fp);
+        fclose(fp);*/
 
+        fclose(fp);
         sprintf(save_name, "%s/img_%05d.raw", STRINGIFY(BEBOP_FRONT_CAMERA_SHOT_PATH), bebop_front_camera.shot_number);
         fp = fopen(save_name, "w");
         fwrite(raw_img->buf, sizeof(uint8_t), raw_img->buf_size, fp);
