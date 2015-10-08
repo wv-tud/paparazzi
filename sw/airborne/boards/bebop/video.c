@@ -500,16 +500,16 @@ void mt9f002_init(void)
   mt9f002_write_reg16(MT9F002_PLL_MULTIPLIER, 165);
   mt9f002_write_reg16(MT9F002_OP_PIX_CLK_DIV, 12);
 
-  mt9f002_write_reg16(MT9F002_X_ADDR_START_, 500);
-  mt9f002_write_reg16(MT9F002_Y_ADDR_START_, 32);
-  mt9f002_write_reg16(MT9F002_X_ADDR_END_, 4527); // 4383 cols
-  mt9f002_write_reg16(MT9F002_Y_ADDR_END_, 3319); // 3287 rows
-  mt9f002_write_reg16(MT9F002_READ_MODE, 0x06E7);
-  mt9f002_write_reg16(MT9F002_X_ODD_INC, 3);
-  mt9f002_write_reg16(MT9F002_Y_ODD_INC, 3); // Sample 1, skip 7 -> /8
+  mt9f002_write_reg16(MT9F002_X_ADDR_START_, 0);
+  mt9f002_write_reg16(MT9F002_Y_ADDR_START_, 0);
+  mt9f002_write_reg16(MT9F002_X_ADDR_END_, 2304); // 4383 cols
+  mt9f002_write_reg16(MT9F002_Y_ADDR_END_, 1296); // 3287 rows
+  mt9f002_write_reg16(MT9F002_READ_MODE, 0x21);
+  mt9f002_write_reg16(MT9F002_X_ODD_INC, 1);
+  mt9f002_write_reg16(MT9F002_Y_ODD_INC, 1); // Sample 1, skip 7 -> /8
 
-  mt9f002_write_reg16(MT9F002_SCALING_MODE, 2);
-  mt9f002_write_reg16(MT9F002_SCALE_M, 48);
+  mt9f002_write_reg16(MT9F002_SCALING_MODE, 0);
+  mt9f002_write_reg16(MT9F002_SCALE_M, 16);
 
 
   /* Stream mode */

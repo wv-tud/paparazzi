@@ -48,8 +48,8 @@
 
 #define MT9F002_WIDTH 1280
 #define MT9F002_HEIGHT 720
-#define BEBOP_FRONT_CAMERA_WIDTH 272
-#define BEBOP_FRONT_CAMERA_HEIGHT 272
+#define BEBOP_FRONT_CAMERA_WIDTH 2304
+#define BEBOP_FRONT_CAMERA_HEIGHT 1296
 
 // The place where the shots are saved (without slash on the end)
 #ifndef BEBOP_FRONT_CAMERA_SHOT_PATH
@@ -90,14 +90,18 @@ static void *bebop_front_camera_thread(void *data __attribute__((unused)))
   image_create(&img_jpeg, BEBOP_FRONT_CAMERA_WIDTH, BEBOP_FRONT_CAMERA_HEIGHT, IMAGE_JPEG);
 
   // Create the Color image
-  struct image_t img_color;
-  image_create(&img_color, BEBOP_FRONT_CAMERA_WIDTH, BEBOP_FRONT_CAMERA_HEIGHT, IMAGE_YUV422);
+  //struct image_t img_color;
+  //image_create(&img_color, BEBOP_FRONT_CAMERA_WIDTH, BEBOP_FRONT_CAMERA_HEIGHT, IMAGE_YUV422);
 
   // Start the streaming of the V4L2 device
   if (!v4l2_start_capture(bebop_front_camera.dev)) {
     printf("[bebop_front_camera-thread] Could not start capture of AVI_ISP_IOGET_OFFSETS%s.\n", bebop_front_camera.dev->name);
     return 0;
   }
+
+  configure_isp(bebop_front_camera.dev->fd);
+  //close(test);
+  printf("Cool!!!\n");
 
   // Start streaming
   bebop_front_camera.is_streaming = TRUE;
@@ -108,16 +112,16 @@ static void *bebop_front_camera_thread(void *data __attribute__((unused)))
 
     //BayernToYUV(&img, &img_color, 0, 0);
 
+    //jpeg_encode_image(&img, &img_jpeg, 10, 1);
+
     if (bebop_front_camera.take_shot) {
       // Save the image
       bebop_front_camera_save_shot(NULL, NULL, &img);
       bebop_front_camera.take_shot = FALSE;
     }
 
-    /*jpeg_encode_image(&img_color, &img_jpeg, 80, 0);
-
     // Send image with RTP
-    rtp_frame_send(
+    /*rtp_frame_send(
       &video_sock,              // UDP socket
       &img_jpeg,
       0,                        // Format 422
@@ -140,22 +144,19 @@ static void *bebop_front_camera_thread(void *data __attribute__((unused)))
 void bebop_front_camera_init(void)
 {
   // Initialize the V4L2 subdevice (TODO: fix hardcoded path, which and code)
-  if (!v4l2_init_subdev("/dev/v4l-subdev1", 0, 0, V4L2_MBUS_FMT_SGBRG10_1X10, MT9F002_WIDTH, MT9F002_HEIGHT)) {
+  if (!v4l2_init_subdev("/dev/v4l-subdev1", 0, 0, V4L2_MBUS_FMT_SGRBG10_1X10, BEBOP_FRONT_CAMERA_WIDTH, BEBOP_FRONT_CAMERA_HEIGHT)) {
     printf("[bebop_front_camera] Could not initialize the v4l-subdev1 subdevice.\n");
     return;
   }
 
   // Initialize the V4L2 device
-  bebop_front_camera.dev = v4l2_init("/dev/video1", MT9F002_WIDTH, MT9F002_HEIGHT, 10, V4L2_PIX_FMT_NV12);
+  bebop_front_camera.dev = v4l2_init("/dev/video1", BEBOP_FRONT_CAMERA_WIDTH, BEBOP_FRONT_CAMERA_HEIGHT, 3, V4L2_PIX_FMT_UYVY);
   if (bebop_front_camera.dev == NULL) {
     printf("[bebop_front_camera] Could not initialize the /dev/video1 V4L2 device.\n");
     return;
   }
 
-  int test = open("/dev/video4");
-  configure_isp(test);
-  close(test);
-  printf("Cool!!!\n");
+  //int test = open("/dev/video1")
 
   // Create the shot directory
   char save_name[128];

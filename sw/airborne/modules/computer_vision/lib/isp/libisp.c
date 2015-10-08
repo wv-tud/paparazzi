@@ -14,17 +14,17 @@
 #define AVI_SIZE 0x100000
 #define AVI_MASK (AVI_SIZE - 1)
 
-/* IOCTL implemented in AVI drivers */
-#define AVI_ISP_IOGET_OFFSETS _IOR('F', 0x33, struct avi_isp_offsets)
-
 struct avi_isp_offsets
 {
-	unsigned chain_bayer;
-	unsigned gamma_corrector;
-	unsigned chroma;
-	unsigned statistics_yuv;
-	unsigned chain_yuv;
+	uint32_t chain_bayer;
+	uint32_t gamma_corrector;
+	uint32_t chroma;
+	uint32_t statistics_yuv;
+	uint32_t chain_yuv;
 };
+
+/* IOCTL implemented in AVI drivers */
+#define AVI_ISP_IOGET_OFFSETS _IOR('F', 0x33, struct avi_isp_offsets)
 
 /* Raw accesses */
 #define readl(_addr)            (*((volatile uint32_t *)(_addr)))
@@ -72,6 +72,7 @@ static const unsigned isp_bases[] = {
 static int avi_isp_get_offsets_fd(int fd, struct avi_isp_offsets *off)
 {
 	if (ioctl(fd, AVI_ISP_IOGET_OFFSETS, off) < 0) {
+		printf("sizeof: %d, %X\n", sizeof(struct avi_isp_offsets), AVI_ISP_IOGET_OFFSETS);
 		perror("ioctl(AVI_ISP_IOGET_OFFSETS) failed");
 		return -1;
 	}
