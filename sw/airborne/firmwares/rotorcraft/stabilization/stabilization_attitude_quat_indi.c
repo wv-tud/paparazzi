@@ -341,6 +341,6 @@ void lms_estimation(void)
     g1.p = g_est.p * INDI_EST_SCALE;
     g1.q = g_est.q * INDI_EST_SCALE;
     g1.r = g_est.r * INDI_EST_SCALE;
-    g2 = g2_est * INDI_EST_SCALE;
+    g2   = g2_est * INDI_EST_SCALE;
   }
 }

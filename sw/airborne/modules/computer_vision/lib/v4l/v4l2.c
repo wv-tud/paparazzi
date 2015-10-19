@@ -155,6 +155,8 @@ bool_t v4l2_init_subdev(char *subdev_name, uint8_t pad, uint8_t which, uint16_t 
   sfmt.format.field = V4L2_FIELD_NONE;
   sfmt.format.colorspace = 1;
 
+  printf("set format pad: %d width: %d height: %d which: %d code: %d\n", pad, width, height, which, code);
+
   if (ioctl(fd, VIDIOC_SUBDEV_S_FMT, &sfmt) < 0) {
     printf("[v4l2] Could not set subdevice data format settings of %s\n", subdev_name);
     close(fd);

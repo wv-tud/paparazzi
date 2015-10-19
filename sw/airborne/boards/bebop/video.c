@@ -489,7 +489,7 @@ void mt9f002_init(void)
   mt9f002_write_reg16(MT9F002_P_GB_Q5, 0);
   mt9f002_write_reg16(MT9F002_DAC_ID_FBIAS, 57568);
 
-  mt9f002_write_reg16(MT9F002_FRAME_LENGTH_LINES, 3434);
+  mt9f002_write_reg16(MT9F002_FRAME_LENGTH_LINES, 3320 + 1 + 146); // 3320 + 1 + 146
   mt9f002_write_reg16(MT9F002_LINE_LENGTH_PCK, 2504);
   mt9f002_write_reg16(MT9F002_ROW_SPEED, 273);
   mt9f002_write_reg16(MT9F002_MIPI_TIMING_2, 61452);
@@ -502,8 +502,8 @@ void mt9f002_init(void)
 
   mt9f002_write_reg16(MT9F002_X_ADDR_START_, 0);
   mt9f002_write_reg16(MT9F002_Y_ADDR_START_, 0);
-  mt9f002_write_reg16(MT9F002_X_ADDR_END_, 2304); // 4383 cols
-  mt9f002_write_reg16(MT9F002_Y_ADDR_END_, 1296); // 3287 rows
+  mt9f002_write_reg16(MT9F002_X_ADDR_END_, 2048); // 4383 cols
+  mt9f002_write_reg16(MT9F002_Y_ADDR_END_, 3320); // 3287 rows
   mt9f002_write_reg16(MT9F002_READ_MODE, 0x21);
   mt9f002_write_reg16(MT9F002_X_ODD_INC, 1);
   mt9f002_write_reg16(MT9F002_Y_ODD_INC, 1); // Sample 1, skip 7 -> /8

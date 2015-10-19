@@ -36,6 +36,10 @@
     <file name="rtp.c" dir="modules/computer_vision/lib/encoding"/>
     <file name="libisp.c" dir="modules/computer_vision/lib/isp"/>
 
+    <define name="modules/computer_vision/lib/MT9F002" type="include"/>
+    <file name="HAL_i2ctool.c" dir="modules/computer_vision/lib/MT9F002"/>
+    <file name="HAL_MT9F002.c" dir="modules/computer_vision/lib/MT9F002"/>
+
     <!-- Random flags -->
     <define name="__USE_GNU"/>
     <flag name="LDFLAGS" value="lrt"/>
