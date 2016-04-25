@@ -209,9 +209,6 @@ void gps_mtk_read_message(void)
   if (gps_mtk.msg_class == MTK_DIY14_ID) {
     if (gps_mtk.msg_id == MTK_DIY14_NAV_ID) {
       /* get hardware clock ticks */
-      gps_time_sync.t0_ticks      = sys_time.nb_tick;
-      gps_time_sync.t0_tow      = MTK_DIY14_NAV_ITOW(gps_mtk.msg_buf);
-      gps_time_sync.t0_tow_frac = 0;
       gps_mtk.state.lla_pos.lat = MTK_DIY14_NAV_LAT(gps_mtk.msg_buf) * 10;
       gps_mtk.state.lla_pos.lon = MTK_DIY14_NAV_LON(gps_mtk.msg_buf) * 10;
       SetBit(gps_mtk.state.valid_fields, GPS_VALID_POS_LLA_BIT);
@@ -432,7 +429,7 @@ void gps_mtk_register(void)
 static void MtkSend_CFG(char *dat)
 {
   struct link_device *dev = &((MTK_GPS_LINK).device);
-  while (*dat != 0) { dev->put_byte(dev->periph, *dat++); }
+  while (*dat != 0) { dev->put_byte(dev->periph, 0, *dat++); }
 }
 
 void gps_configure_uart(void)

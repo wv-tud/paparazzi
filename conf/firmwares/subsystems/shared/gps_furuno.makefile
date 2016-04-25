@@ -19,7 +19,7 @@ ifneq ($(GPS_LED),none)
 endif
 
 ifdef SECONDARY_GPS
-ifneq (,$(findstring $(SECONDARY_GPS), nmea furono))
+ifneq (,$(findstring $(SECONDARY_GPS), nmea furuno))
 # this is the secondary GPS
 ap.CFLAGS += -DGPS_SECONDARY_TYPE_H=\"subsystems/gps/gps_nmea.h\"
 ap.CFLAGS += -DSECONDARY_GPS=gps_nmea
@@ -32,7 +32,6 @@ else
 ap.CFLAGS += -DGPS_TYPE_H=\"subsystems/gps/gps_nmea.h\"
 endif
 
-ap.CFLAGS += -DGPS_TYPE_H=\"subsystems/gps/gps_nmea.h\"
 ap.srcs   += $(SRC_SUBSYSTEMS)/gps/gps_nmea.c $(SRC_SUBSYSTEMS)/gps/gps_furuno.c
 ap.srcs += $(SRC_SUBSYSTEMS)/gps.c
 
