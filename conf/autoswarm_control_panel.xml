@@ -1,9 +1,9 @@
 <control_panel name="paparazzi control panel">
   <section name="programs">
 
-    <program name="Flying Robot Commander" command="sw/ext/flyingrobotcommander/frc.py -f ~/paparazzi/sw/ext/flyingrobotcommander/wv_conf.xml -s -i 192.168.40.222"/>
-    <program name="FlyingRC: Flight blocks" command="& google-chrome --app=http://192.168.40.222:5000/show/flightblock/"/>
-    <program name="FlyingRC: Status" command="& google-chrome --app=http://192.168.40.222:5000/show/status/"/>
+    <program name="Flying Robot Commander" command="sw/ext/flyingrobotcommander/frc.py -f ~/paparazzi/sw/ext/flyingrobotcommander/wv_conf.xml -s -i 0.0.0.0"/>
+    <program name="FlyingRC: Flight blocks (redux)" command="& google-chrome --app=http://localhost:5000/show/flightblockredux/"/>
+    <program name="FlyingRC: Status" command="& google-chrome --app=http://localhost:5000/show/status/"/>
     <program name="Shutdown drone" command="sw/tools/autoswarm/shutdown_drone.sh"/>
     <program name="Mass uploader CB" command="sw/tools/autoswarm/clean_build.sh"/>
     <program name="Mass uploader U" command="sw/tools/autoswarm/upload.sh"/>
