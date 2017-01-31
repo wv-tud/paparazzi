@@ -105,8 +105,8 @@ static int OpenEncoder(P7_H264_context_t* context)
 
     cfg.level = H264ENC_LEVEL_5; // level 4 minimum for 1080p
     cfg.viewMode = H264ENC_BASE_VIEW_DOUBLE_BUFFER; // maybe H264ENC_BASE_VIEW_SINGLE_BUFFER
-    cfg.scaledWidth = 16; // 0
-    cfg.scaledHeight = 16; // 0
+    cfg.scaledWidth = 0; // 0
+    cfg.scaledHeight = 0; // 0
 
     VERBOSE_PRINT("Init config: size %dx%d   %d/%d fps  %s L %d\n",
          cfg.width, cfg.height, cfg.frameRateNum,
@@ -232,7 +232,7 @@ static int OpenEncoder(P7_H264_context_t* context)
     preProcCfg.origWidth = context->width;
     preProcCfg.origHeight = context->height;
 #endif
-    preProcCfg.scaledOutput = 1;
+    preProcCfg.scaledOutput = 0;
 
 
     VERBOSE_PRINT

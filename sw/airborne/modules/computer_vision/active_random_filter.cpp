@@ -44,7 +44,7 @@ using namespace cv;
 
 #define PRINT(string,...) fprintf(stderr, "[AR-FILTER->%s()] " string,__FUNCTION__ , ##__VA_ARGS__)
 
-#define AR_FILTER_VERBOSE FALSE
+#define AR_FILTER_VERBOSE TRUE
 #if AR_FILTER_VERBOSE
 #define VERBOSE_PRINT PRINT
 #else
@@ -60,7 +60,8 @@ extern struct mt9f002_t mt9f002;
 #define AR_FILTER_MOD_VIDEO     1   // Modify the frame to show relevant info
 #define AR_FILTER_CROSSHAIR     1   // Show centre of frame with crosshair
 #define AR_FILTER_DRAW_CONTOURS 0   // Use drawContours function iso circle
-#define AR_FILTER_DRAW_CIRCLES  1   // Draw circles
+#define AR_FILTER_MARK_CONTOURS 1   // Mark all contour pixels green on sourceframe
+#define AR_FILTER_DRAW_CIRCLES  0   // Draw circles
 #define AR_FILTER_DRAW_BOXES 	1   // Draw boxes
 #define AR_FILTER_SHOW_MEM      1   // Print object locations to terminal
 #define AR_FILTER_SAVE_FRAME    0   // Save a frame for post-processing
@@ -68,7 +69,7 @@ extern struct mt9f002_t mt9f002;
 #define AR_FILTER_CALIBRATE_CAM 0   // Calibrate camera
 #define AR_FILTER_WORLDPOS 		1   // Use world coordinates
 #define AR_FILTER_NOYAW 		0   // Output in body horizontal XY
-#define AR_FILTER_TIMEOUT       50 // Frames from start
+#define AR_FILTER_TIMEOUT       150 // Frames from start
 #define AR_FILTER_USE_ALTITUDE  1   // Use own altitude for world pos
 
 static void             active_random_filter_header ( Mat& sourceFrame );
@@ -79,17 +80,25 @@ static bool 			addContour			( vector<Point> contour, uint16_t offsetX, uint16_t 
 static void 			cam2body 			( trackResults* trackRes );
 static void 			body2world 			( trackResults* trackRes );
 static double 			correctRadius		( double r, double f, double k );
+static double           invertRadius        ( double r, double f, double k );
+static void             inputCoord          ( double x_out, double y_out, double *x_in, double *y_in );
+static void             outputCoord         ( double x_in, double y_in, double *x_out, double *y_out );
+static void             getMVP              ( double MVP[16] );
 static Rect 			setISPvars 			( uint16_t width, uint16_t height );
-static vector<double> 	estimatePosition	( uint16_t xp, uint16_t yp, uint32_t area);
-static void             correctPerspective  (double x_in, double y_in, double max, double* x_out, double* y_out);
+static vector<double> 	estimatePosition	( uint16_t xp, uint16_t yp, uint32_t area );
+static void             correctPerspective  ( double x_in, double y_in, double max, double* x_out, double* y_out );
 static bool 			getNewPosition		( uint8_t nextDir, uint16_t* newRow, uint16_t* newCol, int* maxRow, int* maxCol );
 static void             eraseMemory         ( void );
 static void             getYUVColours       ( Mat& sourceFrame, uint16_t row, uint16_t col, uint8_t* Y, uint8_t* U, uint8_t* V );
-static void             createSearchGrid    (uint16_t x_p, uint16_t y_p, Point searchGrid[], uint8_t searchLayer, uint16_t sGridSize, int* maxRow, int* maxCol);
-static double           reversePixel        (double r);
+static void             createSearchGrid    ( uint16_t x_p, uint16_t y_p, Point searchGrid[], uint8_t searchLayer, uint16_t sGridSize, int* maxRow, int* maxCol);
+static double           reversePixel        ( double r );
+static uint16_t         horizonPos          ( double y_orig );
+static void             plotHorizon         (Mat& sourceFrameCrop);
+static void             inversePoint        (double x_out, double y_out, double *x_in, double *y_in);
 // Flood CW declarations
 static bool             processImage_cw     ( Mat& sourceFrame, Mat& destFrame, uint16_t sampleSize );
 static int              pixFindContour_cw   ( Mat& sourceFrame, Mat& destFrame, uint16_t row, uint16_t col, uint8_t prevDir, bool cascade );
+static int              pixFollowContour_cw ( Mat& sourceFrame, Mat& destFrame, uint16_t row, uint16_t col, uint8_t prevDir, bool cascade );
 static void             getNextDirection_cw ( uint8_t prevDir, uint8_t* nextDir, uint8_t* nextDirCnt );
 static bool             objCont_add         ( double minDist = 0.0, double maxDist = 0.0);
 static void             objCont_addPoint    ( uint16_t* row, uint16_t* col );
@@ -111,6 +120,17 @@ static bool             trackRes_clear      ( void );
 uint8_t                 neighbourMem_size = 0;
 static bool             neighbourMem_findMax( void );
 static bool             neighbourMem_add    ( memoryBlock newRes, uint8_t overwriteId = neighbourMem_size);
+// Stabilization functions
+static void             setPerspectiveMat   (double m[16]);
+static void             setRotationMat      (float, float, float, double m[16]);
+static void             setIdentityMatrix   (double m[16]);
+static void             matrixMultiply      (double m1[16], double m2[16], double result[16]);
+static void             matvecMultiply      (double m1[16], double v1[4], double result[4]);
+static void             view_set_lookat     (double result[16], double eye[4], double center[4], double up[4]);
+static float            vector_length       (const float x, const float y, const float z);
+static void             translate_xyz       (double result[16], const float translatex, const float translatey, const float translatez);
+static void             rotateVector        (float x, float y, float z, double vector[4]);
+static void             setTranslationMat   (float x, float y, float z, double outputMat[16]);
 
 #if AR_FILTER_MOD_VIDEO
 static void             mod_video           (Mat& sourceFrame, Mat& frameGrey);
@@ -123,8 +143,6 @@ static void 			saveBuffer			(Mat sourceFrame, const char *filename);
 #endif
 
 #if AR_FILTER_MEASURE_FPS
-static time_t 	startTime;
-static time_t 	currentTime;
 static uint32_t curT;
 #endif
 
@@ -150,11 +168,14 @@ uint8_t     AR_FILTER_CDIST_YTHRES      = 2;
 uint8_t     AR_FILTER_CDIST_UTHRES      = 0;
 uint8_t     AR_FILTER_CDIST_VTHRES      = 0;
 // 1.525 too much - 1.5 (just) too little
-double      default_k                   = 1.051; //1.118 based on horizon - 1.22425040841 max                                                      // Fisheye correction factor (1.085)
+double      AR_FILTER_PERSPECTIVE_DISTANCE = 0.3536;
+double      default_k                   = 1.191; //1.118 based on horizon - 1.22425040841 max                                                      // Fisheye correction factor (1.085)
 uint16_t    default_calArea             = 8600;  // Calibrate at full resolution (5330)
-double      default_orbDiag             = /*sqrt(2) */ (CFG_MT9F002_X_ADDR_MAX - CFG_MT9F002_X_ADDR_MIN);  // Measured circular image diagonal using full resolution
+double      default_orbDiag             = 2 * CFG_MT9F002_FISHEYE_RADIUS;  // Measured circular image diagonal using full resolution
 double      perspective_zCor            = 3.45;
 double      scale_f                     = 1.0;
+
+uint8_t     AR_FILTER_GREY_THRES        = 15;
 /* FAKE LIGHT
 uint8_t     AR_FILTER_Y_MIN             = 0;                            // 0  [0,65 84,135 170,255]zoo 45
 uint8_t     AR_FILTER_Y_MAX             = 255;                          // 255
@@ -164,14 +185,14 @@ uint8_t     AR_FILTER_V_MIN             = 158;                          // 218 -
 uint8_t     AR_FILTER_V_MAX             = 255;                          // 240 -> 255?
 */
 
-/* DAYLIGHT
-uint8_t 	AR_FILTER_Y_MIN 			= 120;                           // 0  [0,65 84,135 170,255]zoo 45
+/* DAYLIGHT */
+uint8_t 	AR_FILTER_Y_MIN 			= 170;                           // 0  [0,65 84,135 170,255]zoo 45
 uint8_t 	AR_FILTER_Y_MAX 			= 255;                          // 255
-uint8_t 	AR_FILTER_U_MIN 			= 100;                          // 84
-uint8_t 	AR_FILTER_U_MAX 			= 135;                          // 113
-uint8_t 	AR_FILTER_V_MIN 			= 155;                          // 218 -> 150?
-uint8_t 	AR_FILTER_V_MAX 			= 185;                          // 240 -> 255?
-*/
+uint8_t 	AR_FILTER_U_MIN 			= 105;                          // 84
+uint8_t 	AR_FILTER_U_MAX 			= 130;                          // 113
+uint8_t 	AR_FILTER_V_MIN 			= 131;                          // 218 -> 150?
+uint8_t 	AR_FILTER_V_MAX 			= 169;                          // 240 -> 255?
+
 /* DAYLIGHT 2
 uint8_t     AR_FILTER_Y_MIN             = 123;                           // 0  [0,65 84,135 170,255]zoo 45
 uint8_t     AR_FILTER_Y_MAX             = 222;                          // 255
@@ -181,17 +202,17 @@ uint8_t     AR_FILTER_V_MIN             = 150;                          // 218 -
 uint8_t     AR_FILTER_V_MAX             = 209;                          // 240 -> 255?
 */
 
-/* Cyberzoo */
+/* Cyberzoo
 uint8_t     AR_FILTER_Y_MIN             = 70;                           // 0  [0,65 84,135 170,255]zoo 45
 uint8_t     AR_FILTER_Y_MAX             = 230;                          // 255
 uint8_t     AR_FILTER_U_MIN             = 105;                          // 84
 uint8_t     AR_FILTER_U_MAX             = 155;                          // 113
 uint8_t     AR_FILTER_V_MIN             = 176;                          // 218 -> 150?
 uint8_t     AR_FILTER_V_MAX             = 210;                          // 240 -> 255?
-
+*/
 double 	    AR_FILTER_IMAGE_CROP_FOVY 	= 70 * M_PI / 180.0; 		    // Radians
 double 	    AR_FILTER_CROP_X 			= 1.2;
-uint8_t     AR_FILTER_MEMORY 			= 15;
+uint8_t     AR_FILTER_MEMORY 			= 40;
 double      AR_FILTER_FPS               = 15.0;
 double      AR_FILTER_VMAX              = 3.5;
 
@@ -224,9 +245,9 @@ static trackResults         trackRes[AR_FILTER_MAX_OBJECTS];
 memoryBlock                 neighbourMem[AR_FILTER_MAX_OBJECTS];
 
 #if AR_FILTER_MEASURE_FPS
-    static double avgFPS = AR_FILTER_FPS;
     static struct timespec time_now;
     static struct timespec time_prev;
+    static struct timespec time_init;
 #endif
 
 // Flood CW parameters
@@ -239,6 +260,16 @@ static uint8_t          cmpU            = 0;
 static uint8_t          cmpV            = 0;
 
 vector<vector<Point> >  allContours;
+static double MVP[16];
+
+// Lens correction parameter k
+float near          = 0.0000000075;
+float far           = 1.5;
+float angleOfView   = 152.0; // 160 degrees
+
+float perspXScalar =  1.0;
+float perspYMin    = -1.0;
+float perspYMax    =  1.0;
 
 void active_random_filter_init(void){
     ispScalar                   = mt9f002.output_scaler * 2.0/((double) mt9f002.y_odd_inc + 1.0);
@@ -248,6 +279,7 @@ void active_random_filter_init(void){
     initialHeight               = mt9f002.output_height;
 #if AR_FILTER_MEASURE_FPS
     clock_gettime(CLOCK_MONOTONIC, &time_prev);
+    time_init = time_prev;
 #endif
 }
 
@@ -277,11 +309,15 @@ void active_random_filter(char* buff, uint16_t width, uint16_t height, struct Fl
 #if AR_FILTER_CROSSHAIR
 #if AR_FILTER_ISP_CROP
 	double halfPoint = round((CFG_MT9F002_X_ADDR_MAX - CFG_MT9F002_X_ADDR_MIN) * 0.5 * ispScalar);
-	if(halfPoint - 0.25 * ispWidth * (tan(eulerAngles->phi)) > cropCol && halfPoint + 0.25 * ispWidth * (tan(eulerAngles->phi)) < cropCol + sourceFrameCrop.cols){
-	    line(sourceFrameCrop, Point(halfPoint - cropCol - 0.25 * ispWidth * (tan(eulerAngles->phi)), 0), Point(halfPoint - cropCol + 0.25 * ispWidth * (tan(eulerAngles->phi)), sourceFrame.rows-1), Scalar(255,127), 2);
+	if(halfPoint > cropCol && halfPoint < cropCol + sourceFrameCrop.cols){
+	    line(sourceFrameCrop, Point(halfPoint - cropCol, 0), Point(halfPoint - cropCol, sourceFrame.rows-1), Scalar(255,127), 2);
 	}
+	/*
 	line(sourceFrame, Point(crop.x, sourceFrame.rows / 2 + 0.25 * ispHeight * (tan(eulerAngles->phi))), Point(crop.x + crop.width, sourceFrame.rows / 2 - 0.25 * ispHeight * (tan(eulerAngles->phi))), Scalar(0,127), 1);
 	line(sourceFrame, Point(sourceFrame.cols / 2 - 0.25 * ispHeight * (tan(eulerAngles->phi)), 0), Point(sourceFrame.cols / 2 + 0.25 * ispWidth * (tan(eulerAngles->phi)), sourceFrame.rows-1), Scalar(0,127), 1);
+*/
+	circle(sourceFrame,Point(ispHeight/2 - cropCol + crop.x, ispWidth/2), CFG_MT9F002_FISHEYE_RADIUS * ispScalar, cvScalar(0,255), 1);
+	plotHorizon(sourceFrameCrop);
 #else
 	double halfPoint = round((CFG_MT9F002_X_ADDR_MAX - CFG_MT9F002_X_ADDR_MIN) * 0.5 * ispScalar);
 	double horizonPos = reversePixel(-eulerAngles->theta - MT9F002_THETA_OFFSET);
@@ -300,24 +336,34 @@ void active_random_filter(char* buff, uint16_t width, uint16_t height, struct Fl
 
 Rect setISPvars( uint16_t width, uint16_t height){
     // This function computes the cropping according to the desires FOV Y and the current euler angles
-#if !AR_FILTER_ISP_CROP
-    //ispHeight                   = width;
-    //ispWidth                    = height;
-#endif
-    double horizonPos           = reversePixel(-eulerAngles->theta - MT9F002_THETA_OFFSET);
-    double horizonDeviation     = - eulerAngles->theta - MT9F002_THETA_OFFSET;
-    int16_t desOffset           = (int16_t) reversePixel(horizonDeviation - AR_FILTER_IMAGE_CROP_FOVY * 0.5);
-    uint16_t top                = (uint16_t) reversePixel(horizonDeviation + AR_FILTER_IMAGE_CROP_FOVY * 0.5);
-#if AR_FILTER_VERBOSE
-    vector<double> topPos       = estimatePosition(top, (uint16_t) ispWidth/2.0, default_calArea);
-    vector<double> botPos       = estimatePosition(desOffset, (uint16_t) ispWidth/2.0, default_calArea);
-    VERBOSE_PRINT("topPos: %0.2f  botPos: %0.2f (hD: %0.2f  fov: %0.2f)\n", topPos[1] * 180 / M_PI, botPos[1] * 180 / M_PI, horizonDeviation * 180 / M_PI, AR_FILTER_IMAGE_CROP_FOVY * 0.5 * 180 / M_PI);
-#endif
-    desOffset                  -=  0.25 * ispWidth * fabs(tan(eulerAngles->phi));
-    top                        +=  0.25 * ispWidth * fabs(tan(eulerAngles->phi));
+    getMVP(MVP);
+    // Get centre horizon height
+    double x1,y1,x1p,y1p;
+    x1           =  0.0;
+    y1           =  0.0;
+    inputCoord(x1,y1,&x1p,&y1p);
+    // Get x edge width
+    x1           = -1;
+    y1           =  y1p;
+    //y1           =  0.0;
+    outputCoord(x1, y1, &x1p, &y1p);
+    // Set that as scalar
+    perspXScalar = -x1p;
+    double f    = default_orbDiag * ispScalar / (4 * sin(M_PI / 4));
+
+
+    uint16_t horizPos             = horizonPos(0.0);
+
+    PRINT("Horizon pos: %d ispHeight: %d\n", horizPos, ispHeight);
+    int16_t desOffset           = (int16_t) round(horizPos - 0.5 * initialWidth);
+    uint16_t top                = (uint16_t) round(horizPos + 0.5 * initialWidth);
+
+
+    //desOffset                  -=  0.25 * ispWidth * fabs(tan(eulerAngles->phi));
+    //top                        +=  0.25 * ispWidth * fabs(tan(eulerAngles->phi));
     uint16_t desHeight          = (top - desOffset);
 #if AR_FILTER_ISP_CROP
-    int16_t fillHeight          = (int16_t) round( 0.5*initialWidth - (horizonPos - desOffset) );
+    int16_t fillHeight          = (int16_t) round( 0.5*initialWidth - (horizPos - desOffset) );
     desOffset                  -= fillHeight;
     desHeight                  += fillHeight;
     if(desOffset < -MT9F002_INITIAL_OFFSET_X){
@@ -358,7 +404,122 @@ Rect setISPvars( uint16_t width, uint16_t height){
     cropCol                     = desOffset;
     Rect crop                   = cvRect(desOffset,0,desHeight,ispWidth);
 #endif
+    double maxR = correctRadius(CFG_MT9F002_FISHEYE_RADIUS * ispScalar, f, default_k);
+    x1          =  0.0;
+    y1          =  correctRadius((cropCol + desHeight - fillHeight) - 0.5 * ispHeight,f, default_k)/maxR;
+    outputCoord(x1,y1,&x1p,&y1p);
+    perspYMax   = y1p;
+    y1          =  correctRadius(cropCol - 0.5 * ispHeight,f, default_k)/maxR;
+    outputCoord(x1,y1,&x1p,&y1p);
+    perspYMin   = y1p;
+
     return crop;
+}
+
+void inversePoint(double x_out, double y_out, double *x_in, double *y_in){
+        PRINT("x_out: %f,  y_out: %f\n",x_out, y_out);
+        double r, theta,corR;
+        double f    = default_orbDiag * ispScalar / (4 * sin(M_PI / 4));
+        inputCoord(x_out, y_out, x_in, y_in);
+        PRINT("x_in : %f,  y_in : %f\n", *x_in, *y_in);
+        r           = sqrt( pow( *x_in, 2.0 ) + pow( *y_in, 2.0 ) );
+        theta       = atan2( *y_in, *x_in);
+        PRINT("r    : %f,  theta: %f\n",r,theta / M_PI * 180);
+        corR        = invertRadius(correctRadius(CFG_MT9F002_FISHEYE_RADIUS * ispScalar, f, default_k) * r, f, default_k);
+        *x_in       = ispWidth * 0.5 + corR * cos(theta);
+        *y_in       = ispHeight * 0.5 + corR * sin(theta);
+        PRINT("x_img: %f + %f = %f,  y_img: %f + %f = %f\n\n",*x_in - ispWidth * 0.5, ispWidth * 0.5, *x_in, *y_in - ispHeight * 0.5, ispHeight * 0.5, *y_in);
+}
+
+void plotHorizontalLine(Mat& sourceFrameCrop, double y_line, double x_res){
+    double x1, y1, x1p, y1p, x2, y2, x2p, y2p;
+    x1           =  0.0;
+    y1           =  y_line;
+    inputCoord(x1,y1,&x1p,&y1p);
+    // Get x edge width
+    x1           = -1;
+    y1           =  y1p;
+    outputCoord(x1, y1, &x1p, &y1p);
+    double theta   = atan2( y1p, x1p);
+    double XScalar = fabs(x1p) * cos(theta);
+    // Plot horizontal line
+    x1          = -1.0 * XScalar;
+    y1          =  y_line;
+    inversePoint(x1, y1, &x1p, &y1p);
+    char text[50];
+    uint8_t i   = 0;
+    for(double x_loc = -1+x_res; x_loc<=1; x_loc+=x_res){
+        x2 = x_loc * XScalar;
+        y2 = y_line;
+        inversePoint(x2, y2, &x2p, &y2p);
+        //if(y1p - cropCol >= 0 && y1p - cropCol <= sourceFrameCrop.cols && x1p >= 0 && x1p <= sourceFrameCrop.rows &&
+        //        y2p - cropCol >= 0 && y2p - cropCol <= sourceFrameCrop.cols && x2p >= 0 && x2p <= sourceFrameCrop.rows){
+        line(sourceFrameCrop, Point(y1p - cropCol,x1p), Point(y2p - cropCol,x2p), Scalar(0,127), 1);
+        if(i == 0){
+            sprintf(text,"- %0.0f", (x_loc - x_res) * 100);
+            putText(sourceFrameCrop, text, Point(y1p - cropCol,x1p), FONT_HERSHEY_PLAIN, 1, Scalar(0,255), 1);
+
+        }
+        i++;
+        if(i==0.1/x_res){
+            i = 0;
+        }
+        //}
+    x1p = x2p;
+    y1p = y2p;
+    }
+}
+
+void plotVerticalLine(Mat& sourceFrameCrop, double x_line, double y_res){
+    double x1, y1, x1p, y1p, x2, y2, x2p, y2p;
+    x1           =  x_line;
+    y1           =  0.0;
+    inputCoord(x1,y1,&x1p,&y1p);
+    x1           = x1p;
+    y1           = 1;
+    outputCoord(x1, y1, &x1p, &y1p);
+    double YScalar = fabs(y1p);
+    // Plot vertical line
+    x1          = x_line;
+    y1          = -1 * YScalar;
+    inversePoint(x1, y1, &x1p, &y1p);
+    char text[50];
+    uint8_t i   = 0;
+    for(double y_loc = -1+y_res; y_loc<=1; y_loc+=y_res){
+        x2 = x_line;
+        y2 = y_loc * YScalar;
+        inversePoint(x2, y2, &x2p, &y2p);
+        if(y1p - cropCol >= 0 && y1p - cropCol <= sourceFrameCrop.cols && x1p >= 0 && x1p <= sourceFrameCrop.rows &&
+                y2p - cropCol >= 0 && y2p - cropCol <= sourceFrameCrop.cols && x2p >= 0 && x2p <= sourceFrameCrop.rows){
+            line(sourceFrameCrop, Point(y1p - cropCol,x1p), Point(y2p - cropCol,x2p), Scalar(0,127), 1);
+            if(i == 0){
+                sprintf(text,"| %0.0f", (y_loc - y_res - perspYMin)/(perspYMax - perspYMin) * 100);
+                putText(sourceFrameCrop, text, Point(y1p - cropCol,x1p), FONT_HERSHEY_PLAIN, 1, Scalar(0,255), 1);
+
+            }
+            i++;
+            if(i==0.1/y_res){
+                i = 0;
+            }
+        }
+        x1p = x2p;
+        y1p = y2p;
+    }
+}
+
+void plotHorizon(Mat& sourceFrameCrop){
+    plotHorizontalLine(sourceFrameCrop, -0.5, 0.1);
+    plotHorizontalLine(sourceFrameCrop, -0.375, 0.1);
+    plotHorizontalLine(sourceFrameCrop, -0.25, 0.1);
+    plotHorizontalLine(sourceFrameCrop, -0.125, 0.1);
+    plotHorizontalLine(sourceFrameCrop, 0.0, 0.1);
+    plotHorizontalLine(sourceFrameCrop, 0.5, 0.1);
+    plotHorizontalLine(sourceFrameCrop, 0.375, 0.1);
+    plotHorizontalLine(sourceFrameCrop, 0.25, 0.1);
+    plotHorizontalLine(sourceFrameCrop, 0.125, 0.1);
+    //plotVerticalLine(sourceFrameCrop, -0.25, 0.1);
+    //plotVerticalLine(sourceFrameCrop, 0.0, 0.1);
+    //plotVerticalLine(sourceFrameCrop, 0.25, 0.1);
 }
 
 void trackObjects(Mat& sourceFrame, Mat& frameGrey){
@@ -505,7 +666,7 @@ vector<double> estimatePosition(uint16_t xp, uint16_t yp, uint32_t area){
     // Calculate distance
     double dist             = sqrt((double) calArea) / sqrt(corArea);
 
-    VERBOSE_PRINT("orbDiag (%0.4f) fovX (%0.4f - %d px) corX/maxX (%0.4f / %0.4f) fovY (%0.4f - %d px) corY/maxY (%0.4f / %0.4f)\n", orbDiag * ispScalar, fovX * 180/M_PI, ispWidth, corX, maxX, fovY * 180/M_PI, ispHeight, corY, maxY);
+    //VERBOSE_PRINT("orbDiag (%0.4f) fovX (%0.4f - %d px) corX/maxX (%0.4f / %0.4f) fovY (%0.4f - %d px) corY/maxY (%0.4f / %0.4f)\n", orbDiag * ispScalar, fovX * 180/M_PI, ispWidth, corX, maxX, fovY * 180/M_PI, ispHeight, corY, maxY);
     // Calculate angles wrt camera
     double xAngle           = (fovX * 0.5) * (perX / maxPerX);                                   // Assume all non-linearities have been removed from corX and corY
     double yAngle           = (fovY * 0.5) * (perY / maxPerY);                                   // Then scale them according to the max values and axis FoV
@@ -525,6 +686,298 @@ double correctRadius(double r, double f, double k){
     // This function calculates the corrected radius for radial distortion
     // According to the article "A Generic Non-Linear Method for Fisheye Correction" by Dhane, Kutty and Bangadkar
     return f * tan( asin( sin( atan( r / f ) ) * k ) );
+}
+
+double invertRadius(double r, double f, double k){
+    // This function calculates the inverted radius for corrected radial distortion
+    // According to the article "A Generic Non-Linear Method for Fisheye Correction" by Dhane, Kutty and Bangadkar
+    return f * tan( asin( sin( atan( r / f ) ) / k ) );
+}
+
+void showMat( double mat[16] );
+
+uint16_t horizonPos( double y_orig ){
+    double x_in, y_in;
+    inversePoint(0.0, y_orig, &x_in, &y_in);
+    return (uint16_t) round(y_in);
+}
+
+void showMat( double mat[16] ) {
+    printf("| %6.3f  %6.3f  %6.3f  %6.3f |\n", mat[0], mat[4], mat[8], mat[12]);
+    printf("| %6.3f  %6.3f  %6.3f  %6.3f |\n", mat[1], mat[5], mat[9], mat[13]);
+    printf("| %6.3f  %6.3f  %6.3f  %6.3f |\n", mat[2], mat[6], mat[10], mat[14]);
+    printf("| %6.3f  %6.3f  %6.3f  %6.3f |\n", mat[3], mat[7], mat[11], mat[15]);
+}
+
+void outputCoord(double x_in, double y_in, double *x_out, double *y_out){
+    *x_out = 1 / MVP[0] * (MVP[0] * x_in + MVP[4] * y_in + MVP[12]) / (MVP[3] * x_in + MVP[7] * y_in + MVP[15]);
+    *y_out = 1 / MVP[0] * (MVP[1] * x_in + MVP[5] * y_in + MVP[13]) / (MVP[3] * x_in + MVP[7] * y_in + MVP[15]);
+}
+
+void inputCoord(double x_out, double y_out, double *x_in, double *y_in){
+    //double den  = (MVP[0] * MVP[5] - MVP[0] * (MVP[0] * MVP[7]) * y_out - MVP[1] * MVP[4] + MVP[1] * (MVP[0] * MVP[3]) * y_out + MVP[4] * (MVP[0] * MVP[7]) * x_out - MVP[5] * (MVP[0] * MVP[3]) * x_out);
+
+    double a = MVP[0];
+    double b = MVP[4];
+    double c = MVP[12];
+
+    double d = MVP[1];
+    double e = MVP[5];
+    double f = MVP[13];
+
+    double k = MVP[0] * MVP[3];
+    double l = MVP[0] * MVP[7];
+    double m = MVP[0] * MVP[15];
+    double den   = (a*e - a*l*y_out - b*d + b*k*y_out + d*l*x_out - e*k*x_out);
+    double x_num = (-b*f + b*m*y_out + c*e - c*l*y_out - e*m*x_out + f*l*x_out);
+    double y_num = (-a*f + a*m*y_out + c*(d - k*y_out) - d*m*x_out + f*k*x_out);
+    //double x_num = (-MVP[1] * MVP[7] + MVP[1] * (MVP[0] * MVP[15]) * y_out + MVP[3] * MVP[5] - MVP[3] * (MVP[0] * MVP[7]) * y_out - MVP[5] * (MVP[0] * MVP[15]) * x_out + MVP[7] * (MVP[0] * MVP[7]) * x_out);
+    //double y_num = (-MVP[0] * MVP[7] + MVP[0] * (MVP[0] * MVP[15]) * y_out + MVP[3] * (MVP[4] - (MVP[0] * MVP[3]) * y_out) - MVP[4] * (MVP[0] * MVP[15]) * x_out + MVP[7] * (MVP[0] * MVP[3]) * x_out);
+    *x_in       =  x_num / (-den);
+    *y_in       =  y_num / den;
+    //PRINT("den: %0.3f  x_num: %0.3f  y_num: %0.3f  x_in: %0.3f  y_in: %0.3f\n",den, x_num, y_num, *x_in, *y_in);
+    //PRINT("a: %0.3f  b: %0.3f  c: %0.3f  d: %0.3f  e: %0.3f  f: %0.3f  k: %0.3f  l: %0.3f  m: %0.3f\n",a,b,c,d,e,f,k,l,m);
+}
+
+void getMVP(double MVP[16]){
+    double modelMat[16], viewMat[16], modelviewMat[16], projectionMat[16];
+    double sensorRotation[16], eyeTranslationF[16], headingRotation[16], eyeTranslationR[16], modelMat_tmp1[16], modelMat_tmp2[16];
+    double eye[4], forward[4], up[4];
+    eye[0]      = 0.0;  eye[1]      =  0.0; eye[2]      = -AR_FILTER_PERSPECTIVE_DISTANCE;    eye[3]      = 1.0;
+    forward[0]  = 0.0;  forward[1]  =  0.0; forward[2]  =  1.0;     forward[3]  = 1.0;
+    up[0]       = 0.0;  up[1]       =  1.0; up[2]       =  0.0;     up[3]       = 1.0;
+    // Create The model matrix
+    setRotationMat(0.0, M_PI, 0.0, modelMat); // The ISP is 90 degrees rotated wrt the camera and the pinhole camera model flips the image
+    /*setTranslationMat(-eye[0], -eye[1], -eye[2], eyeTranslationF);
+    setRotationMat(0.0, eulerAngles->psi, 0.0, headingRotation);
+    setTranslationMat( eye[0],  eye[1],  eye[2], eyeTranslationR);
+    matrixMultiply(eyeTranslationF, sensorRotation, modelMat_tmp1);
+    matrixMultiply(headingRotation, modelMat_tmp1, modelMat_tmp2);
+    matrixMultiply(eyeTranslationR, modelMat_tmp2, modelMat);*/
+    // Create the view matrix
+    rotateVector(-MT9F002_THETA_OFFSET - eulerAngles->theta, 0.0, -eulerAngles->phi, forward);
+    rotateVector(-MT9F002_THETA_OFFSET - eulerAngles->theta, 0.0, -eulerAngles->phi, up);
+    double center[4];
+    center[0] = eye[0] + forward[0];
+    center[1] = eye[1] + forward[1];
+    center[2] = eye[2] + forward[2];
+    center[3] = 1.0;
+    view_set_lookat(viewMat, eye,  center,  up);
+    setPerspectiveMat(projectionMat);
+    matrixMultiply(viewMat, modelMat, modelviewMat);
+    matrixMultiply(projectionMat, modelviewMat, MVP);
+}
+
+void setPerspectiveMat(double perspectiveMat[16])
+{
+    // Create perspective matrix
+    // These paramaters are about lens properties.
+    // The "near" and "far" create the Depth of Field.
+    // The "angleOfView", as the name suggests, is the angle of view.
+    // The "aspectRatio" is the cool thing about this matrix. OpenGL doesn't
+    // has any information about the screen you are rendering for. So the
+    // results could seem stretched. But this variable puts the thing into the
+    // right path. The aspect ratio is your device screen (or desired area) width divided
+    // by its height. This will give you a number < 1.0 the the area has more vertical
+    // space and a number > 1.0 is the area has more horizontal space.
+    // Aspect Ratio of 1.0 represents a square area.
+    // Some calculus before the formula.
+    float size      =  near * tanf((angleOfView / 180.0 * M_PI) / 2.0);
+    float left      = -size;
+    float right     =  size;
+    float bottom    = -size;
+    float top       =  size;
+    // First Column
+    perspectiveMat[0]  = 2 * near / (right - left);
+    perspectiveMat[1]  = 0.0;
+    perspectiveMat[2]  = 0.0;
+    perspectiveMat[3]  = 0.0;
+    // Second Column
+    perspectiveMat[4]  = 0.0;
+    perspectiveMat[5]  = 2 * near / (top - bottom);
+    perspectiveMat[6]  = 0.0;
+    perspectiveMat[7]  = 0.0;
+    // Third Column
+    perspectiveMat[8]  = (right + left) / (right - left);
+    perspectiveMat[9]  = (top + bottom) / (top - bottom);
+    perspectiveMat[10] = -(far + near) / (far - near);
+    perspectiveMat[11] = -1;
+    // Fourth Column
+    perspectiveMat[12] = 0.0;
+    perspectiveMat[13] = 0.0;
+    perspectiveMat[14] = -(2 * far * near) / (far - near);
+    perspectiveMat[15] = 0.0;
+}
+
+void translate_xyz(double result[16], const float translatex,
+        const float translatey, const float translatez) {
+    result[12] += result[0] * translatex + result[4] * translatey
+            + result[8] * translatez;
+    result[13] += result[1] * translatex + result[5] * translatey
+            + result[9] * translatez;
+    result[14] += result[2] * translatex + result[6] * translatey
+            + result[10] * translatez;
+    result[15] += result[3] * translatex + result[7] * translatey
+            + result[11] * translatez;
+}
+
+float vector_length(const float x, const float y, const float z) {
+    return (float) sqrt(x*x + y*y +z*z);
+}
+
+void view_set_lookat(double result[16], double eye[4], double center[4], double up[4]) {
+    float fx = center[0] - eye[0];
+    float fy = center[1] - eye[1];
+    float fz = center[2] - eye[2];
+
+    // normalize f
+    float rlf = 1.0f / vector_length(fx, fy, fz);
+    fx *= rlf;
+    fy *= rlf;
+    fz *= rlf;
+
+    // compute s = f x up (x means "cross product")
+    float sx = fy * up[2] - fz * up[1];
+    float sy = fz * up[0] - fx * up[2];
+    float sz = fx * up[1] - fy * up[0];
+
+    // and normalize s
+    float rls = 1.0f / vector_length(sx, sy, sz);
+    sx *= rls;
+    sy *= rls;
+    sz *= rls;
+
+    //The up vector must not be parallel to the line of sight from the eye point to the reference point.
+    if((0 == sx)&&(0 == sy)&&(0 == sz))
+        return;
+
+    // compute u = s x f
+    float ux = sy * fz - sz * fy;
+    float uy = sz * fx - sx * fz;
+    float uz = sx * fy - sy * fx;
+
+    result[0] = sx;
+    result[1] = ux;
+    result[2] = -fx;
+    result[3] = 0.0f;
+
+    result[4] = sy;
+    result[5] = uy;
+    result[6] = -fy;
+    result[7] = 0.0f;
+
+    result[8] = sz;
+    result[9] = uz;
+    result[10] = -fz;
+    result[11] = 0.0f;
+
+    result[12] = 0.0f;
+    result[13] = 0.0f;
+    result[14] = 0.0f;
+    result[15] = 1.0f;
+
+    translate_xyz(result, -eye[0], -eye[1], -eye[2]);
+}
+
+void rotateVector(float x, float y, float z, double vector[4])
+{
+    double rotX[16];
+    double rotY[16];
+    double rotZ[16];
+    setRotationMat(x, 0.0, 0.0, rotX);
+    setRotationMat(0.0, y, 0.0, rotY);
+    setRotationMat(0.0, 0.0, z, rotZ);
+    // Multiply
+    double rotZYXvec[4];
+    double tmp1[16], tmp2[16];
+    matrixMultiply(rotY, rotZ, tmp1);
+    matrixMultiply(rotX, tmp1, tmp2);
+    matvecMultiply(tmp2, vector, rotZYXvec);
+    vector[0] = rotZYXvec[0];
+    vector[1] = rotZYXvec[1];
+    vector[2] = rotZYXvec[2];
+    vector[3] = rotZYXvec[3];
+}
+
+
+void matrixMultiply(double m1[16], double m2[16], double result[16])
+{
+    // Fisrt Column
+    result[0]  = m1[0]*m2[0] + m1[4]*m2[1] + m1[8]*m2[2] + m1[12]*m2[3];
+    result[1]  = m1[1]*m2[0] + m1[5]*m2[1] + m1[9]*m2[2] + m1[13]*m2[3];
+    result[2]  = m1[2]*m2[0] + m1[6]*m2[1] + m1[10]*m2[2] + m1[14]*m2[3];
+    result[3]  = m1[3]*m2[0] + m1[7]*m2[1] + m1[11]*m2[2] + m1[15]*m2[3];
+    // Second Column
+    result[4]  = m1[0]*m2[4] + m1[4]*m2[5] + m1[8]*m2[6] + m1[12]*m2[7];
+    result[5]  = m1[1]*m2[4] + m1[5]*m2[5] + m1[9]*m2[6] + m1[13]*m2[7];
+    result[6]  = m1[2]*m2[4] + m1[6]*m2[5] + m1[10]*m2[6] + m1[14]*m2[7];
+    result[7]  = m1[3]*m2[4] + m1[7]*m2[5] + m1[11]*m2[6] + m1[15]*m2[7];
+    // Third Column
+    result[8]  = m1[0]*m2[8] + m1[4]*m2[9] + m1[8]*m2[10] + m1[12]*m2[11];
+    result[9]  = m1[1]*m2[8] + m1[5]*m2[9] + m1[9]*m2[10] + m1[13]*m2[11];
+    result[10] = m1[2]*m2[8] + m1[6]*m2[9] + m1[10]*m2[10] + m1[14]*m2[11];
+    result[11] = m1[3]*m2[8] + m1[7]*m2[9] + m1[11]*m2[10] + m1[15]*m2[11];
+    // Fourth Column
+    result[12] = m1[0]*m2[12] + m1[4]*m2[13] + m1[8]*m2[14] + m1[12]*m2[15];
+    result[13] = m1[1]*m2[12] + m1[5]*m2[13] + m1[9]*m2[14] + m1[13]*m2[15];
+    result[14] = m1[2]*m2[12] + m1[6]*m2[13] + m1[10]*m2[14] + m1[14]*m2[15];
+    result[15] = m1[3]*m2[12] + m1[7]*m2[13] + m1[11]*m2[14] + m1[15]*m2[15];
+}
+
+void matvecMultiply(double m1[16], double v1[4], double result[4])
+{
+    // Fisrt Column
+    result[0]  = m1[0]*v1[0] + m1[4]*v1[1] + m1[8]*v1[2] + m1[12]*v1[3];
+    result[1]  = m1[1]*v1[0] + m1[5]*v1[1] + m1[9]*v1[2] + m1[13]*v1[3];
+    result[2]  = m1[2]*v1[0] + m1[6]*v1[1] + m1[10]*v1[2] + m1[14]*v1[3];
+    result[3]  = m1[3]*v1[0] + m1[7]*v1[1] + m1[11]*v1[2] + m1[15]*v1[3];
+}
+
+void setIdentityMatrix(double m[16])
+{
+    m[0]  = m[5]  = m[10] = m[15] = 1.0;
+    m[1]  = m[2]  = m[3]  = m[4]  = 0.0;
+    m[6]  = m[7]  = m[8]  = m[9]  = 0.0;
+    m[11] = m[12] = m[13] = m[14] = 0.0;
+}
+
+void setRotationMat(float x, float y, float z, double outputMat[16])
+{
+    double rotX[16];
+    double rotY[16];
+    double rotZ[16];
+    setIdentityMatrix(outputMat);
+    setIdentityMatrix(rotX);
+    setIdentityMatrix(rotY);
+    setIdentityMatrix(rotZ);
+    // Set z rotation
+    rotZ[0]  =  cosf(z);
+    rotZ[1]  =  sinf(z);
+    rotZ[4]  = -rotZ[1];
+    rotZ[5]  =  rotZ[0];
+    // Set y rotation
+    rotY[0]  =  cosf(y);
+    rotY[2]  =  sinf(y);
+    rotY[8]  = -rotY[2];
+    rotY[10] =  rotY[0];
+    // Set x rotation
+    rotX[5] = cosf(x);
+    rotX[6] = -sinf(x);
+    rotX[9] = -rotX[6];
+    rotX[10] = rotX[5];
+
+    // Multiply
+    double rotXY[16];
+    matrixMultiply(rotY, rotX, rotXY);
+    matrixMultiply(rotZ, rotXY, outputMat);
+}
+
+void setTranslationMat(float x, float y, float z, double outputMat[16])
+{
+    setIdentityMatrix(outputMat);
+    outputMat[12] = x;
+    outputMat[13] = y;
+    outputMat[14] = z;
 }
 
 double reversePixel(double angle){
@@ -1092,7 +1545,7 @@ void objCont_addPoint(uint16_t* row, uint16_t* col){
 }
 
 bool pixTest(uint8_t *Y, uint8_t *U, uint8_t *V, uint8_t *prevDir){
-    if(*V > (*U + 33) && *Y >= AR_FILTER_Y_MIN && *Y <= AR_FILTER_Y_MAX && *U >= AR_FILTER_U_MIN && *U <= AR_FILTER_U_MAX && *V >= AR_FILTER_V_MIN && *V <= AR_FILTER_V_MAX){
+    if(*V > (*U + AR_FILTER_GREY_THRES) && *Y >= AR_FILTER_Y_MIN && *Y <= AR_FILTER_Y_MAX && *U >= AR_FILTER_U_MIN && *U <= AR_FILTER_U_MAX && *V >= AR_FILTER_V_MIN && *V <= AR_FILTER_V_MAX){
         return true;
     }
     else{
@@ -1116,39 +1569,14 @@ bool pixTest(uint8_t *Y, uint8_t *U, uint8_t *V, uint8_t *prevDir){
 int pixFindContour_cw(Mat& sourceFrame, Mat& destFrame, uint16_t row, uint16_t col, uint8_t prevDir, bool cascade){
     layerDepth++;
     pixCount++;
-    if(prevDir == ARF_SEARCH && destFrame.at<uint8_t>(row, col) >= 75){
+    if(destFrame.at<uint8_t>(row, col) >= 75){
             pixDupCount++;
             return ARF_DUPLICATE;
-    }
-    else if(prevDir != ARF_SEARCH && destFrame.at<uint8_t>(row, col) == 75){
-        if (col - objCont_sCol >= -1 && col - objCont_sCol <= 1 && row - objCont_sRow >= -1 && row - objCont_sRow <= 1 ){
-            if(layerDepth > AR_FILTER_MIN_LAYERS){
-                destFrame.at<uint8_t>(row, col) = 255;
-                objCont_addPoint(&row,&col);
-                VERBOSE_PRINT("ARF_FINISHED back at (%d, %d) near startpos (%d, %d) after %d pixels\n",row, col, objCont_sRow, objCont_sCol, layerDepth);
-                pixSucCount++;
-                return ARF_FINISHED;
-            }
-            else{
-                VERBOSE_PRINT("ARF_NO_FOUND back at (%d, %d) near startpos (%d, %d) after only %d pixels\n",row, col, objCont_sRow, objCont_sCol, layerDepth);
-                pixNofCount++;
-                objCont_size = 0;
-                return ARF_NO_FOUND; // TODO: Should this be ARF_NO_FOUND?
-            }
-        }
-        /*else{
-            VERBOSE_PRINT("Found different starting position at (%d, %d) iso startpos (%d, %d) diff (%d, %d) after %d pixels\n",row, col, objCont_sRow, objCont_sCol, abs(col - objCont_sCol), abs(row - objCont_sRow), layerDepth);
-        }*/
     }
     uint8_t U, Y, V;
     getYUVColours(sourceFrame, row, col, &Y, &U, &V);
     if(pixTest(&Y, &U, &V, &prevDir)){
-        if(prevDir != ARF_SEARCH){
-            destFrame.at<uint8_t>(row, col) = 255;
-        }
-        else{
-            destFrame.at<uint8_t>(row, col) = 75;
-        }
+        destFrame.at<uint8_t>(row, col) = 75;
         if(cascade){
             uint8_t nextDirCnt, nextDir[6];
             uint16_t newRow, newCol;
@@ -1162,53 +1590,20 @@ int pixFindContour_cw(Mat& sourceFrame, Mat& destFrame, uint16_t row, uint16_t c
                 newRow              = row;
                 newCol              = col;
                 if(getNewPosition(nextDir[d], &newRow, &newCol, &sourceFrame.rows, &sourceFrame.cols)){
-                    if(prevDir == ARF_SEARCH && d == 1){
-                        objCont_sCol        = newCol;
-                        objCont_sRow        = newRow;
-                        objCont_size        = 0;
+                    int result;
+                    if(d == 0){
+                        result = pixFindContour_cw(sourceFrame, destFrame, newRow, newCol, nextDir[d], true);
                     }
-                    switch(pixFindContour_cw(sourceFrame, destFrame, newRow, newCol, nextDir[d], true)){ // Catch the proper response for the tested pixel
+                    else{
+                        destFrame.at<uint8_t>(row, col) = 76;
+                        //objCont_sCol                    = row;
+                        //objCont_sRow                    = col;
+                        objCont_size                    = 0;
+                        result                          = pixFollowContour_cw(sourceFrame, destFrame, newRow, newCol, nextDir[d], true);
+                    }
+                    switch(result){ // Catch the proper response for the tested pixel
                     case ARF_FINISHED : {
-                        if(prevDir!=ARF_SEARCH){
-                            /*
-                            if(d < (nextDirCnt - 1)){
-                                uint8_t Un, Yn, Vn;
-                                getNewPosition(nextDir[d + 1], &newRow, &newCol, &sourceFrame.rows, &sourceFrame.cols);
-                                getYUVColours(sourceFrame, newRow, newCol, &Yn, &Un, &Vn);
-                                if(Yn < AR_FILTER_Y_MIN){
-                                    AR_FILTER_Y_MIN--;
-                                    AR_FILTER_Y_MAX--;
-                                }
-                                else if(Yn > AR_FILTER_Y_MAX){
-                                    AR_FILTER_Y_MIN++;
-                                    AR_FILTER_Y_MAX++;
-                                }
-                                if(Un < AR_FILTER_U_MIN){
-                                    AR_FILTER_U_MIN--;
-                                    AR_FILTER_U_MAX--;
-                                }
-                                else if(Un > AR_FILTER_U_MAX){
-                                    AR_FILTER_U_MAX++;
-                                    AR_FILTER_U_MAX++;
-                                }
-                                if(Vn < AR_FILTER_V_MIN){
-                                    AR_FILTER_V_MIN--;
-                                    AR_FILTER_V_MAX--;
-                                }
-                                else if(Vn > AR_FILTER_V_MAX){
-                                    AR_FILTER_V_MAX++;
-                                    AR_FILTER_V_MAX+;
-                                }
-                            }
-                            */
-                            if(prevDir != nextDir[d]){
-                                objCont_addPoint(&row,&col);
-                            }
-                            pixSucCount++;
-                        }
-                        else{
-                            pixSrcCount++;
-                        }
+                        pixSrcCount++;
                         return ARF_FINISHED;
                         break;
                     }
@@ -1223,13 +1618,13 @@ int pixFindContour_cw(Mat& sourceFrame, Mat& destFrame, uint16_t row, uint16_t c
                     }
                     case ARF_DUPLICATE : {
                         pixDupCount++;
-                        destFrame.at<uint8_t>(row, col) = 0;
+                        //destFrame.at<uint8_t>(row, col) = 0;
                         return ARF_DUPLICATE;
                         break;
                     }
                     case ARF_ERROR : {
                         if(layerDepth > AR_FILTER_MAX_LAYERS){
-                            destFrame.at<uint8_t>(row, col) = 0;
+                            //destFrame.at<uint8_t>(row, col) = 0;
                             return ARF_FINISHED;
                         }
                         else{
@@ -1238,7 +1633,7 @@ int pixFindContour_cw(Mat& sourceFrame, Mat& destFrame, uint16_t row, uint16_t c
                         break;
                     }
                     default : {
-                        destFrame.at<uint8_t>(row, col) = 0;
+                        //destFrame.at<uint8_t>(row, col) = 0;
                         return ARF_ERROR;
                     }
                     }
@@ -1249,13 +1644,113 @@ int pixFindContour_cw(Mat& sourceFrame, Mat& destFrame, uint16_t row, uint16_t c
                 d++;
             }
             pixNofCount++;
-            destFrame.at<uint8_t>(row, col) = 0;
+            //destFrame.at<uint8_t>(row, col) = 0;
             return ARF_NO_FOUND; // Dead end
         }
         else{
             pixSucCount++;
             return ARF_SUCCESS;
         }
+    }
+    else{
+        pixNofCount++;
+        return ARF_NO_FOUND;
+    }
+}
+
+int pixFollowContour_cw(Mat& sourceFrame, Mat& destFrame, uint16_t row, uint16_t col, uint8_t prevDir, bool cascade){
+    layerDepth++;
+    pixCount++;
+    if(destFrame.at<uint8_t>(row, col) == 76){
+        // This is my starting position, finished!
+        if(layerDepth > AR_FILTER_MIN_LAYERS){
+            destFrame.at<uint8_t>(row, col) = 255;
+            objCont_addPoint(&row,&col);
+            VERBOSE_PRINT("ARF_FINISHED back at (%d, %d) near startpos (%d, %d) after %d pixels\n",row, col, objCont_sRow, objCont_sCol, layerDepth);
+            pixSucCount++;
+            return ARF_FINISHED;
+        }
+        else{
+            VERBOSE_PRINT("ARF_NO_FOUND back at (%d, %d) near startpos (%d, %d) after only %d pixels\n",row, col, objCont_sRow, objCont_sCol, layerDepth);
+            pixNofCount++;
+            objCont_size = 0;
+            return ARF_NO_FOUND; // TODO: Should this be ARF_NO_FOUND?
+        }
+
+    }
+    if(destFrame.at<uint8_t>(row, col) >= 75){
+        // I've already searched this pixel before
+        pixDupCount++;
+        return ARF_DUPLICATE;
+    }
+    uint8_t U, Y, V;
+    getYUVColours(sourceFrame, row, col, &Y, &U, &V);
+    if(pixTest(&Y, &U, &V, &prevDir)){
+        destFrame.at<uint8_t>(row, col) = 255;
+        uint8_t nextDirCnt, nextDir[6];
+        uint16_t newRow, newCol;
+        bool success = false;
+        uint8_t d = 0, edge = 0;
+        getNextDirection_cw(prevDir, nextDir, &nextDirCnt);
+        while(layerDepth < AR_FILTER_MAX_LAYERS && d < nextDirCnt && success == false){
+            cmpY                = Y;
+            cmpU                = U;
+            cmpV                = V;
+            newRow              = row;
+            newCol              = col;
+            if(getNewPosition(nextDir[d], &newRow, &newCol, &sourceFrame.rows, &sourceFrame.cols)){
+                switch(pixFollowContour_cw(sourceFrame, destFrame, newRow, newCol, nextDir[d], true)){ // Catch the proper response for the tested pixel
+                case ARF_FINISHED : {
+                    if(prevDir != nextDir[d]){
+                        objCont_addPoint(&row,&col);
+                    }
+#if AR_FILTER_MARK_CONTOURS
+                    sourceFrame.at<Vec2b>(row, col)[0] = 0;
+                    sourceFrame.at<Vec2b>(row, col)[1] = 255;
+#endif
+                    pixSucCount++;
+                    return ARF_FINISHED;
+                    break;
+                }
+                case ARF_SUCCESS : {
+                    pixSucCount++;
+                    return ARF_SUCCESS;
+                    break;
+                }
+                case ARF_NO_FOUND : {
+                    edge++;
+                    break;
+                }
+                case ARF_DUPLICATE : {
+                    pixDupCount++;
+                    destFrame.at<uint8_t>(row, col) = 0;
+                    return ARF_DUPLICATE;
+                    break;
+                }
+                case ARF_ERROR : {
+                    if(layerDepth > AR_FILTER_MAX_LAYERS){
+                        destFrame.at<uint8_t>(row, col) = 0;
+                        return ARF_FINISHED;
+                    }
+                    else{
+                        edge++;
+                    }
+                    break;
+                }
+                default : {
+                    destFrame.at<uint8_t>(row, col) = 0;
+                    return ARF_ERROR;
+                }
+                }
+            }
+            else{
+                edge++;
+            }
+            d++;
+        }
+        pixNofCount++;
+        destFrame.at<uint8_t>(row, col) = 0;
+        return ARF_NO_FOUND; // Dead end
     }
     else{
         pixNofCount++;
@@ -1275,7 +1770,7 @@ int pixFindContour_omni(Mat& sourceFrame, Mat& destFrame, uint16_t row, uint16_t
     }
     uint8_t U, Y, V;
     getYUVColours(sourceFrame, row, col, &Y, &U, &V);
-    if(Y >= AR_FILTER_Y_MIN && Y <= AR_FILTER_Y_MAX && U >= AR_FILTER_U_MIN && U <= AR_FILTER_U_MAX && V >= AR_FILTER_V_MIN && V <= AR_FILTER_V_MAX)
+    if(pixTest(&Y, &U, &V, &prevDir))
     {
         if(prevDir != ARF_SEARCH)
         {
@@ -1360,12 +1855,12 @@ void getNextDirection_cw(uint8_t prevDir, uint8_t* nextDir, uint8_t* nextDirCnt)
 	    *nextDirCnt = 4;
 	    break;
 	case ARF_UP :
-	    nextDir[0] = ARF_LEFT;
-	    nextDir[1] = ARF_LEFT_UP;
-	    nextDir[2] = ARF_UP;
-	    nextDir[3] = ARF_UP_RIGHT;
-	    nextDir[4] = ARF_RIGHT;
-	    //nextDir[5] = ARF_RIGHT_DOWN;
+	    //nextDir[0] = ARF_LEFT;
+	    nextDir[0] = ARF_LEFT_UP;
+	    nextDir[1] = ARF_UP;
+	    nextDir[2] = ARF_UP_RIGHT;
+	    nextDir[3] = ARF_RIGHT;
+	    nextDir[4] = ARF_RIGHT_DOWN;
 	    break;
 	case ARF_UP_RIGHT :
 	    nextDir[0] = ARF_LEFT_UP;
@@ -1373,15 +1868,16 @@ void getNextDirection_cw(uint8_t prevDir, uint8_t* nextDir, uint8_t* nextDirCnt)
 	    nextDir[2] = ARF_UP_RIGHT;
 	    nextDir[3] = ARF_RIGHT;
 	    nextDir[4] = ARF_RIGHT_DOWN;
-	    //nextDir[5] = ARF_DOWN;
+	    nextDir[5] = ARF_DOWN;
+	    *nextDirCnt = 6;
 	    break;
 	case ARF_RIGHT :
-	    nextDir[0] = ARF_UP;
-	    nextDir[1] = ARF_UP_RIGHT;
-	    nextDir[2] = ARF_RIGHT;
-	    nextDir[3] = ARF_RIGHT_DOWN;
-	    nextDir[4] = ARF_DOWN;
-	    //nextDir[5] = ARF_DOWN_LEFT;
+	    //nextDir[0] = ARF_UP;
+	    nextDir[0] = ARF_UP_RIGHT;
+	    nextDir[1] = ARF_RIGHT;
+	    nextDir[2] = ARF_RIGHT_DOWN;
+	    nextDir[3] = ARF_DOWN;
+	    nextDir[4] = ARF_DOWN_LEFT;
 	    break;
 	case ARF_RIGHT_DOWN :
 	    nextDir[0] = ARF_UP_RIGHT;
@@ -1389,15 +1885,16 @@ void getNextDirection_cw(uint8_t prevDir, uint8_t* nextDir, uint8_t* nextDirCnt)
 	    nextDir[2] = ARF_RIGHT_DOWN;
 	    nextDir[3] = ARF_DOWN;
 	    nextDir[4] = ARF_DOWN_LEFT;
-	    //nextDir[5] = ARF_LEFT;
+	    nextDir[5] = ARF_LEFT;
+	    *nextDirCnt = 6;
 	    break;
 	case ARF_DOWN :
-	    nextDir[0] = ARF_RIGHT;
-	    nextDir[1] = ARF_RIGHT_DOWN;
-	    nextDir[2] = ARF_DOWN;
-	    nextDir[3] = ARF_DOWN_LEFT;
-	    nextDir[4] = ARF_LEFT;
-	    //nextDir[5] = ARF_LEFT_UP;
+	    //nextDir[0] = ARF_RIGHT;
+	    nextDir[0] = ARF_RIGHT_DOWN;
+	    nextDir[1] = ARF_DOWN;
+	    nextDir[2] = ARF_DOWN_LEFT;
+	    nextDir[3] = ARF_LEFT;
+	    nextDir[4] = ARF_LEFT_UP;
 	    break;
 	case ARF_DOWN_LEFT :
 	    nextDir[0] = ARF_RIGHT_DOWN;
@@ -1405,15 +1902,16 @@ void getNextDirection_cw(uint8_t prevDir, uint8_t* nextDir, uint8_t* nextDirCnt)
 	    nextDir[2] = ARF_DOWN_LEFT;
 	    nextDir[3] = ARF_LEFT;
 	    nextDir[4] = ARF_LEFT_UP;
-	    //nextDir[5] = ARF_UP;
+	    nextDir[5] = ARF_UP;
+	    *nextDirCnt = 6;
 	    break;
 	case ARF_LEFT :
-	    nextDir[0] = ARF_DOWN;
-	    nextDir[1] = ARF_DOWN_LEFT;
-	    nextDir[2] = ARF_LEFT;
-	    nextDir[3] = ARF_LEFT_UP;
-	    nextDir[4] = ARF_UP;
-	    //nextDir[5] = ARF_UP_RIGHT;
+	    //nextDir[0] = ARF_DOWN;
+	    nextDir[0] = ARF_DOWN_LEFT;
+	    nextDir[1] = ARF_LEFT;
+	    nextDir[2] = ARF_LEFT_UP;
+	    nextDir[3] = ARF_UP;
+	    nextDir[4] = ARF_UP_RIGHT;
 	    break;
 	case ARF_LEFT_UP :
 	    nextDir[0] = ARF_DOWN_LEFT;
@@ -1421,7 +1919,8 @@ void getNextDirection_cw(uint8_t prevDir, uint8_t* nextDir, uint8_t* nextDirCnt)
 	    nextDir[2] = ARF_LEFT_UP;
 	    nextDir[3] = ARF_UP;
 	    nextDir[4] = ARF_UP_RIGHT;
-	    //nextDir[5] = ARF_RIGHT;
+	    nextDir[5] = ARF_RIGHT;
+	    *nextDirCnt = 6;
 	    break;
 	}
 	return;
@@ -1570,7 +2069,7 @@ bool getNewPosition(uint8_t nextDir, uint16_t* newRow, uint16_t* newCol, int* ma
 void mod_video(Mat& sourceFrame, Mat& frameGrey){
 	char text[200];
 #if AR_FILTER_MEASURE_FPS
-	sprintf(text,"%5.2f %5.d %0.0fs", avgFPS,(runCount - AR_FILTER_TIMEOUT),((double) curT));
+	sprintf(text,"%5.2f %5.d %8.2fs", AR_FILTER_FPS,(runCount - AR_FILTER_TIMEOUT), curT / 1000000.0);
 #else
 	sprintf(text,"frame %i", runCount);
 #endif // AR_FILTER_MEASURE_FPS
@@ -1605,19 +2104,36 @@ void mod_video(Mat& sourceFrame, Mat& frameGrey){
 		circle(sourceFrame,cvPoint(trackRes[r].x_p - cropCol, trackRes[r].y_p), sqrt(trackRes[r].area_p / M_PI), cvScalar(0,255), 2);
 	}
 #endif //AR_FILTER_DRAW_CIRCLES
-	putText(sourceFrame, text, Point(10,sourceFrame.rows-40), FONT_HERSHEY_PLAIN, 2, Scalar(0,255,255), 2);
+	putText(sourceFrame, text, Point(10,sourceFrame.rows-40), FONT_HERSHEY_PLAIN, 1, Scalar(0,255,255), 1);
+	for(unsigned int r=0; r < neighbourMem_size; r++)         // Convert angles & Write/Print output
+	{
+	    if(neighbourMem[r].lastSeen < runCount){
+	        uint8_t tColor = (uint8_t) round(255 * (AR_FILTER_MEMORY - (runCount - neighbourMem[r].lastSeen)) / ((float) AR_FILTER_MEMORY));
+	        sprintf(text,"x%5.2f", neighbourMem[r].x_w);
+	        putText(sourceFrame, text, Point(neighbourMem[r].x_p - cropCol + sqrt(neighbourMem[r].area_p / M_PI) + 10, neighbourMem[r].y_p - 15), FONT_HERSHEY_PLAIN, 1, Scalar(0,tColor), 1);
+	        sprintf(text,"y%5.2f", neighbourMem[r].y_w);
+	        putText(sourceFrame, text, Point(neighbourMem[r].x_p - cropCol + sqrt(neighbourMem[r].area_p / M_PI) + 10, neighbourMem[r].y_p), FONT_HERSHEY_PLAIN, 1, Scalar(0,tColor), 1);
+	        sprintf(text,"z%5.2f", neighbourMem[r].z_w);
+	        putText(sourceFrame, text, Point(neighbourMem[r].x_p - cropCol + sqrt(neighbourMem[r].area_p / M_PI) + 10, neighbourMem[r].y_p + 15), FONT_HERSHEY_PLAIN, 1, Scalar(0,tColor), 1);
+
+	    }
+	}
 	for(unsigned int r=0; r < trackRes_size; r++)         // Convert angles & Write/Print output
 	{
-	    sprintf(text,"x%5.2f y%5.2f z%5.2f", trackRes[r].x_w, trackRes[r].y_w, trackRes[r].z_w);
-	    putText(sourceFrame, text, Point(10,40+r*40), FONT_HERSHEY_PLAIN, 2, Scalar(0,255,255), 2);
+	    sprintf(text,"x%5.2f", trackRes[r].x_w);
+	    putText(sourceFrame, text, Point(trackRes[r].x_p - cropCol + sqrt(trackRes[r].area_p / M_PI) + 10, trackRes[r].y_p - 15), FONT_HERSHEY_PLAIN, 1, Scalar(0,255,255), 1);
+	    sprintf(text,"y%5.2f", trackRes[r].y_w);
+	    putText(sourceFrame, text, Point(trackRes[r].x_p - cropCol + sqrt(trackRes[r].area_p / M_PI) + 10, trackRes[r].y_p), FONT_HERSHEY_PLAIN, 1, Scalar(0,255,255), 1);
+	    sprintf(text,"z%5.2f", trackRes[r].z_w);
+	    putText(sourceFrame, text, Point(trackRes[r].x_p - cropCol + sqrt(trackRes[r].area_p / M_PI) + 10, trackRes[r].y_p + 15), FONT_HERSHEY_PLAIN, 1, Scalar(0,255,255), 1);
 	}
 	sprintf(text,"t:%4.1f%% o:%4.1f%%", pixCount/((float) ispHeight * ispWidth) * 100, pixSucCount/((float) pixCount) * 100);
-	putText(sourceFrame, text, Point(10,sourceFrame.rows-120), FONT_HERSHEY_PLAIN, 2, Scalar(0,255,255), 2);
+	putText(sourceFrame, text, Point(10,sourceFrame.rows-120), FONT_HERSHEY_PLAIN, 1, Scalar(0,255,255), 1);
 	sprintf(text,"d:%4.1f%% n:%4.1f%% s:%4.1f%%", pixDupCount/((float) pixCount) * 100, pixNofCount/((float) pixCount) * 100, pixSrcCount/((float) pixCount) * 100);
-	putText(sourceFrame, text, Point(10,sourceFrame.rows-80), FONT_HERSHEY_PLAIN, 2, Scalar(0,255,255), 2);
+	putText(sourceFrame, text, Point(10,sourceFrame.rows-80), FONT_HERSHEY_PLAIN, 1, Scalar(0,255,255), 1);
 
-	line(sourceFrame, Point(0,0), Point(0, sourceFrame.rows-1), Scalar(0,255), 4);
-	line(sourceFrame, Point(sourceFrame.cols - 1,0), Point(sourceFrame.cols - 1, sourceFrame.rows-1), Scalar(0,255), 4);
+	line(sourceFrame, Point(0,0), Point(0, sourceFrame.rows-1), Scalar(0,255), 2);
+	line(sourceFrame, Point(sourceFrame.cols - 1,0), Point(sourceFrame.cols - 1, sourceFrame.rows-1), Scalar(0,255), 2);
 	return;
 }
 #endif // AR_FILTER_MOD_VIDEO
@@ -1625,13 +2141,11 @@ void mod_video(Mat& sourceFrame, Mat& frameGrey){
 void active_random_filter_header(Mat& sourceFrame){
 #if AR_FILTER_MEASURE_FPS
     clock_gettime(CLOCK_MONOTONIC, &time_now);
-    uint32_t dt_us = sys_time_elapsed_us(&time_prev, &time_now);
-    avgFPS = 0.975 * avgFPS + 0.025 * 1000000.f / dt_us;
-    time_prev = time_now;
-    currentTime     = time(0);                                              // Get the current time
-    curT            = difftime(currentTime,startTime);                      // Calculate time-difference between startTime and currentTime
-    AR_FILTER_FPS   = avgFPS;
-    VERBOSE_PRINT("Measured FPS: %0.2f\n", avgFPS);
+    curT            = sys_time_elapsed_us(&time_init, &time_now);
+    uint32_t dt_us  = sys_time_elapsed_us(&time_prev, &time_now);
+    AR_FILTER_FPS   = 0.975 * AR_FILTER_FPS + 0.025 * 1000000.f / dt_us;
+    time_prev       = time_now;
+    VERBOSE_PRINT("Measured FPS: %0.2f\n", AR_FILTER_FPS);
 #endif
     trackRes_clear();
 #if AR_FILTER_SAVE_FRAME

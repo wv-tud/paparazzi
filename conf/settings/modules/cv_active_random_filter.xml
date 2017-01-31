@@ -8,10 +8,8 @@
       <dl_setting var="AR_FILTER_U_MAX"             min="0" step="1"        max="255"     	module="computer_vision/active_random_filter" shortname="U max"/>
       <dl_setting var="AR_FILTER_V_MIN"             min="0" step="1"        max="255"     	module="computer_vision/active_random_filter" shortname="V min"/>
       <dl_setting var="AR_FILTER_V_MAX"             min="0" step="1"        max="255"     	module="computer_vision/active_random_filter" shortname="V max"/>
-      <dl_setting var="AR_FILTER_IMAGE_CROP_FOVY"   min="0" step="0.01"     max="3.1416"    module="computer_vision/active_random_filter" shortname="Vertical FOV clipping"/>     
-      <dl_setting var="AR_FILTER_CDIST_YTHRES"   	min="0" step="1"     	max="256"    	module="computer_vision/active_random_filter" shortname="Y gradient threshold"/>     
-      <dl_setting var="AR_FILTER_CDIST_UTHRES"   	min="0" step="1"     	max="256"    	module="computer_vision/active_random_filter" shortname="U gradient threshold"/>     
-      <dl_setting var="AR_FILTER_CDIST_VTHRES"   	min="0" step="1"     	max="256"    	module="computer_vision/active_random_filter" shortname="V gradient threshold"/>     
+      <dl_setting var="AR_FILTER_GREY_THRES"        min="0" step="1"        max="255"     	module="computer_vision/active_random_filter" shortname="Grey threshold"/>
+      <dl_setting var="AR_FILTER_IMAGE_CROP_FOVY"   min="0" step="0.01"     max="3.1415"    module="computer_vision/active_random_filter" shortname="Vertical FOV clipping"/>     
       <dl_setting var="AR_FILTER_FLOOD_STYLE" 		min="0" step="1"		max="1" 		module="computer_vision/active_random_filter" shortname="Flood style" values="Omni|Clockwise"/>
       <dl_setting var="AR_FILTER_SAMPLE_STYLE" 		min="0" step="1"		max="2" 		module="computer_vision/active_random_filter" shortname="Sample style" values="Full|Grid|Random"/>
       <dl_setting var="AR_FILTER_RND_PIX_SAMPLE"    min="1" step="100"      max="10000" 	module="computer_vision/active_random_filter" shortname="Random sample size"/>    
@@ -23,9 +21,11 @@
       <dl_setting var="AR_FILTER_MIN_CROP_AREA"     min="1" step="10"     	max="5000"     	module="computer_vision/active_random_filter" shortname="Minimum rectangle crop area"/>
       
       <dl_setting var="default_calArea"   			min="1" step="1"        max="30000"    	module="computer_vision/active_random_filter" shortname="calArea"/>     
-      <dl_setting var="default_k"    				min="1" step="0.001" 	max="1.22"     	module="computer_vision/active_random_filter" shortname="k"/>  
+      <dl_setting var="AR_FILTER_PERSPECTIVE_DISTANCE" min="0" step="0.001" max="5"     	module="computer_vision/active_random_filter" shortname="p dist"/>  
+            
+      <dl_setting var="default_k"    				min="1" step="0.0001" 	max="1.2247"    module="computer_vision/active_random_filter" shortname="k"/>  
       <dl_setting var="perspective_zCor"     		min="0" step="0.001"   	max="5"     	module="computer_vision/active_random_filter" shortname="zCor"/> 
-      <dl_setting var="scale_f"    					min="0" step="0.001" 	max="3"     	module="computer_vision/active_random_filter" shortname="scale f"/>      
+      <dl_setting var="angleOfView"    				min="0" step="1" 	max="180"    module="computer_vision/active_random_filter" shortname="angle of view"/>      
     
     </dl_settings>
   </dl_settings>
