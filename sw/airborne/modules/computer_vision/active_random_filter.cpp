@@ -172,12 +172,16 @@ uint8_t     AR_FILTER_CDIST_YTHRES      = 2;
 uint8_t     AR_FILTER_CDIST_UTHRES      = 0;
 uint8_t     AR_FILTER_CDIST_VTHRES      = 0;
 // 1.525 too much - 1.5 (just) too little
-double      AR_FILTER_PERSPECTIVE_DISTANCE = 0.018;
-double      default_k                   = 1.2246; //1.118 based on horizon - 1.22425040841 max                                                      // Fisheye correction factor (1.085)
+double      AR_FILTER_PERSPECTIVE_DISTANCE = 0.0091;
+double      default_k                   = 1.22471; //1.118 based on horizon - 1.22425040841 max                                                      // Fisheye correction factor (1.085)
 uint16_t    default_calArea             = 8600;  // Calibrate at full resolution (5330)
 double      default_orbDiag             = 2 * CFG_MT9F002_FISHEYE_RADIUS;  // Measured circular image diagonal using full resolution
 double      perspective_zCor            = 3.45;
 double      scale_f                     = 1.0;
+// Lens correction parameter k
+float near          = 0.0000000075;
+float far           = 2.5;
+float angleOfView   = 178.87; // 160 degrees
 
 uint8_t     AR_FILTER_GREY_THRES        = 15;
 /* FAKE LIGHT
@@ -265,11 +269,6 @@ static uint8_t          cmpV            = 0;
 
 vector<vector<Point> >  allContours;
 static double MVP[16];
-
-// Lens correction parameter k
-float near          = 0.0000000075;
-float far           = 1.5;
-float angleOfView   = 177.5; // 160 degrees
 
 float perspXScalar =  1.0;
 float perspXMin    = -1.0;
@@ -504,7 +503,7 @@ void plotHorizon(Mat& sourceFrameCrop){
     plotHorizontalLine(sourceFrameCrop,   0.0 / 180.0 * M_PI, 5);
     plotHorizontalLine(sourceFrameCrop,  0.5 * AR_FILTER_IMAGE_CROP_FOVY, 5);
     //plotVerticalLine(sourceFrameCrop, -45.0 / 180.0 * M_PI, 5);
-    //plotVerticalLine(sourceFrameCrop,   0.0 / 180.0 * M_PI, 5);
+    plotVerticalLine(sourceFrameCrop,   0.0 / 180.0 * M_PI, 5);
     //plotVerticalLine(sourceFrameCrop,  45.0 / 180.0 * M_PI, 5);
 }
 

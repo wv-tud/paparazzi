@@ -11,7 +11,7 @@
     <program name="Bebop Stream (swarmhub)" command="sw/tools/parrot/bebop/start_mplayer.sh 192.168.40.">
     	<arg flag="" constant="@AC_ID"/>
     </program>
-    <program name="Bebop Stream" command="/usr/bin/cvlc ftp://192.168.42.1/internal_000/stream.sdp --avcodec-hw=vaapi --no-xlib"/>
+    <program name="Bebop Stream" command="/usr/bin/cvlc ftp://192.168.42.1/internal_000/stream.sdp --avcodec-hw=vaapi --no-xlib --no-interact --quiet"/>
     <program name="Server" command="sw/ground_segment/tmtc/server"/>
     <program name="Data Link" command="sw/ground_segment/tmtc/link">
       <arg flag="-d" constant="/dev/ttyUSB0"/>
