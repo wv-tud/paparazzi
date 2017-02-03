@@ -60,7 +60,7 @@ extern struct mt9f002_t mt9f002;
 #define AR_FILTER_MOD_VIDEO     1   // Modify the frame to show relevant info
 #define AR_FILTER_CROSSHAIR     1   // Show centre of frame with crosshair
 #define AR_FILTER_DRAW_CONTOURS 0   // Use drawContours function iso circle
-#define AR_FILTER_MARK_CONTOURS 1   // Mark all contour pixels green on sourceframe
+#define AR_FILTER_MARK_CONTOURS 0   // Mark all contour pixels green on sourceframe
 #define AR_FILTER_DRAW_CIRCLES  0   // Draw circles
 #define AR_FILTER_DRAW_BOXES 	1   // Draw boxes
 #define AR_FILTER_SHOW_MEM      1   // Print object locations to terminal
@@ -79,22 +79,26 @@ static void             identifyObject      ( trackResults* trackRes );
 static bool 			addContour			( vector<Point> contour, uint16_t offsetX, uint16_t offsetY, double minDist = 0.0, double maxDist = 0.0);
 static void 			cam2body 			( trackResults* trackRes );
 static void 			body2world 			( trackResults* trackRes );
+
 static double 			correctRadius		( double r, double f, double k );
 static double           invertRadius        ( double r, double f, double k );
 static void             inputCoord          ( double x_out, double y_out, double *x_in, double *y_in );
 static void             outputCoord         ( double x_in, double y_in, double *x_out, double *y_out );
 static void             getMVP              ( double MVP[16] );
 static Rect 			setISPvars 			( uint16_t width, uint16_t height );
+static uint16_t         horizonPos          ( double y_orig );
+static void             plotHorizon         (Mat& sourceFrameCrop);
+static void             inversePoint        (double x_out, double y_out, double *x_in, double *y_in);
+static void             angles2point        (double xAngle, double yAngle, double *x_out, double * y_out);
+
 static vector<double> 	estimatePosition	( uint16_t xp, uint16_t yp, uint32_t area );
 static void             correctPerspective  ( double x_in, double y_in, double max, double* x_out, double* y_out );
+static double           reversePixel        ( double r );
+
 static bool 			getNewPosition		( uint8_t nextDir, uint16_t* newRow, uint16_t* newCol, int* maxRow, int* maxCol );
 static void             eraseMemory         ( void );
 static void             getYUVColours       ( Mat& sourceFrame, uint16_t row, uint16_t col, uint8_t* Y, uint8_t* U, uint8_t* V );
 static void             createSearchGrid    ( uint16_t x_p, uint16_t y_p, Point searchGrid[], uint8_t searchLayer, uint16_t sGridSize, int* maxRow, int* maxCol);
-static double           reversePixel        ( double r );
-static uint16_t         horizonPos          ( double y_orig );
-static void             plotHorizon         (Mat& sourceFrameCrop);
-static void             inversePoint        (double x_out, double y_out, double *x_in, double *y_in);
 // Flood CW declarations
 static bool             processImage_cw     ( Mat& sourceFrame, Mat& destFrame, uint16_t sampleSize );
 static int              pixFindContour_cw   ( Mat& sourceFrame, Mat& destFrame, uint16_t row, uint16_t col, uint8_t prevDir, bool cascade );
@@ -168,8 +172,8 @@ uint8_t     AR_FILTER_CDIST_YTHRES      = 2;
 uint8_t     AR_FILTER_CDIST_UTHRES      = 0;
 uint8_t     AR_FILTER_CDIST_VTHRES      = 0;
 // 1.525 too much - 1.5 (just) too little
-double      AR_FILTER_PERSPECTIVE_DISTANCE = 0.3536;
-double      default_k                   = 1.191; //1.118 based on horizon - 1.22425040841 max                                                      // Fisheye correction factor (1.085)
+double      AR_FILTER_PERSPECTIVE_DISTANCE = 0.018;
+double      default_k                   = 1.2246; //1.118 based on horizon - 1.22425040841 max                                                      // Fisheye correction factor (1.085)
 uint16_t    default_calArea             = 8600;  // Calibrate at full resolution (5330)
 double      default_orbDiag             = 2 * CFG_MT9F002_FISHEYE_RADIUS;  // Measured circular image diagonal using full resolution
 double      perspective_zCor            = 3.45;
@@ -210,7 +214,7 @@ uint8_t     AR_FILTER_U_MAX             = 155;                          // 113
 uint8_t     AR_FILTER_V_MIN             = 176;                          // 218 -> 150?
 uint8_t     AR_FILTER_V_MAX             = 210;                          // 240 -> 255?
 */
-double 	    AR_FILTER_IMAGE_CROP_FOVY 	= 70 * M_PI / 180.0; 		    // Radians
+double 	    AR_FILTER_IMAGE_CROP_FOVY 	= 60 * M_PI / 180.0; 		    // Radians
 double 	    AR_FILTER_CROP_X 			= 1.2;
 uint8_t     AR_FILTER_MEMORY 			= 40;
 double      AR_FILTER_FPS               = 15.0;
@@ -265,9 +269,11 @@ static double MVP[16];
 // Lens correction parameter k
 float near          = 0.0000000075;
 float far           = 1.5;
-float angleOfView   = 152.0; // 160 degrees
+float angleOfView   = 177.5; // 160 degrees
 
 float perspXScalar =  1.0;
+float perspXMin    = -1.0;
+float perspXMax    =  1.0;
 float perspYMin    = -1.0;
 float perspYMax    =  1.0;
 
@@ -337,30 +343,39 @@ void active_random_filter(char* buff, uint16_t width, uint16_t height, struct Fl
 Rect setISPvars( uint16_t width, uint16_t height){
     // This function computes the cropping according to the desires FOV Y and the current euler angles
     getMVP(MVP);
-    // Get centre horizon height
-    double x1,y1,x1p,y1p;
-    x1           =  0.0;
-    y1           =  0.0;
-    inputCoord(x1,y1,&x1p,&y1p);
-    // Get x edge width
-    x1           = -1;
-    y1           =  y1p;
-    //y1           =  0.0;
-    outputCoord(x1, y1, &x1p, &y1p);
-    // Set that as scalar
-    perspXScalar = -x1p;
-    double f    = default_orbDiag * ispScalar / (4 * sin(M_PI / 4));
-
+    // Do some simple unit tests
+    double f, x1_o, y1_o, x1, y1, x1p, y1p, r_o, corR, r;
+    f       = scale_f * default_orbDiag * ispScalar / (4 * sin(M_PI / 4));
+    x1_o    = ((float) 2 * rand()) / RAND_MAX - 1;
+    y1_o    = ((float) 2 * rand()) / RAND_MAX - 1;
+    outputCoord(x1_o, y1_o, &x1p, &y1p);
+    inputCoord(x1p, y1p, &x1, &y1);
+    r_o     = sqrt(pow(x1_o, 2.0) + pow(y1_o, 2.0)) * CFG_MT9F002_FISHEYE_RADIUS * ispScalar;
+    corR    = correctRadius(r_o, f, default_k);
+    r       = invertRadius(corR, f, default_k);
+    PRINT("in(%0.2f, %0.2f) -> out(%0.2f, %0.2f) -> in(%0.2f, %0.2f)\n", x1_o, y1_o, x1p, y1p, x1, y1);
+    PRINT("r(%0.2f) -> corR(%0.2f) -> r(%0.2f)\n", r_o, corR, r);
 
     uint16_t horizPos             = horizonPos(0.0);
-
     PRINT("Horizon pos: %d ispHeight: %d\n", horizPos, ispHeight);
-    int16_t desOffset           = (int16_t) round(horizPos - 0.5 * initialWidth);
-    uint16_t top                = (uint16_t) round(horizPos + 0.5 * initialWidth);
 
-
-    //desOffset                  -=  0.25 * ispWidth * fabs(tan(eulerAngles->phi));
-    //top                        +=  0.25 * ispWidth * fabs(tan(eulerAngles->phi));
+    double x_1, y_1, left[2], center[2], right[2];
+    // Top
+    angles2point(-75.0/180.0*M_PI, 0.5 * AR_FILTER_IMAGE_CROP_FOVY, &x_1, &y_1);
+    inversePoint(x_1,y_1,&left[0],&left[1]);
+    angles2point(0.0, 0.5 * AR_FILTER_IMAGE_CROP_FOVY, &x_1, &y_1);
+    inversePoint(x_1,y_1,&center[0],&center[1]);
+    angles2point(75.0/180.0*M_PI, 0.5 * AR_FILTER_IMAGE_CROP_FOVY, &x_1, &y_1);
+    inversePoint(x_1,y_1,&right[0],&right[1]);
+    uint16_t top        = (uint16_t) round( max( right[1], max( left[1], center[1])));
+    // Top
+    angles2point(-75.0/180.0*M_PI, -0.5 * AR_FILTER_IMAGE_CROP_FOVY, &x_1, &y_1);
+    inversePoint(x_1,y_1,&left[0],&left[1]);
+    angles2point(0.0, -0.5 * AR_FILTER_IMAGE_CROP_FOVY, &x_1, &y_1);
+    inversePoint(x_1,y_1,&center[0],&center[1]);
+    angles2point(75.0/180.0*M_PI, -0.5 * AR_FILTER_IMAGE_CROP_FOVY, &x_1, &y_1);
+    inversePoint(x_1,y_1,&right[0],&right[1]);
+    int16_t desOffset           = (int16_t) round( min( right[1], min( left[1], center[1])));
     uint16_t desHeight          = (top - desOffset);
 #if AR_FILTER_ISP_CROP
     int16_t fillHeight          = (int16_t) round( 0.5*initialWidth - (horizPos - desOffset) );
@@ -404,122 +419,93 @@ Rect setISPvars( uint16_t width, uint16_t height){
     cropCol                     = desOffset;
     Rect crop                   = cvRect(desOffset,0,desHeight,ispWidth);
 #endif
-    double maxR = correctRadius(CFG_MT9F002_FISHEYE_RADIUS * ispScalar, f, default_k);
-    x1          =  0.0;
-    y1          =  correctRadius((cropCol + desHeight - fillHeight) - 0.5 * ispHeight,f, default_k)/maxR;
-    outputCoord(x1,y1,&x1p,&y1p);
-    perspYMax   = y1p;
-    y1          =  correctRadius(cropCol - 0.5 * ispHeight,f, default_k)/maxR;
-    outputCoord(x1,y1,&x1p,&y1p);
-    perspYMin   = y1p;
-
     return crop;
 }
 
-void inversePoint(double x_out, double y_out, double *x_in, double *y_in){
-        PRINT("x_out: %f,  y_out: %f\n",x_out, y_out);
-        double r, theta,corR;
-        double f    = default_orbDiag * ispScalar / (4 * sin(M_PI / 4));
-        inputCoord(x_out, y_out, x_in, y_in);
-        PRINT("x_in : %f,  y_in : %f\n", *x_in, *y_in);
-        r           = sqrt( pow( *x_in, 2.0 ) + pow( *y_in, 2.0 ) );
-        theta       = atan2( *y_in, *x_in);
-        PRINT("r    : %f,  theta: %f\n",r,theta / M_PI * 180);
-        corR        = invertRadius(correctRadius(CFG_MT9F002_FISHEYE_RADIUS * ispScalar, f, default_k) * r, f, default_k);
-        *x_in       = ispWidth * 0.5 + corR * cos(theta);
-        *y_in       = ispHeight * 0.5 + corR * sin(theta);
-        PRINT("x_img: %f + %f = %f,  y_img: %f + %f = %f\n\n",*x_in - ispWidth * 0.5, ispWidth * 0.5, *x_in, *y_in - ispHeight * 0.5, ispHeight * 0.5, *y_in);
+void correctPoint(double x_in, double y_in, double *x_out, double *y_out){
+    double f, r, theta, corR, maxR;
+    f       = scale_f * default_orbDiag * ispScalar / (4 * sin(M_PI / 4));
+
+    x_in   -= ispWidth * 0.5;
+    y_in   -= ispHeight * 0.5;
+    r       = sqrt( pow(x_in, 2.0) + pow(y_in, 2.0) );
+    theta   = atan2( y_in, x_in );
+    corR    = correctRadius(r, f, default_k);
+    maxR    = correctRadius(CFG_MT9F002_FISHEYE_RADIUS * ispScalar, f, default_k);
+    x_in    = (corR * cos(theta)) / maxR;
+    y_in    = (corR * sin(theta)) / maxR;
+
+    outputCoord(x_in, y_in, x_out, y_out);
 }
 
-void plotHorizontalLine(Mat& sourceFrameCrop, double y_line, double x_res){
+void angles2point(double xAngle, double yAngle, double *x_out, double * y_out){
+    *x_out = AR_FILTER_PERSPECTIVE_DISTANCE * tan(xAngle);
+    *y_out = AR_FILTER_PERSPECTIVE_DISTANCE * tan(yAngle);
+}
+
+void inversePoint(double x_out, double y_out, double *x_in, double *y_in){
+    double f, r, theta,corR, maxR;
+    f           = scale_f * default_orbDiag * ispScalar / (4 * sin(M_PI / 4));
+
+    inputCoord(x_out, y_out, x_in, y_in);
+    maxR        = correctRadius(CFG_MT9F002_FISHEYE_RADIUS * ispScalar, f, default_k);
+    r           = maxR * sqrt( pow( *x_in, 2.0 ) + pow( *y_in, 2.0 ) );
+    theta       = atan2( *y_in, *x_in);
+    corR        = invertRadius(r, f, default_k);
+    *x_in       = ispWidth * 0.5 + corR * cos(theta);
+    *y_in       = ispHeight * 0.5 + corR * sin(theta) ;
+}
+
+void plotHorizontalLine(Mat& sourceFrameCrop, double yAngle, double xResDeg){
     double x1, y1, x1p, y1p, x2, y2, x2p, y2p;
-    x1           =  0.0;
-    y1           =  y_line;
-    inputCoord(x1,y1,&x1p,&y1p);
-    // Get x edge width
-    x1           = -1;
-    y1           =  y1p;
-    outputCoord(x1, y1, &x1p, &y1p);
-    double theta   = atan2( y1p, x1p);
-    double XScalar = fabs(x1p) * cos(theta);
     // Plot horizontal line
-    x1          = -1.0 * XScalar;
-    y1          =  y_line;
+    angles2point(-70.0/180.0*M_PI, yAngle, &x1, &y1);
     inversePoint(x1, y1, &x1p, &y1p);
     char text[50];
-    uint8_t i   = 0;
-    for(double x_loc = -1+x_res; x_loc<=1; x_loc+=x_res){
-        x2 = x_loc * XScalar;
-        y2 = y_line;
+    for(double x_angle = -76+xResDeg; x_angle<=76; x_angle+=xResDeg){
+        angles2point(x_angle / 180 * M_PI, yAngle, &x2, &y2);
         inversePoint(x2, y2, &x2p, &y2p);
-        //if(y1p - cropCol >= 0 && y1p - cropCol <= sourceFrameCrop.cols && x1p >= 0 && x1p <= sourceFrameCrop.rows &&
-        //        y2p - cropCol >= 0 && y2p - cropCol <= sourceFrameCrop.cols && x2p >= 0 && x2p <= sourceFrameCrop.rows){
         line(sourceFrameCrop, Point(y1p - cropCol,x1p), Point(y2p - cropCol,x2p), Scalar(0,127), 1);
-        if(i == 0){
-            sprintf(text,"- %0.0f", (x_loc - x_res) * 100);
-            putText(sourceFrameCrop, text, Point(y1p - cropCol,x1p), FONT_HERSHEY_PLAIN, 1, Scalar(0,255), 1);
+        x1p = x2p;
+        y1p = y2p;
+    }
+    for(double i = -75; i <= 75; i+=15){
+        angles2point(i / 180 * M_PI, yAngle, &x1, &y1);
+        inversePoint(x1, y1, &x1p, &y1p);
+        sprintf(text,"- %0.0f", i);
+        putText(sourceFrameCrop, text, Point(y1p - cropCol,x1p), FONT_HERSHEY_PLAIN, 1, Scalar(0,255), 1);
 
-        }
-        i++;
-        if(i==0.1/x_res){
-            i = 0;
-        }
-        //}
-    x1p = x2p;
-    y1p = y2p;
     }
 }
 
-void plotVerticalLine(Mat& sourceFrameCrop, double x_line, double y_res){
+void plotVerticalLine(Mat& sourceFrameCrop, double xAngle, double yResDeg){
     double x1, y1, x1p, y1p, x2, y2, x2p, y2p;
-    x1           =  x_line;
-    y1           =  0.0;
-    inputCoord(x1,y1,&x1p,&y1p);
-    x1           = x1p;
-    y1           = 1;
-    outputCoord(x1, y1, &x1p, &y1p);
-    double YScalar = fabs(y1p);
     // Plot vertical line
-    x1          = x_line;
-    y1          = -1 * YScalar;
+    angles2point(xAngle, -0.5*M_PI, &x1, &y1);
     inversePoint(x1, y1, &x1p, &y1p);
     char text[50];
-    uint8_t i   = 0;
-    for(double y_loc = -1+y_res; y_loc<=1; y_loc+=y_res){
-        x2 = x_line;
-        y2 = y_loc * YScalar;
+    for(double y_angle = (-90+yResDeg)/180*M_PI; y_angle<=0.5*M_PI + MT9F002_THETA_OFFSET + eulerAngles->theta; y_angle+=yResDeg / 180 * M_PI){
+        angles2point(xAngle, y_angle, &x2, &y2);
         inversePoint(x2, y2, &x2p, &y2p);
-        if(y1p - cropCol >= 0 && y1p - cropCol <= sourceFrameCrop.cols && x1p >= 0 && x1p <= sourceFrameCrop.rows &&
-                y2p - cropCol >= 0 && y2p - cropCol <= sourceFrameCrop.cols && x2p >= 0 && x2p <= sourceFrameCrop.rows){
-            line(sourceFrameCrop, Point(y1p - cropCol,x1p), Point(y2p - cropCol,x2p), Scalar(0,127), 1);
-            if(i == 0){
-                sprintf(text,"| %0.0f", (y_loc - y_res - perspYMin)/(perspYMax - perspYMin) * 100);
-                putText(sourceFrameCrop, text, Point(y1p - cropCol,x1p), FONT_HERSHEY_PLAIN, 1, Scalar(0,255), 1);
-
-            }
-            i++;
-            if(i==0.1/y_res){
-                i = 0;
-            }
-        }
+        line(sourceFrameCrop, Point(y1p - cropCol,x1p), Point(y2p - cropCol,x2p), Scalar(0,127), 1);
         x1p = x2p;
         y1p = y2p;
+    }
+    for(double i = -0.5*M_PI; i <= 0.5*M_PI + MT9F002_THETA_OFFSET + eulerAngles->theta; i+=15.0/180.0*M_PI){
+        angles2point(xAngle, i, &x1, &y1);
+        inversePoint(x1, y1, &x1p, &y1p);
+        sprintf(text,"| %0.0f", i / M_PI * 180);
+        putText(sourceFrameCrop, text, Point(y1p - cropCol,x1p), FONT_HERSHEY_PLAIN, 1, Scalar(0,255), 1);
     }
 }
 
 void plotHorizon(Mat& sourceFrameCrop){
-    plotHorizontalLine(sourceFrameCrop, -0.5, 0.1);
-    plotHorizontalLine(sourceFrameCrop, -0.375, 0.1);
-    plotHorizontalLine(sourceFrameCrop, -0.25, 0.1);
-    plotHorizontalLine(sourceFrameCrop, -0.125, 0.1);
-    plotHorizontalLine(sourceFrameCrop, 0.0, 0.1);
-    plotHorizontalLine(sourceFrameCrop, 0.5, 0.1);
-    plotHorizontalLine(sourceFrameCrop, 0.375, 0.1);
-    plotHorizontalLine(sourceFrameCrop, 0.25, 0.1);
-    plotHorizontalLine(sourceFrameCrop, 0.125, 0.1);
-    //plotVerticalLine(sourceFrameCrop, -0.25, 0.1);
-    //plotVerticalLine(sourceFrameCrop, 0.0, 0.1);
-    //plotVerticalLine(sourceFrameCrop, 0.25, 0.1);
+    plotHorizontalLine(sourceFrameCrop, -0.5 * AR_FILTER_IMAGE_CROP_FOVY, 5);
+    plotHorizontalLine(sourceFrameCrop,   0.0 / 180.0 * M_PI, 5);
+    plotHorizontalLine(sourceFrameCrop,  0.5 * AR_FILTER_IMAGE_CROP_FOVY, 5);
+    //plotVerticalLine(sourceFrameCrop, -45.0 / 180.0 * M_PI, 5);
+    //plotVerticalLine(sourceFrameCrop,   0.0 / 180.0 * M_PI, 5);
+    //plotVerticalLine(sourceFrameCrop,  45.0 / 180.0 * M_PI, 5);
 }
 
 void trackObjects(Mat& sourceFrame, Mat& frameGrey){
@@ -710,13 +696,11 @@ void showMat( double mat[16] ) {
 }
 
 void outputCoord(double x_in, double y_in, double *x_out, double *y_out){
-    *x_out = 1 / MVP[0] * (MVP[0] * x_in + MVP[4] * y_in + MVP[12]) / (MVP[3] * x_in + MVP[7] * y_in + MVP[15]);
-    *y_out = 1 / MVP[0] * (MVP[1] * x_in + MVP[5] * y_in + MVP[13]) / (MVP[3] * x_in + MVP[7] * y_in + MVP[15]);
+    *x_out = (MVP[0] * x_in + MVP[4] * y_in + MVP[12]) / (MVP[3] * x_in + MVP[7] * y_in + MVP[15]);
+    *y_out = (MVP[1] * x_in + MVP[5] * y_in + MVP[13]) / (MVP[3] * x_in + MVP[7] * y_in + MVP[15]);
 }
 
 void inputCoord(double x_out, double y_out, double *x_in, double *y_in){
-    //double den  = (MVP[0] * MVP[5] - MVP[0] * (MVP[0] * MVP[7]) * y_out - MVP[1] * MVP[4] + MVP[1] * (MVP[0] * MVP[3]) * y_out + MVP[4] * (MVP[0] * MVP[7]) * x_out - MVP[5] * (MVP[0] * MVP[3]) * x_out);
-
     double a = MVP[0];
     double b = MVP[4];
     double c = MVP[12];
@@ -725,18 +709,16 @@ void inputCoord(double x_out, double y_out, double *x_in, double *y_in){
     double e = MVP[5];
     double f = MVP[13];
 
-    double k = MVP[0] * MVP[3];
-    double l = MVP[0] * MVP[7];
-    double m = MVP[0] * MVP[15];
+    double k = MVP[3];
+    double l = MVP[7];
+    double m = MVP[15];
+
     double den   = (a*e - a*l*y_out - b*d + b*k*y_out + d*l*x_out - e*k*x_out);
     double x_num = (-b*f + b*m*y_out + c*e - c*l*y_out - e*m*x_out + f*l*x_out);
     double y_num = (-a*f + a*m*y_out + c*(d - k*y_out) - d*m*x_out + f*k*x_out);
-    //double x_num = (-MVP[1] * MVP[7] + MVP[1] * (MVP[0] * MVP[15]) * y_out + MVP[3] * MVP[5] - MVP[3] * (MVP[0] * MVP[7]) * y_out - MVP[5] * (MVP[0] * MVP[15]) * x_out + MVP[7] * (MVP[0] * MVP[7]) * x_out);
-    //double y_num = (-MVP[0] * MVP[7] + MVP[0] * (MVP[0] * MVP[15]) * y_out + MVP[3] * (MVP[4] - (MVP[0] * MVP[3]) * y_out) - MVP[4] * (MVP[0] * MVP[15]) * x_out + MVP[7] * (MVP[0] * MVP[3]) * x_out);
+
     *x_in       =  x_num / (-den);
     *y_in       =  y_num / den;
-    //PRINT("den: %0.3f  x_num: %0.3f  y_num: %0.3f  x_in: %0.3f  y_in: %0.3f\n",den, x_num, y_num, *x_in, *y_in);
-    //PRINT("a: %0.3f  b: %0.3f  c: %0.3f  d: %0.3f  e: %0.3f  f: %0.3f  k: %0.3f  l: %0.3f  m: %0.3f\n",a,b,c,d,e,f,k,l,m);
 }
 
 void getMVP(double MVP[16]){

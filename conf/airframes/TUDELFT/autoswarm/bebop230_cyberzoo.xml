@@ -81,7 +81,7 @@
 	-->
 	<module name="video_rtp_stream">
 		<!--<configure name="VIEWVIDEO_HOST" value="192.168.42.65"/>-->
-		<configure name="VIEWVIDEO_HOST" value="192.168.40.222"/>
+		<configure name="VIEWVIDEO_HOST" value="192.168.40.74"/>
 		<configure name="VIEWVIDEO_BROADCAST" value="FALSE" />
 		<define name="VIEWVIDEO_CAMERA" value="front_camera" />
 		<define name="VIEWVIDEO_SHOT_PATH" value="/data/ftp/internal_000" />

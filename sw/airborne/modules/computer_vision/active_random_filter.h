@@ -79,6 +79,7 @@ extern double       default_k;
 extern uint16_t     default_calArea;
 extern double       perspective_zCor;
 extern float        angleOfView;
+extern double       scale_f;
 
 // Filter sample styles
 #define AR_FILTER_STYLE_FULL   0
