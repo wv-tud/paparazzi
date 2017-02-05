@@ -99,8 +99,7 @@ extern double       scale_f;
 #define ARF_LEFT       7
 #define ARF_LEFT_UP    8
 // Filter return status
-#define ARF_FINISHED   2
-#define ARF_SUCCESS    1
+#define ARF_FINISHED   1
 #define ARF_NO_FOUND   0
 #define ARF_DUPLICATE -1
 #define ARF_ERROR     -2

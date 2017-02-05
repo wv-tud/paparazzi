@@ -27,7 +27,7 @@
 #include <vector>
 #include <ctime>
 
-#define BOARD_CONFIG "boards/bebop.h"       // TODO: WHYYYY?
+#define BOARD_CONFIG "boards/bebop.h"
 
 extern "C" {
     #include "boards/bebop.h"                       // C header used for bebop specific settings
@@ -79,24 +79,26 @@ static void             identifyObject      ( trackResults* trackRes );
 static bool 			addContour			( vector<Point> contour, uint16_t offsetX, uint16_t offsetY, double minDist = 0.0, double maxDist = 0.0);
 static void 			cam2body 			( trackResults* trackRes );
 static void 			body2world 			( trackResults* trackRes );
-
-static double 			correctRadius		( double r, double f, double k );
-static double           invertRadius        ( double r, double f, double k );
-static void             inputCoord          ( double x_out, double y_out, double *x_in, double *y_in );
-static void             outputCoord         ( double x_in, double y_in, double *x_out, double *y_out );
-static void             getMVP              ( double MVP[16] );
-static Rect 			setISPvars 			( uint16_t width, uint16_t height );
+static Rect             setISPvars          ( uint16_t width, uint16_t height );
 static uint16_t         horizonPos          ( double y_orig );
 static void             plotHorizon         (Mat& sourceFrameCrop);
-static void             inversePoint        (double x_out, double y_out, double *x_in, double *y_in);
-static void             angles2point        (double xAngle, double yAngle, double *x_out, double * y_out);
-static void             correctPoint        (double x_in, double y_in, double *x_out, double *y_out);
-static void 	        estimatePosition	( uint16_t xp, uint16_t yp, uint32_t area, double position[3]);
-static void             point2angles        (double x_out, double y_out, double *xAngle, double *yAngle);
-static bool 			getNewPosition		( uint8_t nextDir, uint16_t* newRow, uint16_t* newCol, int* maxRow, int* maxCol );
+static void             estimatePosition    ( uint16_t xp, uint16_t yp, uint32_t area, double position[3]);
+static bool             getNewPosition      ( uint8_t nextDir, uint16_t* newRow, uint16_t* newCol, int* maxRow, int* maxCol );
 static void             eraseMemory         ( void );
 static void             getYUVColours       ( Mat& sourceFrame, uint16_t row, uint16_t col, uint8_t* Y, uint8_t* U, uint8_t* V );
 static void             createSearchGrid    ( uint16_t x_p, uint16_t y_p, Point searchGrid[], uint8_t searchLayer, uint16_t sGridSize, int* maxRow, int* maxCol);
+// Fisheye correction
+static double 			correctRadius		( double r, double f, double k );
+static double           invertRadius        ( double r, double f, double k );
+// Perspective correction
+static void             inputCoord          ( double x_out, double y_out, double *x_in, double *y_in );
+static void             outputCoord         ( double x_in, double y_in, double *x_out, double *y_out );
+// Fisheye + Perspective correction
+static void             inversePoint        (double x_out, double y_out, double *x_in, double *y_in);
+static void             correctPoint        (double x_in, double y_in, double *x_out, double *y_out);
+// Conversion from angles to output frame point
+static void             angles2point        (double xAngle, double yAngle, double *x_out, double * y_out);
+static void             point2angles        (double x_out, double y_out, double *xAngle, double *yAngle);
 // Flood CW declarations
 static bool             processImage_cw     ( Mat& sourceFrame, Mat& destFrame, uint16_t sampleSize );
 static int              pixFindContour_cw   ( Mat& sourceFrame, Mat& destFrame, uint16_t row, uint16_t col, uint8_t prevDir, bool cascade );
@@ -123,6 +125,7 @@ uint8_t                 neighbourMem_size = 0;
 static bool             neighbourMem_findMax( void );
 static bool             neighbourMem_add    ( memoryBlock newRes, uint8_t overwriteId = neighbourMem_size);
 // Stabilization functions
+static void             getMVP              ( double MVP[16] );
 static void             setPerspectiveMat   (double m[16]);
 static void             setRotationMat      (float, float, float, double m[16]);
 static void             setIdentityMatrix   (double m[16]);
@@ -142,10 +145,6 @@ static void 			calibrateEstimation (void);
 #endif
 #if AR_FILTER_SAVE_FRAME
 static void 			saveBuffer			(Mat sourceFrame, const char *filename);
-#endif
-
-#if AR_FILTER_MEASURE_FPS
-static uint32_t curT;
 #endif
 
 // Set up tracking parameters
@@ -238,8 +237,8 @@ static uint8_t              trackRes_lastId     = 0;
 static uint8_t              neighbourMem_maxId  = 0;
 static double               neighbourMem_maxVal = 0;
 static uint8_t              neighbourMem_lastId = 0;
-static uint16_t             ispWidth            = MT9F002_OUTPUT_HEIGHT;
-static uint16_t             ispHeight           = MT9F002_OUTPUT_WIDTH;
+static uint16_t             ispWidth            = 0;
+static uint16_t             ispHeight           = 0;
 static uint16_t             initialWidth;
 static uint16_t             initialHeight;
 static uint16_t             cropCol;
@@ -254,14 +253,15 @@ memoryBlock                 neighbourMem[AR_FILTER_MAX_OBJECTS];
     static struct timespec time_now;
     static struct timespec time_prev;
     static struct timespec time_init;
+    static uint32_t curT;
 #endif
 
 // Flood CW parameters
 static Point            objCont_store[AR_FILTER_MAX_OBJCONT_SIZE];
 static uint16_t         objCont_size    = 0;
-static uint8_t          cmpY            = 0;
-static uint8_t          cmpU            = 0;
-static uint8_t          cmpV            = 0;
+//static uint8_t          cmpY            = 0;
+//static uint8_t          cmpU            = 0;
+//static uint8_t          cmpV            = 0;
 
 static double MVP[16];
 
@@ -1227,7 +1227,7 @@ bool processImage_cw(Mat& sourceFrame, Mat& destFrame, uint16_t sampleSize){
                 for(int c= 0; c < sourceFrame.cols; c++)
                 {
                     layerDepth              = 0;
-                    if(pixFindContour_cw(sourceFrame, destFrame, r, c, ARF_UP, false) == ARF_SUCCESS)
+                    if(pixFindContour_cw(sourceFrame, destFrame, r, c, ARF_UP, false) == ARF_FINISHED)
                     {
                         obj_detected            = true;
                     }
@@ -1345,7 +1345,7 @@ bool processImage_omni(Mat& sourceFrame, Mat& destFrame, uint16_t sampleSize){
                 for(int c= 0; c < sourceFrame.cols; c++)
                 {
                     layerDepth              = 0;
-                    if(pixFindContour_omni(sourceFrame, destFrame, r, c, ARF_UP, false) == ARF_SUCCESS)
+                    if(pixFindContour_omni(sourceFrame, destFrame, r, c, ARF_UP, false) == ARF_FINISHED)
                     {
                         obj_detected            = true;
                     }
@@ -1480,9 +1480,9 @@ int pixFindContour_cw(Mat& sourceFrame, Mat& destFrame, uint16_t row, uint16_t c
             uint8_t d = 0, edge = 0;
             getNextDirection_cw(prevDir, nextDir, &nextDirCnt);
             while(layerDepth < AR_FILTER_MAX_LAYERS && d < nextDirCnt && success == false){
-                cmpY                = Y;
-                cmpU                = U;
-                cmpV                = V;
+                //cmpY                = Y;
+                //cmpU                = U;
+                //cmpV                = V;
                 newRow              = row;
                 newCol              = col;
                 if(getNewPosition(nextDir[d], &newRow, &newCol, &sourceFrame.rows, &sourceFrame.cols)){
@@ -1499,11 +1499,6 @@ int pixFindContour_cw(Mat& sourceFrame, Mat& destFrame, uint16_t row, uint16_t c
                     case ARF_FINISHED : {
                         pixSrcCount++;
                         return ARF_FINISHED;
-                        break;
-                    }
-                    case ARF_SUCCESS : {
-                        pixSucCount++;
-                        return ARF_SUCCESS;
                         break;
                     }
                     case ARF_NO_FOUND : {
@@ -1543,7 +1538,7 @@ int pixFindContour_cw(Mat& sourceFrame, Mat& destFrame, uint16_t row, uint16_t c
         }
         else{
             pixSucCount++;
-            return ARF_SUCCESS;
+            return ARF_FINISHED;
         }
     }
     else{
@@ -1587,9 +1582,9 @@ int pixFollowContour_cw(Mat& sourceFrame, Mat& destFrame, uint16_t row, uint16_t
         uint8_t d = 0, edge = 0;
         getNextDirection_cw(prevDir, nextDir, &nextDirCnt);
         while(layerDepth < AR_FILTER_MAX_LAYERS && d < nextDirCnt && success == false){
-            cmpY                = Y;
-            cmpU                = U;
-            cmpV                = V;
+            //cmpY                = Y;
+            //cmpU                = U;
+            //cmpV                = V;
             newRow              = row;
             newCol              = col;
             if(getNewPosition(nextDir[d], &newRow, &newCol, &sourceFrame.rows, &sourceFrame.cols)){
@@ -1604,11 +1599,6 @@ int pixFollowContour_cw(Mat& sourceFrame, Mat& destFrame, uint16_t row, uint16_t
 #endif
                     pixSucCount++;
                     return ARF_FINISHED;
-                    break;
-                }
-                case ARF_SUCCESS : {
-                    pixSucCount++;
-                    return ARF_SUCCESS;
                     break;
                 }
                 case ARF_NO_FOUND : {
@@ -1703,7 +1693,7 @@ int pixFindContour_omni(Mat& sourceFrame, Mat& destFrame, uint16_t row, uint16_t
             return ARF_FINISHED;
         }else{
             pixSucCount++;
-            return ARF_SUCCESS;
+            return ARF_FINISHED;
         }
     }else{
         pixNofCount++;
