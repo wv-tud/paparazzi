@@ -62,7 +62,7 @@ extern uint8_t 		AR_FILTER_U_MAX;
 extern uint8_t 		AR_FILTER_V_MIN;
 extern uint8_t 		AR_FILTER_V_MAX;
 extern uint8_t      AR_FILTER_GREY_THRES;
-extern double AR_FILTER_PERSPECTIVE_DISTANCE;
+extern double       AR_FILTER_VIEW_R;
 extern uint16_t     AR_FILTER_RND_PIX_SAMPLE;
 extern uint16_t     AR_FILTER_MIN_CROP_AREA;
 extern uint16_t     AR_FILTER_MAX_LAYERS;
@@ -77,7 +77,6 @@ extern uint8_t      AR_FILTER_CDIST_UTHRES;
 extern uint8_t      AR_FILTER_CDIST_VTHRES;
 extern double       default_k;
 extern uint16_t     default_calArea;
-extern double       perspective_zCor;
 extern float        angleOfView;
 extern double       scale_f;
 
