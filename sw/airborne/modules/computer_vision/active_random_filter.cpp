@@ -55,6 +55,7 @@ using namespace cv;
 
 extern struct mt9f002_t mt9f002;
 
+#define AR_FILTER_UNIT_TEST     0   // Do unit tests with random points
 #define AR_FILTER_ISP_CROP      1   // Use the ISP to crop the frame according to FOV-Y
 #define AR_FILTER_SHOW_REJECT   0   // Print why shapes are rejected
 #define AR_FILTER_MOD_VIDEO     1   // Modify the frame to show relevant info
@@ -99,7 +100,7 @@ static void             createSearchGrid    ( uint16_t x_p, uint16_t y_p, Point 
 // Flood CW declarations
 static bool             processImage_cw     ( Mat& sourceFrame, Mat& destFrame, uint16_t sampleSize );
 static int              pixFindContour_cw   ( Mat& sourceFrame, Mat& destFrame, uint16_t row, uint16_t col, uint8_t prevDir, bool cascade );
-static int              pixFollowContour_cw ( Mat& sourceFrame, Mat& destFrame, uint16_t row, uint16_t col, uint8_t prevDir, bool cascade );
+static int              pixFollowContour_cw ( Mat& sourceFrame, Mat& destFrame, uint16_t row, uint16_t col, uint8_t prevDir );
 static void             getNextDirection_cw ( uint8_t prevDir, uint8_t* nextDir, uint8_t* nextDirCnt );
 static bool             objCont_add         ( double minDist = 0.0, double maxDist = 0.0);
 static void             objCont_addPoint    ( uint16_t* row, uint16_t* col );
@@ -258,8 +259,6 @@ memoryBlock                 neighbourMem[AR_FILTER_MAX_OBJECTS];
 // Flood CW parameters
 static Point            objCont_store[AR_FILTER_MAX_OBJCONT_SIZE];
 static uint16_t         objCont_size    = 0;
-static uint16_t         objCont_sCol    = 0;
-static uint16_t         objCont_sRow    = 0;
 static uint8_t          cmpY            = 0;
 static uint8_t          cmpU            = 0;
 static uint8_t          cmpV            = 0;
@@ -330,15 +329,14 @@ void active_random_filter(char* buff, uint16_t width, uint16_t height, struct Fl
 }
 
 Rect setISPvars( uint16_t width, uint16_t height){
+    double x1, y1, left[2], center[2], right[2];
     // This function computes the cropping according to the desires FOV Y and the current euler angles
     getMVP(MVP);
     AR_FILTER_MIN_CIRCLE_SIZE   = pow(sqrt((double) default_calArea  * pow(ispScalar,2.0)) / AR_FILTER_CAM_RANGE, 2.0);
     AR_FILTER_MIN_LAYERS        = (uint16_t) round(AR_FILTER_MIN_CIRCLE_PERC * 2 * M_PI * sqrt((double) default_calArea  * pow(ispScalar,2.0)/ M_PI) / AR_FILTER_CAM_RANGE);
     AR_FILTER_MIN_POINTS        = (uint16_t) round(0.25 * AR_FILTER_MIN_LAYERS);
-    double f, x1, y1, x1p, y1p, r;
-    double left[2], center[2], right[2];
-    /* Do some simple unit tests
-    double x1_o, y1_o, r_o, corR;
+#if AR_FILTER_UNIT_TEST
+    double f, r, x1_o, y1_o, x1p, y1p, r_o, corR;
     f       = scale_f * default_orbDiag * ispScalar / (4 * sin(M_PI / 4));
     x1_o    = ((float) 2 * rand()) / RAND_MAX - 1;
     y1_o    = ((float) 2 * rand()) / RAND_MAX - 1;
@@ -357,7 +355,7 @@ Rect setISPvars( uint16_t width, uint16_t height){
     correctPoint(x1p, y1p, &x1_o, &y1_o);
     point2angles(x1_o, y1_o, &xAngle_o, &yAngle_o);
     PRINT("Angles (%0.1f %0.1f) point(%0.1f, %0.1f) pixel(%0.1f %0.1f) point(%0.1f %0.1f) angles(%0.1f %0.1f)\n", xAngle / M_PI * 180, yAngle / M_PI * 180, x1, y1, x1p, y1p, x1_o, y1_o, xAngle_o / M_PI * 180, yAngle_o / M_PI * 180);
-    */
+#endif
     uint16_t horizPos             = horizonPos(0.0);
     // Top
     angles2point(-75.0/180.0*M_PI, 0.5 * AR_FILTER_IMAGE_CROP_FOVY, &x1, &y1);
@@ -384,8 +382,6 @@ Rect setISPvars( uint16_t width, uint16_t height){
             desOffset = -MT9F002_INITIAL_OFFSET_X;
     }
 #endif
-    VERBOSE_PRINT("ispScalar: %0.2f, desOffset: %d, ispHeight: %d, desHeight: %d\n",ispScalar, desOffset,ispHeight,desHeight);
-
     if(desHeight > ispHeight){
         desOffset = 0;
         desHeight = ispHeight;
@@ -689,19 +685,21 @@ void inputCoord(double x_out, double y_out, double *x_in, double *y_in){
 
 void getMVP(double MVP[16]){
     double modelMat[16], viewMat[16], modelviewMat[16], projectionMat[16];
-    double sensorRotation[16], eyeTranslationF[16], headingRotation[16], eyeTranslationR[16], modelMat_tmp1[16], modelMat_tmp2[16];
     double eye[4], forward[4], up[4];
     eye[0]      = 0.0;  eye[1]      =  0.0; eye[2]      = -AR_FILTER_VIEW_R;    eye[3]      = 1.0;
     forward[0]  = 0.0;  forward[1]  =  0.0; forward[2]  =  1.0;     forward[3]  = 1.0;
     up[0]       = 0.0;  up[1]       =  1.0; up[2]       =  0.0;     up[3]       = 1.0;
     // Create The model matrix
     setRotationMat(0.0, M_PI, 0.0, modelMat); // The ISP is 90 degrees rotated wrt the camera and the pinhole camera model flips the image
-    /*setTranslationMat(-eye[0], -eye[1], -eye[2], eyeTranslationF);
+    /*
+    double sensorRotation[16], eyeTranslationF[16], headingRotation[16], eyeTranslationR[16], modelMat_tmp1[16], modelMat_tmp2[16];
+    setTranslationMat(-eye[0], -eye[1], -eye[2], eyeTranslationF);
     setRotationMat(0.0, eulerAngles->psi, 0.0, headingRotation);
     setTranslationMat( eye[0],  eye[1],  eye[2], eyeTranslationR);
     matrixMultiply(eyeTranslationF, sensorRotation, modelMat_tmp1);
     matrixMultiply(headingRotation, modelMat_tmp1, modelMat_tmp2);
-    matrixMultiply(eyeTranslationR, modelMat_tmp2, modelMat);*/
+    matrixMultiply(eyeTranslationR, modelMat_tmp2, modelMat);
+    */
     // Create the view matrix
     rotateVector(-MT9F002_THETA_OFFSET - eulerAngles->theta, 0.0, -eulerAngles->phi, forward);
     rotateVector(-MT9F002_THETA_OFFSET - eulerAngles->theta, 0.0, -eulerAngles->phi, up);
@@ -1494,10 +1492,8 @@ int pixFindContour_cw(Mat& sourceFrame, Mat& destFrame, uint16_t row, uint16_t c
                     }
                     else{
                         destFrame.at<uint8_t>(row, col) = 76;
-                        //objCont_sCol                    = row;
-                        //objCont_sRow                    = col;
                         objCont_size                    = 0;
-                        result                          = pixFollowContour_cw(sourceFrame, destFrame, newRow, newCol, nextDir[d], true);
+                        result                          = pixFollowContour_cw(sourceFrame, destFrame, newRow, newCol, nextDir[d]);
                     }
                     switch(result){ // Catch the proper response for the tested pixel
                     case ARF_FINISHED : {
@@ -1556,7 +1552,7 @@ int pixFindContour_cw(Mat& sourceFrame, Mat& destFrame, uint16_t row, uint16_t c
     }
 }
 
-int pixFollowContour_cw(Mat& sourceFrame, Mat& destFrame, uint16_t row, uint16_t col, uint8_t prevDir, bool cascade){
+int pixFollowContour_cw(Mat& sourceFrame, Mat& destFrame, uint16_t row, uint16_t col, uint8_t prevDir){
     layerDepth++;
     pixCount++;
     if(destFrame.at<uint8_t>(row, col) == 76){
@@ -1564,12 +1560,12 @@ int pixFollowContour_cw(Mat& sourceFrame, Mat& destFrame, uint16_t row, uint16_t
         if(layerDepth > AR_FILTER_MIN_LAYERS){
             destFrame.at<uint8_t>(row, col) = 255;
             objCont_addPoint(&row,&col);
-            VERBOSE_PRINT("ARF_FINISHED back at (%d, %d) near startpos (%d, %d) after %d pixels\n",row, col, objCont_sRow, objCont_sCol, layerDepth);
+            VERBOSE_PRINT("ARF_FINISHED back at (%d, %d) after %d pixels\n",row, col, layerDepth);
             pixSucCount++;
             return ARF_FINISHED;
         }
         else{
-            VERBOSE_PRINT("ARF_NO_FOUND back at (%d, %d) near startpos (%d, %d) after only %d pixels\n",row, col, objCont_sRow, objCont_sCol, layerDepth);
+            VERBOSE_PRINT("ARF_NO_FOUND back at (%d, %d) after only %d pixels\n",row, col, layerDepth);
             pixNofCount++;
             objCont_size = 0;
             return ARF_NO_FOUND; // TODO: Should this be ARF_NO_FOUND?
@@ -1597,7 +1593,7 @@ int pixFollowContour_cw(Mat& sourceFrame, Mat& destFrame, uint16_t row, uint16_t
             newRow              = row;
             newCol              = col;
             if(getNewPosition(nextDir[d], &newRow, &newCol, &sourceFrame.rows, &sourceFrame.cols)){
-                switch(pixFollowContour_cw(sourceFrame, destFrame, newRow, newCol, nextDir[d], true)){ // Catch the proper response for the tested pixel
+                switch(pixFollowContour_cw(sourceFrame, destFrame, newRow, newCol, nextDir[d])){ // Catch the proper response for the tested pixel
                 case ARF_FINISHED : {
                     if(prevDir != nextDir[d]){
                         objCont_addPoint(&row,&col);
