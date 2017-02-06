@@ -53,7 +53,7 @@ using namespace cv;
 
 #define xSign(x) ( ( x ) >= ( 0 ) ? ( 1 ) : ( -1 ) )
 
-extern struct mt9f002_t mt9f002;
+//extern struct mt9f002_t mt9f002;
 
 #define AR_FILTER_UNIT_TEST     0   // Do unit tests with random points
 #define AR_FILTER_ISP_CROP      1   // Use the ISP to crop the frame according to FOV-Y
