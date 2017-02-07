@@ -137,6 +137,8 @@ static void             translate_xyz       (double result[16], const float tran
 static void             rotateVector        (float x, float y, float z, double vector[4]);
 static void             setTranslationMat   (float x, float y, float z, double outputMat[16]);
 
+void showMat( double mat[16] );
+void showVec( double vec[4] );
 #if AR_FILTER_MOD_VIDEO
 static void             mod_video           (Mat& sourceFrame, Mat& frameGrey);
 #endif
@@ -170,15 +172,15 @@ uint8_t     AR_FILTER_CDIST_YTHRES      = 2;
 uint8_t     AR_FILTER_CDIST_UTHRES      = 0;
 uint8_t     AR_FILTER_CDIST_VTHRES      = 0;
 // 1.525 too much - 1.5 (just) too little
-double      AR_FILTER_VIEW_R = 0.0091;
-double      default_k                   = 1.22471; //1.118 based on horizon - 1.22425040841 max                                                      // Fisheye correction factor (1.085)
+double      AR_FILTER_VIEW_R            = 0.0014; // 0.0091
+double      default_k                   = 1.224744; //1.118 based on horizon - 1.22474604174 max                                                      // Fisheye correction factor (1.085)
 uint16_t    default_calArea             = 8600;  // Calibrate at full resolution (5330)
 double      default_orbDiag             = 2 * CFG_MT9F002_FISHEYE_RADIUS;  // Measured circular image diagonal using full resolution
 double      scale_f                     = 1.0;
 // Lens correction parameter k
-float near          = 0.0000000075;
-float far           = 2.5;
-float angleOfView   = 178.87; // 160 degrees
+float near          = 0.075;
+float far           = 1.5;
+float angleOfView   = 179.70; // 160 degrees
 
 uint8_t     AR_FILTER_GREY_THRES        = 15;
 /* FAKE LIGHT
@@ -356,7 +358,7 @@ Rect setISPvars( uint16_t width, uint16_t height){
     point2angles(x1_o, y1_o, &xAngle_o, &yAngle_o);
     PRINT("Angles (%0.1f %0.1f) point(%0.1f, %0.1f) pixel(%0.1f %0.1f) point(%0.1f %0.1f) angles(%0.1f %0.1f)\n", xAngle / M_PI * 180, yAngle / M_PI * 180, x1, y1, x1p, y1p, x1_o, y1_o, xAngle_o / M_PI * 180, yAngle_o / M_PI * 180);
 #endif
-    uint16_t horizPos             = horizonPos(0.0);
+    uint16_t horizPos             = 0.5*ispHeight;//horizonPos(0.0);
     // Top
     angles2point(-75.0/180.0*M_PI, 0.5 * AR_FILTER_IMAGE_CROP_FOVY, &x1, &y1);
     inversePoint(x1,y1,&left[0],&left[1]);
@@ -364,7 +366,7 @@ Rect setISPvars( uint16_t width, uint16_t height){
     inversePoint(x1,y1,&center[0],&center[1]);
     angles2point(75.0/180.0*M_PI, 0.5 * AR_FILTER_IMAGE_CROP_FOVY, &x1, &y1);
     inversePoint(x1,y1,&right[0],&right[1]);
-    uint16_t top        = (uint16_t) round( max( right[1], max( left[1], center[1])));
+    uint16_t top        = ispHeight;//(uint16_t) round( max( right[1], max( left[1], center[1])));
     // Top
     angles2point(-75.0/180.0*M_PI, -0.5 * AR_FILTER_IMAGE_CROP_FOVY, &x1, &y1);
     inversePoint(x1,y1,&left[0],&left[1]);
@@ -372,7 +374,7 @@ Rect setISPvars( uint16_t width, uint16_t height){
     inversePoint(x1,y1,&center[0],&center[1]);
     angles2point(75.0/180.0*M_PI, -0.5 * AR_FILTER_IMAGE_CROP_FOVY, &x1, &y1);
     inversePoint(x1,y1,&right[0],&right[1]);
-    int16_t desOffset           = (int16_t) round( min( right[1], min( left[1], center[1])));
+    int16_t desOffset           = 0;//(int16_t) round( min( right[1], min( left[1], center[1])));
     uint16_t desHeight          = (top - desOffset);
 #if AR_FILTER_ISP_CROP
     int16_t fillHeight          = (int16_t) round( 0.5*initialWidth - (horizPos - desOffset) );
@@ -430,7 +432,7 @@ void correctPoint(double x_in, double y_in, double *x_out, double *y_out){
     x_in    = (corR * cos(theta)) / maxR;
     y_in    = (corR * sin(theta)) / maxR;
 
-    outputCoord(x_in, y_in, x_out, y_out);
+    outputCoord(x_in, y_in, y_out, x_out);
 }
 
 void angles2point(double xAngle, double yAngle, double *x_out, double * y_out){
@@ -446,30 +448,31 @@ void point2angles(double x_out, double y_out, double *xAngle, double *yAngle){
 void inversePoint(double x_out, double y_out, double *x_in, double *y_in){
     double f, r, theta,corR, maxR;
     f           = scale_f * default_orbDiag * ispScalar / (4 * sin(M_PI / 4));
-
+    //PRINT("Fisheye r: %d   f: %0.2f\n",CFG_MT9F002_FISHEYE_RADIUS, f);
     inputCoord(x_out, y_out, x_in, y_in);
     maxR        = correctRadius(CFG_MT9F002_FISHEYE_RADIUS * ispScalar, f, default_k);
     r           = maxR * sqrt( pow( *x_in, 2.0 ) + pow( *y_in, 2.0 ) );
     theta       = atan2( *y_in, *x_in);
     corR        = invertRadius(r, f, default_k);
-    *x_in       = ispWidth * 0.5 + corR * cos(theta);
-    *y_in       = ispHeight * 0.5 + corR * sin(theta) ;
+    *y_in       = ispHeight * 0.5 + corR * cos(theta);
+    *x_in       = ispWidth * 0.5 + corR * sin(theta) ;
 }
 
 void plotHorizontalLine(Mat& sourceFrameCrop, double yAngle, double xResDeg){
     double x1, y1, x1p, y1p, x2, y2, x2p, y2p;
     // Plot horizontal line
-    angles2point(-70.0/180.0*M_PI, yAngle, &x1, &y1);
+    angles2point(-85.0/180.0*M_PI, yAngle, &x1, &y1);
     inversePoint(x1, y1, &x1p, &y1p);
     char text[50];
-    for(double x_angle = -76+xResDeg; x_angle<=76; x_angle+=xResDeg){
+    for(double x_angle = -85+xResDeg; x_angle<=85; x_angle+=xResDeg){
         angles2point(x_angle / 180 * M_PI, yAngle, &x2, &y2);
         inversePoint(x2, y2, &x2p, &y2p);
+        PRINT("angle: %0.2f - p1 (%0.2f, %0.2f) p2(%0.2f, %0.2f)\n",x_angle, x1p, y1p, x2p, y2p);
         line(sourceFrameCrop, Point(y1p - cropCol,x1p), Point(y2p - cropCol,x2p), Scalar(0,127), 1);
         x1p = x2p;
         y1p = y2p;
     }
-    for(double i = -75; i <= 75; i+=15){
+    for(double i = -85; i <= 85; i+=15){
         angles2point(i / 180 * M_PI, yAngle, &x1, &y1);
         inversePoint(x1, y1, &x1p, &y1p);
         sprintf(text,"- %0.0f", i);
@@ -481,10 +484,10 @@ void plotHorizontalLine(Mat& sourceFrameCrop, double yAngle, double xResDeg){
 void plotVerticalLine(Mat& sourceFrameCrop, double xAngle, double yResDeg){
     double x1, y1, x1p, y1p, x2, y2, x2p, y2p;
     // Plot vertical line
-    angles2point(xAngle, -0.5*M_PI, &x1, &y1);
+    angles2point(xAngle, -85/180*M_PI, &x1, &y1);
     inversePoint(x1, y1, &x1p, &y1p);
     char text[50];
-    for(double y_angle = (-90+yResDeg)/180*M_PI; y_angle<=0.5*M_PI + MT9F002_THETA_OFFSET + eulerAngles->theta; y_angle+=yResDeg / 180 * M_PI){
+    for(double y_angle = (-85+yResDeg)/180*M_PI; y_angle<= 85/180*M_PI + MT9F002_THETA_OFFSET + eulerAngles->theta; y_angle+=yResDeg / 180 * M_PI){
         angles2point(xAngle, y_angle, &x2, &y2);
         inversePoint(x2, y2, &x2p, &y2p);
         line(sourceFrameCrop, Point(y1p - cropCol,x1p), Point(y2p - cropCol,x2p), Scalar(0,127), 1);
@@ -499,12 +502,51 @@ void plotVerticalLine(Mat& sourceFrameCrop, double xAngle, double yResDeg){
     }
 }
 
+void plotPerspective(Mat& sourceFrameCrop){
+    double x1,y1,x1p,y1p,x2p,y2p,scale = 10000.0;
+    //showMat(MVP);
+    y1 = -0.5*AR_FILTER_VIEW_R;
+    x1 =  0.5*AR_FILTER_VIEW_R;
+    outputCoord(x1, y1, &x1p, &y1p);
+    x1p *= scale;
+    y1p *= scale;
+    y1 =  0.5*AR_FILTER_VIEW_R;
+    x1 =  0.5*AR_FILTER_VIEW_R;
+    outputCoord(x1, y1, &x2p, &y2p);
+    x2p *= scale;
+    y2p *= scale;
+    PRINT("p1: (%0.4f, %0.4f) ", y1p, x1p);
+    printf("p2: (%0.4f, %0.4f) ", y2p, x2p);
+    line(sourceFrameCrop, Point((y1p + sourceFrameCrop.cols/2.0) -250, (x1p + sourceFrameCrop.rows/2.0)), Point((y2p + sourceFrameCrop.cols/2.0) -250, (x2p + sourceFrameCrop.rows/2.0)), Scalar(0,127), 1);
+    y1 =  0.5*AR_FILTER_VIEW_R;
+    x1 = -0.5*AR_FILTER_VIEW_R;
+    outputCoord(x1, y1, &x1p, &y1p);
+    x1p *= scale;
+    y1p *= scale;
+    printf("p3: (%0.4f, %0.4f) ", y1p, x1p);
+    line(sourceFrameCrop, Point((y2p + sourceFrameCrop.cols/2.0) -250, (x2p + sourceFrameCrop.rows/2.0)), Point((y1p + sourceFrameCrop.cols/2.0) -250, (x1p + sourceFrameCrop.rows/2.0)), Scalar(0,127), 1);
+    y1 = -0.5*AR_FILTER_VIEW_R;
+    x1 = -0.5*AR_FILTER_VIEW_R;
+    outputCoord(x1, y1, &x2p, &y2p);
+    x2p *= scale;
+    y2p *= scale;
+    printf("p4: (%0.4f, %0.4f)\n", y2p, x2p);
+    line(sourceFrameCrop, Point((y1p + sourceFrameCrop.cols/2.0) -250, (x1p + sourceFrameCrop.rows/2.0)), Point((y2p + sourceFrameCrop.cols/2.0) -250, (x2p + sourceFrameCrop.rows/2.0)), Scalar(0,127), 1);
+    y1 = -0.5*AR_FILTER_VIEW_R;
+    x1 =  0.5*AR_FILTER_VIEW_R;
+    outputCoord(x1, y1, &x1p, &y1p);
+    x1p *= scale;
+    y1p *= scale;
+    line(sourceFrameCrop, Point((y2p + sourceFrameCrop.cols/2.0) -250, (x2p + sourceFrameCrop.rows/2.0)), Point((y1p + sourceFrameCrop.cols/2.0) -250, (x1p + sourceFrameCrop.rows/2.0)), Scalar(0,127), 1);
+}
+
 void plotHorizon(Mat& sourceFrameCrop){
-    //plotHorizontalLine(sourceFrameCrop, -0.5 * AR_FILTER_IMAGE_CROP_FOVY, 5);
+    //plotHorizontalLine(sourceFrameCrop, -MT9F002_THETA_OFFSET - eulerAngles->theta, 5);
     plotHorizontalLine(sourceFrameCrop,   0.0 / 180.0 * M_PI, 5);
+    plotPerspective(sourceFrameCrop);
     //plotHorizontalLine(sourceFrameCrop,  0.5 * AR_FILTER_IMAGE_CROP_FOVY, 5);
     //plotVerticalLine(sourceFrameCrop, -45.0 / 180.0 * M_PI, 5);
-    //plotVerticalLine(sourceFrameCrop,   0.0 / 180.0 * M_PI, 5);
+    plotVerticalLine(sourceFrameCrop,   0.0 / 180.0 * M_PI, 5);
     //plotVerticalLine(sourceFrameCrop,  45.0 / 180.0 * M_PI, 5);
 }
 
@@ -642,11 +684,10 @@ double invertRadius(double r, double f, double k){
     return f * tan( asin( sin( atan( r / f ) ) / k ) );
 }
 
-void showMat( double mat[16] );
-
 uint16_t horizonPos( double y_orig ){
-    double x_in, y_in;
-    inversePoint(0.0, y_orig, &x_in, &y_in);
+    double x_in, y_in, x_pos, y_pos;
+    angles2point(0.0, y_orig, &x_pos, &y_pos);
+    inversePoint(x_pos, y_pos, &x_in, &y_in);
     return (uint16_t) round(y_in);
 }
 
@@ -655,6 +696,10 @@ void showMat( double mat[16] ) {
     printf("| %6.3f  %6.3f  %6.3f  %6.3f |\n", mat[1], mat[5], mat[9], mat[13]);
     printf("| %6.3f  %6.3f  %6.3f  %6.3f |\n", mat[2], mat[6], mat[10], mat[14]);
     printf("| %6.3f  %6.3f  %6.3f  %6.3f |\n", mat[3], mat[7], mat[11], mat[15]);
+}
+
+void showVec( double vec[4] ) {
+    printf("| %6.3f  %6.3f  %6.3f  %6.3f |\n", vec[0], vec[1], vec[2], vec[3]);
 }
 
 void outputCoord(double x_in, double y_in, double *x_out, double *y_out){
@@ -684,26 +729,23 @@ void inputCoord(double x_out, double y_out, double *x_in, double *y_in){
 }
 
 void getMVP(double MVP[16]){
-    double modelMat[16], viewMat[16], modelviewMat[16], projectionMat[16];
-    double eye[4], forward[4], up[4];
+    double modelMat[16], viewMat[16], modelviewMat[16], projectionMat[16], tmpRes[16], postRotMat[16];
+    double eye[4], forward[4], up[4], center[4];
     eye[0]      = 0.0;  eye[1]      =  0.0; eye[2]      = -AR_FILTER_VIEW_R;    eye[3]      = 1.0;
-    forward[0]  = 0.0;  forward[1]  =  0.0; forward[2]  =  1.0;     forward[3]  = 1.0;
-    up[0]       = 0.0;  up[1]       =  1.0; up[2]       =  0.0;     up[3]       = 1.0;
+    forward[0]  = 0.0;  forward[1]  =  0.0; forward[2]  =  1.0;                 forward[3]  = 1.0;
+    up[0]       = 0.0;  up[1]       =  1.0; up[2]       =  0.0;                 up[3]       = 1.0;
     // Create The model matrix
-    setRotationMat(0.0, M_PI, 0.0, modelMat); // The ISP is 90 degrees rotated wrt the camera and the pinhole camera model flips the image
-    /*
     double sensorRotation[16], eyeTranslationF[16], headingRotation[16], eyeTranslationR[16], modelMat_tmp1[16], modelMat_tmp2[16];
+    setRotationMat(M_PI, 0.0, -0.5 * M_PI, sensorRotation);
     setTranslationMat(-eye[0], -eye[1], -eye[2], eyeTranslationF);
-    setRotationMat(0.0, eulerAngles->psi, 0.0, headingRotation);
+    setRotationMat(0.0, 0.0, 0.0, headingRotation);
     setTranslationMat( eye[0],  eye[1],  eye[2], eyeTranslationR);
     matrixMultiply(eyeTranslationF, sensorRotation, modelMat_tmp1);
     matrixMultiply(headingRotation, modelMat_tmp1, modelMat_tmp2);
     matrixMultiply(eyeTranslationR, modelMat_tmp2, modelMat);
-    */
     // Create the view matrix
-    rotateVector(-MT9F002_THETA_OFFSET - eulerAngles->theta, 0.0, -eulerAngles->phi, forward);
-    rotateVector(-MT9F002_THETA_OFFSET - eulerAngles->theta, 0.0, -eulerAngles->phi, up);
-    double center[4];
+    rotateVector(MT9F002_THETA_OFFSET + eulerAngles->theta, 0.0, eulerAngles->phi, forward);
+    rotateVector(MT9F002_THETA_OFFSET + eulerAngles->theta, 0.0, eulerAngles->phi, up);
     center[0] = eye[0] + forward[0];
     center[1] = eye[1] + forward[1];
     center[2] = eye[2] + forward[2];
@@ -711,7 +753,27 @@ void getMVP(double MVP[16]){
     view_set_lookat(viewMat, eye,  center,  up);
     setPerspectiveMat(projectionMat);
     matrixMultiply(viewMat, modelMat, modelviewMat);
-    matrixMultiply(projectionMat, modelviewMat, MVP);
+    matrixMultiply(projectionMat, modelviewMat, tmpRes);
+    setRotationMat(0.0, 0.0, 0.0, postRotMat);
+    matrixMultiply(postRotMat, tmpRes, MVP);
+    /*
+    printf("Eye:\n");
+    showVec(eye);
+    printf("Forward:\n");
+    showVec(forward);
+    printf("Up:\n");
+    showVec(up);
+    printf("Center:\n");
+    showVec(center);
+    printf("Model:\n");
+    showMat(modelMat);
+    printf("View:\n");
+    showMat(viewMat);
+    printf("Projection:\n");
+    showMat(projectionMat);
+    printf("MVP:\n");
+    showMat(MVP);
+    */
 }
 
 void setPerspectiveMat(double perspectiveMat[16])
