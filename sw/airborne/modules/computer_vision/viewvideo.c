@@ -143,9 +143,8 @@ struct viewvideo_t viewvideo = {
 };
 
 static P7_H264_context_t videoEncoder;
-#if VIEWVIDEO_WRITE_VIDEO
 static FILE *video_file;
-#endif
+bool viewvideo_recording;
 
 /**
  * Handles all the video streaming and saving of the image shots
@@ -252,9 +251,19 @@ struct image_t *viewvideo_function(struct image_t *img)
 #if VIEWVIDEO_STREAM_VIDEO
     	rtp_frame_send_h264(&video_sock, h264Buffer, size);
 #endif
-#if VIEWVIDEO_WRITE_VIDEO
-        fwrite(h264Buffer, size, 1, video_file);
-#endif
+    	if(viewvideo_recording){
+    	    if(video_file == NULL){
+    	        viewvideo_start_recording();
+    	    }
+    	    else{
+    	        fwrite(h264Buffer, size, 1, video_file);
+    	    }
+    	}
+    	else{
+    	    if(video_file != NULL){
+    	        viewvideo_stop_recording();
+    	    }
+    	}
       }
       P7_H264_releaseOutputBuffer(&videoEncoder, h264BufferIndex);
     }
@@ -265,25 +274,44 @@ struct image_t *viewvideo_function(struct image_t *img)
   return NULL; // No new images were created
 }
 
+void viewvideo_start_recording( void ){
+    char video_name[512];
+    uint32_t counter = 0;
+    // Check for available files
+    sprintf(video_name, "%s/%s.h264", STRINGIFY(VIEWVIDEO_SHOT_PATH), STRINGIFY(VIEWVIDEO_VIDEO_FILE));
+    while ((video_file = fopen(video_name, "r"))) {
+        fclose(video_file);
+        counter++;
+        sprintf(video_name, "%s/%s_%05d.h264", STRINGIFY(VIEWVIDEO_SHOT_PATH), STRINGIFY(VIEWVIDEO_VIDEO_FILE), counter);
+    }
+    int tries       = 0;
+    int maxtries    = 5;
+    do {
+        video_file = fopen(video_name, "w");
+        tries++;
+    } while(video_file == NULL && tries < maxtries);
+    if(video_file == NULL)
+    {
+        printf("[viewvideo] Failed to create .h264 file.\n");
+    }
+    else{
+        viewvideo_recording = true;
+    }
+}
+
+void viewvideo_stop_recording( void ){
+    if(video_file){
+        fclose(video_file);
+    }
+    video_file          = NULL;
+    viewvideo_recording = false;
+}
+
 /**
  * Initialize the view video
  */
 void viewvideo_init(void)
 {
-#if VIEWVIDEO_WRITE_VIDEO
-  char video_name[512];
-  sprintf(video_name, "%s/%s.h264", STRINGIFY(VIEWVIDEO_SHOT_PATH), STRINGIFY(VIEWVIDEO_VIDEO_FILE));
-  int tries = 0;
-  int maxtries = 5;
-  do {
-	  video_file = fopen(video_name, "w");
-	  tries++;
-  } while(video_file == NULL && tries < maxtries);
-  if(video_file == NULL)
-  {
-	  printf("[viewvideo] Failed to create .h264 file.\n");
-  }
-#endif
   struct video_listener *listener = cv_add_to_device(&VIEWVIDEO_CAMERA, viewvideo_function);
   listener->maximum_fps = 0;
 

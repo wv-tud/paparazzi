@@ -53,32 +53,29 @@ typedef struct _memBlock {
 	double z_w;
 } memoryBlock;
 
+extern uint8_t      AR_FILTER_FLOOD_STYLE;
+extern uint8_t      AR_FILTER_SAMPLE_STYLE;
+extern uint16_t     AR_FILTER_RND_PIX_SAMPLE;
 
-extern double 		AR_FILTER_IMAGE_CROP_FOVY;
 extern uint8_t 		AR_FILTER_Y_MIN;
 extern uint8_t 		AR_FILTER_Y_MAX;
 extern uint8_t 		AR_FILTER_U_MIN;
 extern uint8_t 		AR_FILTER_U_MAX;
 extern uint8_t 		AR_FILTER_V_MIN;
 extern uint8_t 		AR_FILTER_V_MAX;
-extern uint8_t      AR_FILTER_GREY_THRES;
-extern double       AR_FILTER_VIEW_R;
-extern uint16_t     AR_FILTER_RND_PIX_SAMPLE;
-extern uint16_t     AR_FILTER_MIN_CROP_AREA;
-extern uint16_t     AR_FILTER_MAX_LAYERS;
-extern uint16_t     AR_FILTER_MIN_LAYERS;
-extern uint16_t     AR_FILTER_MIN_POINTS;
-extern double       AR_FILTER_MIN_CIRCLE_SIZE;
-extern double       AR_FILTER_MAX_CIRCLE_DEF;
-extern uint8_t      AR_FILTER_FLOOD_STYLE;
-extern uint8_t      AR_FILTER_SAMPLE_STYLE;
 extern uint8_t      AR_FILTER_CDIST_YTHRES;
 extern uint8_t      AR_FILTER_CDIST_UTHRES;
 extern uint8_t      AR_FILTER_CDIST_VTHRES;
+extern uint8_t      AR_FILTER_GREY_THRES;
+
+extern double       AR_FILTER_CAM_RANGE;
+extern double       AR_FILTER_MIN_CIRCLE_PERC;
+extern double       AR_FILTER_MAX_CIRCLE_DEF;
+
+extern double       AR_FILTER_VIEW_R;
 extern double       default_k;
 extern uint16_t     default_calArea;
 extern float        angleOfView;
-extern double       scale_f;
 
 // Filter sample styles
 #define AR_FILTER_STYLE_FULL   0
@@ -107,9 +104,9 @@ extern double       scale_f;
 #ifdef __cplusplus
 extern "C" {
 #endif
-
+#include <state.h>                              // C header used for state functions and data
 void active_random_filter_init(void);
-void active_random_filter(char* buff, uint16_t width, uint16_t height, struct FloatEulers* eulerAngles);
+void active_random_filter(char* buff, uint16_t width, uint16_t height, struct FloatEulers* curEulerAngles);
 
 #ifdef __cplusplus
 }

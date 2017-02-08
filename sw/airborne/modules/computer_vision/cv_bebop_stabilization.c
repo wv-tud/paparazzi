@@ -199,7 +199,6 @@ struct image_t* cv_bebop_stabilization_func (struct image_t *img)
 	return img;
 }
 
-
 void cv_bebop_stabilization_init ()
 {
 	printf("Initializing front camera stabilization\n");

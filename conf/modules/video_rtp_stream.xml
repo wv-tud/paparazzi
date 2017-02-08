@@ -23,6 +23,7 @@
   <settings>
     <dl_settings>
       <dl_settings name="video">
+      <dl_setting var="viewvideo_recording" min="0" step="1" max="1" values="FALSE|TRUE" shortname="record" module="computer_vision/viewvideo"/>
         <dl_setting var="viewvideo.use_rtp" min="0" step="1" max="1" values="FALSE|TRUE" shortname="rtp" module="computer_vision/viewvideo" param="VIEWVIDEO_USE_RTP"/>
       </dl_settings>
     </dl_settings>
