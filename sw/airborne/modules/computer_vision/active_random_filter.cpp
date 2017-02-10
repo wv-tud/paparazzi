@@ -66,9 +66,9 @@ using namespace cv;
 #define AR_FILTER_MEASURE_FPS   1   // Measure average FPS
 #define AR_FILTER_CALIBRATE_CAM 0   // Calibrate camera
 #define AR_FILTER_WORLDPOS 		1   // Use world coordinates
-#define AR_FILTER_NOYAW 		1   // Output in body horizontal XY
+#define AR_FILTER_NOYAW 		0   // Output in body horizontal XY
 #define AR_FILTER_TIMEOUT       150 // Frames from start
-#define AR_FILTER_USE_ALTITUDE  0   // Use own altitude for world pos
+#define AR_FILTER_USE_ALTITUDE  1   // Use own altitude for world pos
 
 static void             active_random_filter_header ( void );
 static void             active_random_filter_footer ( void );
@@ -155,11 +155,11 @@ static void 			saveBuffer			(Mat sourceFrame, const char *filename);
 uint8_t     AR_FILTER_FLOOD_STYLE       = AR_FILTER_FLOOD_CW;
 uint8_t     AR_FILTER_SAMPLE_STYLE      = AR_FILTER_STYLE_RANDOM;
 
-double      AR_FILTER_CAM_RANGE         = 5.0;          // Maximum r_c of newly added objects
+double      AR_FILTER_CAM_RANGE         = 6.0;          // Maximum r_c of newly added objects
 uint16_t    AR_FILTER_RND_PIX_SAMPLE    = 2500;         // Random pixel sample size
 uint16_t    AR_FILTER_MAX_LAYERS        = 5000;         // Maximum recursive depth of CW flood
-double 	    AR_FILTER_MAX_CIRCLE_DEF 	= 0.815;         // Max contour eccentricity
-double      AR_FILTER_MIN_CIRCLE_PERC   = 0.50;         // Minimum percentage of circle in view
+double 	    AR_FILTER_MAX_CIRCLE_DEF 	= 0.95;         // Max contour eccentricity
+double      AR_FILTER_MIN_CIRCLE_PERC   = 0.35;         // Minimum percentage of circle in view
 // Automatically calculated parameters
 uint16_t    AR_FILTER_MIN_POINTS;           // Mimimum contour length
 double      AR_FILTER_MIN_CIRCLE_SIZE;      // Minimum contour area
@@ -172,12 +172,12 @@ uint8_t     AR_FILTER_CDIST_VTHRES      = 5;
 // 1.525 too much - 1.5 (just) too little
 double      AR_FILTER_VIEW_R            = 0.001455; // 0.0091
 double      default_k                   = 1.224744; //1.118 based on horizon - 1.22474604174 max                                                      // Fisheye correction factor (1.085)
-uint16_t    default_calArea             = 8600;  // Calibrate at full resolution (5330)
+uint16_t    default_calArea             = 7400;  // Calibrate at full resolution (5330)
 double      default_orbDiag             = 2 * CFG_MT9F002_FISHEYE_RADIUS;  // Measured circular image diagonal using full resolution
 // Lens correction parameter k
 float near          = 0.075;
 float far           = 1.5;
-float angleOfView   = 179.70; // 160 degrees
+float angleOfView   = 179.80; // 160 degrees
 
 uint8_t     AR_FILTER_GREY_THRES        = 15;
 /* FAKE LIGHT
@@ -189,14 +189,14 @@ uint8_t     AR_FILTER_V_MIN             = 158;                          // 218 -
 uint8_t     AR_FILTER_V_MAX             = 255;                          // 240 -> 255?
 */
 
-/* DAYLIGHT */
+/* DAYLIGHT
 uint8_t 	AR_FILTER_Y_MIN 			= 130;                           // 0  [0,65 84,135 170,255]zoo 45
 uint8_t 	AR_FILTER_Y_MAX 			= 255;                          // 255
 uint8_t 	AR_FILTER_U_MIN 			= 95;                          // 84
 uint8_t 	AR_FILTER_U_MAX 			= 131;                          // 113
 uint8_t 	AR_FILTER_V_MIN 			= 145;                          // 218 -> 150?
 uint8_t 	AR_FILTER_V_MAX 			= 188;                          // 240 -> 255?
-
+*/
 /* DAYLIGHT 2
 uint8_t     AR_FILTER_Y_MIN             = 123;                           // 0  [0,65 84,135 170,255]zoo 45
 uint8_t     AR_FILTER_Y_MAX             = 222;                          // 255
@@ -206,14 +206,14 @@ uint8_t     AR_FILTER_V_MIN             = 150;                          // 218 -
 uint8_t     AR_FILTER_V_MAX             = 209;                          // 240 -> 255?
 */
 
-/* Cyberzoo
-uint8_t     AR_FILTER_Y_MIN             = 70;                           // 0  [0,65 84,135 170,255]zoo 45
-uint8_t     AR_FILTER_Y_MAX             = 230;                          // 255
-uint8_t     AR_FILTER_U_MIN             = 105;                          // 84
-uint8_t     AR_FILTER_U_MAX             = 155;                          // 113
-uint8_t     AR_FILTER_V_MIN             = 176;                          // 218 -> 150?
-uint8_t     AR_FILTER_V_MAX             = 210;                          // 240 -> 255?
-*/
+/* Cyberzoo */
+uint8_t     AR_FILTER_Y_MIN             = 45;                           // 0  [0,65 84,135 170,255]zoo 45
+uint8_t     AR_FILTER_Y_MAX             = 245;                          // 255
+uint8_t     AR_FILTER_U_MIN             = 100;                          // 84
+uint8_t     AR_FILTER_U_MAX             = 160;                          // 113
+uint8_t     AR_FILTER_V_MIN             = 158;                          // 218 -> 150?
+uint8_t     AR_FILTER_V_MAX             = 205;                          // 240 -> 255?
+
 double 	    AR_FILTER_IMAGE_CROP_FOVY 	= 65.0 * M_PI / 180.0; 		    // Radians
 double 	    AR_FILTER_CROP_X 			= 1.2;
 uint8_t     AR_FILTER_MEMORY 			= 40;
@@ -449,7 +449,15 @@ void point2angles(double x_out, double y_out, double *xAngle, double *yAngle){
 
 void plotHorizon(Mat& sourceFrameCrop){
     plotHorizontalLine(sourceFrameCrop, 0.0 / 180.0 * M_PI, 5);
-    plotVerticalLine(sourceFrameCrop,   0.0 / 180.0 * M_PI, 5);
+    //plotHorizontalLine(sourceFrameCrop, 15.0 / 180.0 * M_PI, 5);
+    //plotHorizontalLine(sourceFrameCrop, -15.0 / 180.0 * M_PI, 5);
+    //plotHorizontalLine(sourceFrameCrop, 30.0 / 180.0 * M_PI, 5);
+    //plotHorizontalLine(sourceFrameCrop, -30.0 / 180.0 * M_PI, 5);
+    //plotVerticalLine(sourceFrameCrop,   0.0 / 180.0 * M_PI, 5);
+    //plotVerticalLine(sourceFrameCrop,   45.0 / 180.0 * M_PI, 5);
+    //plotVerticalLine(sourceFrameCrop,   -45.0 / 180.0 * M_PI, 5);
+    //plotVerticalLine(sourceFrameCrop,   63.4349 / 180.0 * M_PI, 5);
+    //plotVerticalLine(sourceFrameCrop,   -63.4349 / 180.0 * M_PI, 5);
     //plotPerspective(sourceFrameCrop);
 }
 
@@ -562,7 +570,7 @@ void estimatePosition(uint16_t xp, uint16_t yp, uint32_t area, double position[3
     int16_t y               = xp - cY;                                                      // rotate frame cc 90 degrees (ISP is rotated 90 degrees cc)
     double r                = sqrt( pow( (double) x, 2.0 ) + pow( (double) y, 2.0 ) );   // [mm] radial distance from middle of CMOS
     double corR             = correctRadius(r, f, default_k);
-    double corArea          = area * pow(corR / r, 2.0);
+    double corArea          = area;// * corR / r;//pow(corR / r, 2.0); // TODO: Fix better
     double dist             = sqrt((double) calArea) / sqrt(corArea);
     correctPoint((double) yp, (double) xp, &x_in, &y_in);
     point2angles(x_in, y_in, &xAngle, &yAngle);
@@ -895,7 +903,7 @@ bool processImage_cw(Mat& sourceFrame, Mat& destFrame, uint16_t sampleSize){
     if (sourceFrame.cols > 0 && sourceFrame.rows > 0)
     {
         if (AR_FILTER_SAMPLE_STYLE > 0){
-            const uint8_t maxLayer  = 12;
+            const uint8_t maxLayer  = 20;
             Point searchGrid[8*maxLayer];
             for(unsigned int rnm=0; rnm < neighbourMem_size; rnm++)
             {
@@ -903,7 +911,7 @@ bool processImage_cw(Mat& sourceFrame, Mat& destFrame, uint16_t sampleSize){
                     VERBOSE_PRINT("Looking for object %d\n",neighbourMem[rnm].id);
                     uint8_t searchLayer     = 0;
                     uint8_t searchPoints    = 1;
-                    uint16_t sGridSize      = 0.1 * sqrt(((float) neighbourMem[rnm].area_p) / M_PI);
+                    uint16_t sGridSize      = 0.075 * sqrt(((float) neighbourMem[rnm].area_p) / M_PI);
                     foundObj                = false; // We're pessimistic that we can find the same object
                     while(!foundObj && searchLayer < maxLayer){
                         createSearchGrid(neighbourMem[rnm].x_p - cropCol, neighbourMem[rnm].y_p, searchGrid, searchLayer, sGridSize, &sourceFrame.rows, &sourceFrame.cols);

@@ -68,12 +68,12 @@ static void autoswarm_opencv_run_trailer(void);
 
 // Set up swarm parameters
 int     AUTOSWARM_MODE          = 2;                // 0: follow (deprecated), 1: look in direction of flight, 2: look in direction of global component
-double  AUTOSWARM_SEPERATION    = 1.5;              // m
+double  AUTOSWARM_SEPERATION    = 1.75;              // m
 double  AUTOSWARM_E             = 0.0025;            // Was 0.01x - 0.0005 at 12m/s OK (but close)
-double  AUTOSWARM_EPS           = 0.025;             //
+double  AUTOSWARM_EPS           = 0.05;             //
 double  AUTOSWARM_GLOBAL        = 0.9;              // % of V_MAX
 int     AUTOSWARM_FPS           = 18;               // Frames per second
-double  AUTOSWARM_VMAX          = 1;                // m/s
+double  AUTOSWARM_VMAX          = 0.4;                // m/s
 double  AUTOSWARM_YAWRATEMAX    = 70;               // deg/s
 int     AUTOSWARM_MEMORY        = 1.5;              // seconds
 double  AUTOSWARM_HOME          = 0.3;              // m
@@ -129,45 +129,31 @@ void autoswarm_opencv_run(){
         return;
     }    // Engines have not started yet, lets save some battery life and skip image processing for now
     autoswarm_opencv_run_header();                  // Mainly code for printing and debugging
-    VERBOSE_PRINT("Ran header\n");
     runCount++;                                     // Update global run-counter
     eulerAngles = stateGetNedToBodyEulers_f();      // Get Euler angles
     pos         = stateGetPositionNed_f();          // Get your current position
     groundSpeed = stateGetSpeedNed_f();             // Get groundspeed
-    VERBOSE_PRINT("Got states\n");
     double totV[3]  = {0.0, 0.0, 0.0};
     double cPos[3]  = {0.0, 0.0, 0.0};
     double gi[3]    = {0.0, 0.0, 0.0};
-    VERBOSE_PRINT("Initialized vectors\n");
     calcVelocityResponse(pos, totV, gi);            // Calculate the velocity response of the agent and store result in totV and gi
-    VERBOSE_PRINT("Calculated velocity response\n");
     calcCamPosition(pos, totV, cPos, gi);           // Calculate WP_CAM/heading based on pos,totV and gi and store in cPos
-    VERBOSE_PRINT("Calculated camera position\n");
     updateWaypoints(pos, totV, cPos);               // Update waypoints based on velocity contribution
-    VERBOSE_PRINT("Updated waypoints\n");
     autoswarm_opencv_run_trailer();                  // Mainly code for printing and debugging
-    VERBOSE_PRINT("Ran trailer\n");
     return;
 }
 
 void calcVelocityResponse(struct NedCoor_f *pos, double totV[3], double gi[3]){
     double li[3]    = {0.0, 0.0, 0.0};              // Initialize local contribution
     double di[3]    = {0.0, 0.0, 0.0};              // Initialize differential contribution
-    VERBOSE_PRINT("Initialized other vectors\n");
     calcLocalVelocity(pos, li);                     // Get the contribution due to the neighbours we see and have memorized
-    VERBOSE_PRINT("Calculated local\n");
     calcGlobalVelocity(pos, gi);                    // Get the contribution due to the "attraction" towards global origin
-    VERBOSE_PRINT("Calculated global\n");
     totV[0]         = li[0] + gi[0];                // Average the X local contribution (#neighbours independent) and add the X global contribution
     totV[1]         = li[1] + gi[1];                // Do the same for Y
-    VERBOSE_PRINT("Added local and global\n");
     limitNorm(totV, AUTOSWARM_VMAX);                // Check if ideal velocity exceeds AUTOSWARM_VMAX
-    VERBOSE_PRINT("Limited  norm\n");
     calcDiffVelocity(totV, di);                     // Calculate the differential component based on change in totV
-    VERBOSE_PRINT("Calculated diff\n");
     totV[0]         = totV[0] + di[0];              // Add differential x component
     totV[1]         = totV[1] + di[1];              // Add differential y component
-    VERBOSE_PRINT("Added all together\n");
     if (AUTOSWARM_MODE!=2){
         limitVelocityYaw(totV);   // Limit the velocity when relative angle gets larger
     }
@@ -207,7 +193,7 @@ void calcGlobalVelocity(struct NedCoor_f *pos, double gi[3]){
     case AUTOSWARM_BUCKET :{
         double cr     = sqrt(pow(globalOrigin.cx - pos->x, 2.0) + pow(globalOrigin.cy - pos->y, 2.0));
         if (cr > AUTOSWARM_DEADZONE){
-            double gScalar      = AUTOSWARM_GLOBAL * (1 - 1 / (1 + exp(4 / AUTOSWARM_SEPERATION * (cr - AUTOSWARM_SEPERATION))));
+            double gScalar      = 0.5 * AUTOSWARM_GLOBAL * (1 - 1 / (1 + exp(4 / AUTOSWARM_SEPERATION * (cr - AUTOSWARM_SEPERATION))));
             gi[0]               = gScalar * AUTOSWARM_VMAX * (globalOrigin.cx - pos->x) / cr;
             gi[1]               = gScalar * AUTOSWARM_VMAX * (globalOrigin.cy - pos->y) / cr;
         }

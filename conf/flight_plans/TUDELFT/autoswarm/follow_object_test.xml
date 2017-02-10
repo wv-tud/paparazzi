@@ -5,6 +5,7 @@
 #include "autopilot.h"
 #include "subsystems/datalink/datalink.h"
 #include "modules/computer_vision/autoswarm/autoswarm_opencv.h"
+#include "modules/computer_vision/viewvideo.h"
 </header>
   <waypoints>
     <waypoint name="HOME" 	x="1.0" y="1.0"/>
@@ -13,10 +14,16 @@
     <waypoint name="_GOAL" 	x="1.0" y="0.0"/>
     <waypoint name="_CAM" 	x="1.0" y="0.0"/>
     <waypoint name="GLOBAL" lat="51.9906375" lon="4.3767963"/>
+    <waypoint lat="51.9905836" lon="4.3767729" name="CZ1"/>
+    <waypoint lat="51.9906367" lon="4.3767153" name="CZ2"/>
+    <waypoint lat="51.9906757" lon="4.3768068" name="CZ3"/>
+    <waypoint lat="51.9906226" lon="4.3768699" name="CZ4"/>
+    <!--
     <waypoint lat="51.9906258" lon="4.3768571" name="CZ1"/>
     <waypoint lat="51.9905925" lon="4.3767779" name="CZ2"/>
     <waypoint lat="51.9906426" lon="4.3767220" name="CZ3"/>
     <waypoint lat="51.9906763" lon="4.3768037" name="CZ4"/>
+    -->
   </waypoints>
   <sectors>
     <sector color="red" name="CyberZoo">
@@ -27,10 +34,10 @@
     </sector>
   </sectors>
   <exceptions>
-    <exception cond="!InsideCyberZoo(GetPosX(), GetPosY())" 	deroute="Land here"/>
-    <exception cond="LessThan(3, datalink_time)" 		deroute="Land here"/>
-    <exception cond="!GpsFixValid()" 				deroute="Land here" />
-    <exception cond="LessThan(2.5, GetPosAlt())" 			deroute="Land here"/>
+    <exception cond="!InsideCyberZoo(GetPosX(), GetPosY())" 	deroute="land here"/>
+    <exception cond="LessThan(3, datalink_time)" 		deroute="land here"/>
+    <exception cond="!GpsFixValid()" 				deroute="No GPS Landing" />
+    <exception cond="LessThan(2.5, GetPosAlt())" 		deroute="land here"/>
   </exceptions>
   <blocks>
     <block name="Wait GPS">
@@ -59,6 +66,7 @@
       <stay wp="STDBY"/>
     </block>
     <block name="Swarm" strip_button="Swarm" strip_icon="lookfore.png">
+    <set var="viewvideo_recording" value="TRUE"/>
 	<call_once fun="setSwarmMode(2)"/>
     	<call_once fun="nav_set_heading_towards_waypoint(WP__CAM)"/>
     	<stay wp="_GOAL"/>
@@ -71,7 +79,7 @@
 	<call_once fun="nav_set_heading_towards_waypoint(WP__CAM)"/>
     	<stay wp="_GOAL"/>
     </block>
-    <block key="l" name="Land here" strip_button="Land Here" strip_icon="land-right.png">
+    <block key="l" name="land here" strip_button="Land Here" strip_icon="land-right.png">
       <call_once fun="NavSetWaypointHere(WP__TD)"/>
       <go wp="_TD"/>
     </block>
@@ -86,7 +94,14 @@
     </block>
     <block name="Landed">
       <call_once fun="NavKillThrottle()"/>
+      <set var="viewvideo_recording" value="FALSE"/>
       <attitude pitch="0" roll="0" throttle="0" until="FALSE" vmode="throttle"/>
+    </block>
+    <block name="No GPS Landing">
+    	<attitude pitch="0" roll="0" throttle="0.49" until="GpsFixValid() && LessThan(GetPosAlt(), 0.15)" vmode="throttle"/>
+    	<deroute block="Landed"/>
+    	<exception cond="!nav_is_in_flight()" 	deroute="Landed"/>
+    	<exception cond="GpsFixValid()" 	deroute="Standby" />
     </block>
     <block name="circle_cw">
       <set var="AUTOSWARM_ATTRACTOR" value="2"/>
