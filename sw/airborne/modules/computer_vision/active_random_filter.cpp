@@ -171,7 +171,7 @@ uint16_t    AR_FILTER_MIN_CROP_AREA     = 100;          // Minimal area of a cro
 double      AR_FILTER_VIEW_R            = 0.00113; // 0.0091
 double      default_k                   = 1.2247445; // 1.22474604174 max Fisheye correction factor
 double      default_6th_o               = 0.1131;
-uint16_t    default_calArea             = 7400;  // Calibrate at full resolution
+uint16_t    default_calArea             = 7650;  // Calibrate at full resolution
 double      default_orbDiag             = 2 * CFG_MT9F002_FISHEYE_RADIUS;  // Measured circular image diagonal using full resolution
 float angleOfView                       = 179.87195;
 // Lens correction parameter k
