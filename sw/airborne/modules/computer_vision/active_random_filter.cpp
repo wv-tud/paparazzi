@@ -65,10 +65,10 @@ using namespace cv;
 #define AR_FILTER_SAVE_FRAME    0   // Save a frame for post-processing
 #define AR_FILTER_MEASURE_FPS   1   // Measure average FPS
 #define AR_FILTER_CALIBRATE_CAM 0   // Calibrate camera
-#define AR_FILTER_WORLDPOS 		0   // Use world coordinates
-#define AR_FILTER_NOYAW 		1   // Output in body horizontal XY
+#define AR_FILTER_WORLDPOS 		1   // Use world coordinates
+#define AR_FILTER_NOYAW 		0   // Output in body horizontal XY
 #define AR_FILTER_TIMEOUT       150 // Frames from start
-#define AR_FILTER_USE_ALTITUDE  0   // Use own altitude for world pos
+#define AR_FILTER_USE_ALTITUDE  1   // Use own altitude for world pos
 #define AR_FILTER_WRITE_LOG     1   // Write tracking results to logfile
 
 static void             active_random_filter_header ( void );

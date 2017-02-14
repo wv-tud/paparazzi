@@ -192,7 +192,7 @@ void natnet_parse(unsigned char *in)
       float x_r = cos(tracking_offset_angle) * z - sin(tracking_offset_angle) * x;
       float y_r = sin(tracking_offset_angle) * z + cos(tracking_offset_angle) * x;
       float z_r = y;
-      printf_natnet("\tMarker %d : pos = [%3.2f,%3.2f,%3.2f]\tpos NED = [%3.2f,%3.2f,%3.2f]\n", j, x, y, z, x_r, y_r, z_r);
+      printf_natnet("\tMarker %d : pos = [%3.2f,%3.2f,%3.2f]\tpos NED = [%3.2f,%3.2f,%3.2f]\n", j, x, y, z, y_r, x_r, -z_r);
     }
 
     // ========== RIGID BODIES ==========
@@ -229,7 +229,7 @@ void natnet_parse(unsigned char *in)
       float x_r = cos(tracking_offset_angle) * rigidBodies[j].x - sin(tracking_offset_angle) * rigidBodies[j].y;
       float y_r = sin(tracking_offset_angle) * rigidBodies[j].x + cos(tracking_offset_angle) * rigidBodies[j].y;
       float z_r = rigidBodies[j].z;
-      printf_natnet("pos NED: [%3.2f,%3.2f,%3.2f]\n", x_r, y_r, z_r);
+      printf_natnet("pos NED: [%3.2f,%3.2f,%3.2f]\n", y_r, x_r, -z_r);
       
       printf_natnet("ori: [%3.2f,%3.2f,%3.2f,%3.2f]\n", rigidBodies[j].qx, rigidBodies[j].qy, rigidBodies[j].qz,
                     rigidBodies[j].qw);
