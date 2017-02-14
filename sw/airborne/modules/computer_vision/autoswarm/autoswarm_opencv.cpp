@@ -63,7 +63,7 @@ static void autoswarm_opencv_run_trailer(void);
 // Debug options
 #define AUTOSWARM_SHOW_WAYPOINT 1                   // Show the updated positions of the waypoints
 #define AUTOSWARM_SHOW_MEM      0                   // Show the neighbours identified and their location
-#define AUTOSWARM_WRITE_RESULTS 1                   // Write measurements to text file
+#define AUTOSWARM_WRITE_RESULTS 0                   // Write measurements to text file
 #define AUTOSWARM_BENCHMARK     0                   // Print benchmark table
 
 // Set up swarm parameters
@@ -330,7 +330,7 @@ void autoswarm_opencv_init(int globalMode){
 #if AUTOSWARM_WRITE_RESULTS
     startTime = time(0);
     tm * startTM    = localtime(&startTime);
-    sprintf(resultFile, "/data/ftp/internal_000/%d-%02d-%02d_%02d-%02d-%02d.txt", startTM->tm_year, startTM->tm_mon, startTM->tm_mday, startTM->tm_hour, startTM->tm_min, startTM->tm_sec);
+    sprintf(resultFile, "/data/ftp/internal_000/AS_result-%d-%02d-%02d_%02d-%02d-%02d.txt", startTM->tm_year + 1900, startTM->tm_mon + 1, startTM->tm_mday, startTM->tm_hour, startTM->tm_min, startTM->tm_sec);
     pFile           = fopen(resultFile,"w");
     if (pFile == NULL){
         perror("[AS-ERROR] File error");
