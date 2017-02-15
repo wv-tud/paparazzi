@@ -53,8 +53,7 @@ using namespace cv;
 
 #define xSign(x) ( ( x ) >= ( 0 ) ? ( 1 ) : ( -1 ) )
 
-#define AR_FILTER_UNIT_TEST     0   // Do unit tests with random points
-#define AR_FILTER_ISP_CROP      1   // Use the ISP to crop the frame according to FOV-Y
+#define AR_FILTER_UNIT_TEST     1   // Do unit tests with random points
 #define AR_FILTER_SHOW_REJECT   0   // Print why shapes are rejected
 #define AR_FILTER_MOD_VIDEO     1   // Modify the frame to show relevant info
 #define AR_FILTER_CROSSHAIR     1   // Show centre of frame with crosshair
@@ -70,6 +69,7 @@ using namespace cv;
 #define AR_FILTER_TIMEOUT       150 // Frames from start
 #define AR_FILTER_USE_ALTITUDE  1   // Use own altitude for world pos
 #define AR_FILTER_WRITE_LOG     1   // Write tracking results to logfile
+#define AR_FILTER_DISTANCE_PLOT 1   // Plot lines with distance
 
 static void             active_random_filter_header ( void );
 static void             active_random_filter_footer ( void );
@@ -93,8 +93,8 @@ static double           invertRadius        ( double r, double f, double k );
 static void             inputCoord          ( double x_out, double y_out, double *x_in, double *y_in );
 static void             outputCoord         ( double x_in, double y_in, double *x_out, double *y_out );
 // Fisheye + Perspective correction
-static void             inversePoint        (double x_out, double y_out, double *x_in, double *y_in);
-static void             correctPoint        (double x_in, double y_in, double *x_out, double *y_out);
+static void             point2pixel        (double x_out, double y_out, double *x_in, double *y_in);
+static void             pixel2point        (double x_in, double y_in, double *x_out, double *y_out);
 // Conversion from angles to output frame point
 static void             angles2point        (double xAngle, double yAngle, double *x_out, double * y_out);
 static void             point2angles        (double x_out, double y_out, double *xAngle, double *yAngle);
@@ -170,10 +170,11 @@ uint16_t    AR_FILTER_MIN_CROP_AREA     = 100;          // Minimal area of a cro
 // 1.525 too much - 1.5 (just) too little
 double      AR_FILTER_VIEW_R            = 0.00113; // 0.0091
 double      default_k                   = 1.2247445; // 1.22474604174 max Fisheye correction factor
-double      default_6th_o               = 0.1131;
+double      default_6th_o               = 0.255;
+double      default_2nd_o               = 0.155;
 uint16_t    default_calArea             = 7650;  // Calibrate at full resolution
 double      default_orbDiag             = 2 * CFG_MT9F002_FISHEYE_RADIUS;  // Measured circular image diagonal using full resolution
-float angleOfView                       = 179.87195;
+float angleOfView                       = 179.85;
 // Lens correction parameter k
 float near                              = 0.075;
 float far                               = 1.5;
@@ -215,8 +216,8 @@ uint8_t     AR_FILTER_V_MIN             = 160;                          // 218 -
 uint8_t     AR_FILTER_V_MAX             = 225;                          // 240 -> 255?
 
 uint8_t     AR_FILTER_CDIST_YTHRES      = 12;
-uint8_t     AR_FILTER_CDIST_UTHRES      = 8;
-uint8_t     AR_FILTER_CDIST_VTHRES      = 8;
+uint8_t     AR_FILTER_CDIST_UTHRES      = 1;
+uint8_t     AR_FILTER_CDIST_VTHRES      = 1;
 
 double 	    AR_FILTER_IMAGE_CROP_FOVY 	= 65.0 * M_PI / 180.0; 		    // Radians
 double 	    AR_FILTER_CROP_X 			= 1.2;
@@ -311,6 +312,8 @@ void active_random_filter(char* buff, uint16_t width, uint16_t height, struct Fl
     if(runCount < AR_FILTER_TIMEOUT) {
         runCount++;
         PRINT("Timeout %d\n", AR_FILTER_TIMEOUT - runCount);
+        frameGrey.release();
+        sourceFrame.release();
         return;
     }
     Mat sourceFrameCrop = sourceFrame(crop); 				                // Crop the frame
@@ -324,20 +327,11 @@ void active_random_filter(char* buff, uint16_t width, uint16_t height, struct Fl
 	}
 #if AR_FILTER_MOD_VIDEO
 	mod_video(sourceFrameCrop, frameGrey);                              // Modify the sourceframesourceFrame.cols-1
-#endif
+#endif // AR_FILTER_MOD_VIDEO
 #if AR_FILTER_CROSSHAIR
-#if AR_FILTER_ISP_CROP
 	//circle(sourceFrame,Point(ispHeight/2 - cropCol + crop.x, ispWidth/2), CFG_MT9F002_FISHEYE_RADIUS * ispScalar, cvScalar(0,255), 1);
 	plotHorizon(sourceFrameCrop);
-#else
-	double halfPoint = round((CFG_MT9F002_X_ADDR_MAX - CFG_MT9F002_X_ADDR_MIN) * 0.5 * ispScalar);
-	double horizonPos = reversePixel(-eulerAngles->theta - MT9F002_THETA_OFFSET);
-	line(sourceFrame, Point(halfPoint - 0.25 * ispWidth * (tan(eulerAngles->phi)), 0), Point(halfPoint + 0.25 * ispWidth * (tan(eulerAngles->phi)), sourceFrame.rows-1), Scalar(0,127), 1);
-	//double horizonPos = reversePixel(-eulerAngles->theta - MT9F002_THETA_OFFSET);
-	line(sourceFrame, Point(crop.x, sourceFrame.rows / 2 + 0.25 * ispHeight * (tan(eulerAngles->phi))), Point(crop.x + crop.width, sourceFrame.rows / 2 - 0.25 * ispHeight * (tan(eulerAngles->phi))), Scalar(0,0), 1);
-	line(sourceFrame, Point(horizonPos - 0.25 * ispWidth * (tan(eulerAngles->phi)),0), Point(horizonPos + 0.25 * ispWidth * (tan(eulerAngles->phi)), sourceFrame.rows-1), Scalar(0,0), 1);
 #endif
-#endif // AR_FILTER_MOD_VIDEO
 	frameGrey.release(); 			                                // Release Mat
 	sourceFrameCrop.release();
 	sourceFrame.release();                                          // Release Mat
@@ -368,40 +362,38 @@ Rect setISPvars( uint16_t width, uint16_t height){
     xAngle = (((float) 2 * rand()) / RAND_MAX - 1) * 0.5*M_PI;
     yAngle = (((float) 2 * rand()) / RAND_MAX - 1) * AR_FILTER_IMAGE_CROP_FOVY;
     angles2point(xAngle, yAngle, &x1, &y1);
-    inversePoint(x1, y1, &x1p, &y1p);
-    correctPoint(x1p, y1p, &x1_o, &y1_o);
+    point2pixel(x1, y1, &x1p, &y1p);
+    pixel2point(x1p, y1p, &x1_o, &y1_o);
     point2angles(x1_o, y1_o, &xAngle_o, &yAngle_o);
     PRINT("Angles (%0.1f %0.1f) point(%0.1f, %0.1f) pixel(%0.1f %0.1f) point(%0.1f %0.1f) angles(%0.1f %0.1f)\n", xAngle / M_PI * 180, yAngle / M_PI * 180, x1, y1, x1p, y1p, x1_o, y1_o, xAngle_o / M_PI * 180, yAngle_o / M_PI * 180);
 #endif
     uint16_t horizPos             = horizonPos(0.0);
     // Top
     angles2point(-75.0/180.0*M_PI, 0.5 * AR_FILTER_IMAGE_CROP_FOVY, &x1, &y1);
-    inversePoint(x1,y1,&left[0],&left[1]);
+    point2pixel(x1,y1,&left[0],&left[1]);
     angles2point(0.0, 0.5 * AR_FILTER_IMAGE_CROP_FOVY, &x1, &y1);
-    inversePoint(x1,y1,&center[0],&center[1]);
+    point2pixel(x1,y1,&center[0],&center[1]);
     angles2point(75.0/180.0*M_PI, 0.5 * AR_FILTER_IMAGE_CROP_FOVY, &x1, &y1);
-    inversePoint(x1,y1,&right[0],&right[1]);
+    point2pixel(x1,y1,&right[0],&right[1]);
     uint16_t top        = (uint16_t) round( max( right[1], max( left[1], center[1])));
     // Bottom
     angles2point(-75.0/180.0*M_PI, -0.5 * AR_FILTER_IMAGE_CROP_FOVY, &x1, &y1);
-    inversePoint(x1,y1,&left[0],&left[1]);
+    point2pixel(x1,y1,&left[0],&left[1]);
     angles2point(0.0, -0.5 * AR_FILTER_IMAGE_CROP_FOVY, &x1, &y1);
-    inversePoint(x1,y1,&center[0],&center[1]);
+    point2pixel(x1,y1,&center[0],&center[1]);
     angles2point(75.0/180.0*M_PI, -0.5 * AR_FILTER_IMAGE_CROP_FOVY, &x1, &y1);
-    inversePoint(x1,y1,&right[0],&right[1]);
+    point2pixel(x1,y1,&right[0],&right[1]);
     int16_t desOffset   = (uint16_t) round( min( right[1], min( left[1], center[1])));
 
     PRINT("t: %d, h: %d, b: %d\n",top, horizPos, desOffset);
 
     uint16_t desHeight  = (top - desOffset);
-#if AR_FILTER_ISP_CROP
     int16_t fillHeight          = (int16_t) round( 0.5*initialWidth - (horizPos - desOffset) );
     desOffset                  -= fillHeight;
     desHeight                  += fillHeight;
     if(desOffset < -MT9F002_INITIAL_OFFSET_X){
             desOffset = -MT9F002_INITIAL_OFFSET_X;
     }
-#endif
     if(desHeight > ispHeight){
         desOffset = 0;
         desHeight = ispHeight;
@@ -417,7 +409,6 @@ Rect setISPvars( uint16_t width, uint16_t height){
     if((desOffset & 1) != 0){
         desOffset--;
     }
-#if AR_FILTER_ISP_CROP
     cropCol                     = desOffset + fillHeight;
     mt9f002.offset_x            = MT9F002_INITIAL_OFFSET_X + desOffset / ispScalar;
     mt9f002.output_width        = desHeight;
@@ -430,39 +421,43 @@ Rect setISPvars( uint16_t width, uint16_t height){
         crop                   = cvRect(0, 0, width, height);
     }
     mt9f002_update_resolution(&mt9f002);
-#else
-    cropCol                     = desOffset;
-    Rect crop                   = cvRect(desOffset,0,desHeight,ispWidth);
-#endif
     return crop;
 }
 
-void correctPoint(double x_in, double y_in, double *x_out, double *y_out){
+void pixel2point(double x_in, double y_in, double *x_out, double *y_out){
     double f, r, theta, corR, maxR;
     f       = default_orbDiag * ispScalar / (4 * sin(M_PI / 4));
     x_in   -= ispWidth * 0.5;
     y_in   -= ispHeight * 0.5;
     r       = sqrt( pow(x_in, 2.0) + pow(y_in, 2.0) );
     theta   = atan2( y_in, x_in );
-    r      *= 1.0/(1.0 - default_6th_o);
-    corR    = correctRadius(r, f, default_k);
+    // Approximation of 2nd order inversion
+    double r_start, r_end;
+    r_start = r;
+    r_end   = r_start * 1.0 / (1.0 - pow(r, 1.0) * default_6th_o / pow(CFG_MT9F002_FISHEYE_RADIUS * ispScalar, 1.0) + pow(r, 2.0) * default_2nd_o / pow(CFG_MT9F002_FISHEYE_RADIUS * ispScalar, 2.0));
+    r_end   = r_start * 1.0 / (1.0 - pow(r_end, 1.0) * default_6th_o / pow(CFG_MT9F002_FISHEYE_RADIUS * ispScalar, 1.0) + pow(r_end, 2.0) * default_2nd_o / pow(CFG_MT9F002_FISHEYE_RADIUS * ispScalar, 2.0));
+    r_end   = r_start * 1.0 / (1.0 - pow(r_end, 1.0) * default_6th_o / pow(CFG_MT9F002_FISHEYE_RADIUS * ispScalar, 1.0) + pow(r_end, 2.0) * default_2nd_o / pow(CFG_MT9F002_FISHEYE_RADIUS * ispScalar, 2.0));
+
+    corR    = correctRadius(r_end, f, default_k);
     maxR    = correctRadius(CFG_MT9F002_FISHEYE_RADIUS * ispScalar, f, default_k);
     x_in    = (corR * cos(theta)) / maxR;
     y_in    = (corR * sin(theta)) / maxR;
     outputCoord(x_in, y_in, y_out, x_out);
 }
 
-void inversePoint(double x_out, double y_out, double *x_in, double *y_in){
+void point2pixel(double x_out, double y_out, double *x_in, double *y_in){
     double f, r, theta,corR, maxR;
     f           = default_orbDiag * ispScalar / (4 * sin(M_PI / 4));
     inputCoord(x_out, y_out, x_in, y_in);
     maxR        = correctRadius(CFG_MT9F002_FISHEYE_RADIUS * ispScalar, f, default_k);
-    r           = maxR * sqrt( pow( *x_in, 2.0 ) + pow( *y_in, 2.0 ) );
+    corR        = maxR * sqrt( pow( *x_in, 2.0 ) + pow( *y_in, 2.0 ) );
     theta       = atan2( *y_in, *x_in);
-    corR        = invertRadius(r, f, default_k);
-    corR       *= (1.0 - default_6th_o);
-    *x_in       = ispWidth * 0.5 + cos(theta) * (corR);
-    *y_in       = ispHeight * 0.5 + sin(theta) * (corR);
+    r           = invertRadius(corR, f, default_k);
+
+    r           = r * (1.0 - pow(r, 1.0) * default_6th_o / pow(CFG_MT9F002_FISHEYE_RADIUS * ispScalar, 1.0) + pow(r, 2.0) * default_2nd_o / pow(CFG_MT9F002_FISHEYE_RADIUS * ispScalar, 2.0));
+
+    *x_in       = ispWidth * 0.5 + cos(theta) * (r);
+    *y_in       = ispHeight * 0.5 + sin(theta) * (r);
 }
 
 void angles2point(double xAngle, double yAngle, double *x_out, double * y_out){
@@ -604,7 +599,7 @@ void estimatePosition(uint16_t xp, uint16_t yp, uint32_t area, double position[3
     double corArea          = area;// * pow(areaCorFrac, 2.0); // TODO: Fix better
     double dist             = sqrt((double) calArea) / sqrt(corArea);
     PRINT("dist: %0.2f\n", dist);
-    correctPoint((double) yp, (double) xp, &x_in, &y_in);
+    pixel2point((double) yp, (double) xp, &x_in, &y_in);
     point2angles(x_in, y_in, &xAngle, &yAngle);
     VERBOSE_PRINT("pixel(%d, %d) point(%0.2f, %0.2f) angles(%0.2f, %0.2f)\n",xp, yp, x_in, y_in, xAngle / M_PI * 180, yAngle / M_PI * 180);
     position[0]             = yAngle;
@@ -640,7 +635,7 @@ double invertRadius(double r, double f, double k){
 uint16_t horizonPos( double y_orig ){
     double x_in, y_in, x_pos, y_pos;
     angles2point(0.0, y_orig, &x_pos, &y_pos);
-    inversePoint(x_pos, y_pos, &x_in, &y_in);
+    point2pixel(x_pos, y_pos, &x_in, &y_in);
     return (uint16_t) round(y_in);
 }
 
@@ -1716,6 +1711,7 @@ void mod_video(Mat& sourceFrame, Mat& frameGrey){
 #else
 	sprintf(text,"frame %i", runCount);
 #endif // AR_FILTER_MEASURE_FPS
+	putText(sourceFrame, text, Point(10,sourceFrame.rows-40), FONT_HERSHEY_PLAIN, 1, Scalar(0,255,255), 1);
 	if(AR_FILTER_FLOOD_STYLE != AR_FILTER_FLOOD_CW){
 #if AR_FILTER_DRAW_BOXES
 		for(unsigned int r=0; r < cropAreas.size(); r++)
@@ -1742,7 +1738,14 @@ void mod_video(Mat& sourceFrame, Mat& frameGrey){
 		circle(sourceFrame,cvPoint(trackRes[r].x_p - cropCol, trackRes[r].y_p), sqrt(trackRes[r].area_p / M_PI), cvScalar(100,255), 1);
 	}
 #endif //AR_FILTER_DRAW_CIRCLES
-	putText(sourceFrame, text, Point(10,sourceFrame.rows-40), FONT_HERSHEY_PLAIN, 1, Scalar(0,255,255), 1);
+#if AR_FILTER_DISTANCE_PLOT
+	for(unsigned int r=0; r < trackRes_size; r++)         // Convert angles & Write/Print output
+	{
+	    line(sourceFrame, Point(0,sourceFrame.rows / 2.0), Point(trackRes[r].x_p - cropCol, trackRes[r].y_p), Scalar(0,255), 1);
+	    sprintf(text,"%4.2f", trackRes[r].r_c);
+	    putText(sourceFrame, text, Point((trackRes[r].x_p - cropCol + 0) / 2.0, (trackRes[r].y_p + sourceFrame.rows / 2.0) / 2.0), FONT_HERSHEY_PLAIN, 1, Scalar(0,255), 1);
+	}
+#endif
 	for(unsigned int r=0; r < neighbourMem_size; r++)         // Convert angles & Write/Print output
 	{
 	    if(neighbourMem[r].lastSeen < runCount){
@@ -1770,6 +1773,9 @@ void mod_video(Mat& sourceFrame, Mat& frameGrey){
 	sprintf(text,"d:%4.1f%% n:%4.1f%% s:%4.1f%%", pixDupCount/((float) pixCount) * 100, pixNofCount/((float) pixCount) * 100, pixSrcCount/((float) pixCount) * 100);
 	putText(sourceFrame, text, Point(10,sourceFrame.rows-60), FONT_HERSHEY_PLAIN, 1, Scalar(0,255,255), 1);
 
+	sprintf(text,"R:%4.1f B:%4.1f G1:%4.1f G2:%4.1f Exp: %4.1f / %4.1f", mt9f002.gain_red, mt9f002.gain_blue, mt9f002.gain_green1, mt9f002.gain_green2, mt9f002.real_exposure, mt9f002.target_exposure);
+	putText(sourceFrame, text, Point(10 , 40), FONT_HERSHEY_PLAIN, 1, Scalar(0,255,255), 1);
+
 	if((cropCol & 1) == 0){
 	    line(sourceFrame, Point(0,0), Point(0, sourceFrame.rows-1), Scalar(0,255), 1);
 	}
@@ -1790,11 +1796,11 @@ void plotHorizontalLine(Mat& sourceFrameCrop, double yAngle, double xResDeg){
     double x1, y1, x1p, y1p, x2, y2, x2p, y2p;
     // Plot horizontal line
     angles2point(-85.0/180.0*M_PI, yAngle, &x1, &y1);
-    inversePoint(x1, y1, &x1p, &y1p);
+    point2pixel(x1, y1, &x1p, &y1p);
     char text[50];
     for(double x_angle = -85+xResDeg; x_angle<=85; x_angle+=xResDeg){
         angles2point(x_angle / 180 * M_PI, yAngle, &x2, &y2);
-        inversePoint(x2, y2, &x2p, &y2p);
+        point2pixel(x2, y2, &x2p, &y2p);
         if(y1p >= cropCol && y1p < ispHeight && x1p >= 0 && x1p < ispWidth &&
                 y2p >= cropCol && y2p < ispHeight && x2p >= 0 && x2p < ispWidth ){
             //PRINT("angle: %0.2f - p1 (%0.2f, %0.2f) p2(%0.2f, %0.2f)\n",x_angle, x1p, y1p, x2p, y2p);
@@ -1805,7 +1811,7 @@ void plotHorizontalLine(Mat& sourceFrameCrop, double yAngle, double xResDeg){
     }
     for(double i = -80; i <= 80; i+=10){
         angles2point(i / 180.0 * M_PI, yAngle, &x1, &y1);
-        inversePoint(x1, y1, &x1p, &y1p);
+        point2pixel(x1, y1, &x1p, &y1p);
         if(i != 0.0){
             sprintf(text,"- %0.0f", i);
             putText(sourceFrameCrop, text, Point(y1p - cropCol -2, x1p + 5), FONT_HERSHEY_PLAIN, 1, Scalar(0,255), 1);
@@ -1817,11 +1823,11 @@ void plotVerticalLine(Mat& sourceFrameCrop, double xAngle, double yResDeg){
     double x1, y1, x1p, y1p, x2, y2, x2p, y2p;
     // Plot vertical line
     angles2point(xAngle, -85.0/180.0*M_PI, &x1, &y1);
-    inversePoint(x1, y1, &x1p, &y1p);
+    point2pixel(x1, y1, &x1p, &y1p);
     char text[50];
     for(double y_angle = (-85.0+yResDeg)/180.0*M_PI; y_angle<= 85.0/180.0*M_PI + MT9F002_THETA_OFFSET + eulerAngles->theta; y_angle+=yResDeg / 180 * M_PI){
         angles2point(xAngle, y_angle, &x2, &y2);
-        inversePoint(x2, y2, &x2p, &y2p);
+        point2pixel(x2, y2, &x2p, &y2p);
         if(y1p >= cropCol && y1p < ispHeight && x1p >= 0 && x1p < ispWidth &&
                 y2p >= cropCol && y2p < ispHeight && x2p >= 0 && x2p < ispWidth ){
             line(sourceFrameCrop, Point(y1p - cropCol,x1p), Point(y2p - cropCol,x2p), Scalar(0,127), 1);
@@ -1831,7 +1837,7 @@ void plotVerticalLine(Mat& sourceFrameCrop, double xAngle, double yResDeg){
     }
     for(double i = -75.0/180.0*M_PI; i <= 75.0/180.0*M_PI + MT9F002_THETA_OFFSET + eulerAngles->theta; i+=15.0/180.0*M_PI){
         angles2point(xAngle, i, &x1, &y1);
-        inversePoint(x1, y1, &x1p, &y1p);
+        point2pixel(x1, y1, &x1p, &y1p);
         if(round(i / M_PI * 180) != 0.0){
             sprintf(text,"| %0.0f", i / M_PI * 180);
             putText(sourceFrameCrop, text, Point(y1p - cropCol - 2, x1p - 2), FONT_HERSHEY_PLAIN, 1, Scalar(0,255), 1);

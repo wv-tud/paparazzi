@@ -34,13 +34,10 @@
 			<define name="AHRS_USE_GPS_HEADING" value="TRUE" />
 		</module>
 		<module name="ins" type="extended" />
-		<!-- Not working for bebop2 
 		<module name="guidance" type="indi"> 
 			<define name="GUIDANCE_INDI_SPECIFIC_FORCE_GAIN" value="-500.0"/>
 			<define name="GUIDANCE_INDI_THRUST_DYNAMICS" value="0.1"/>
-			<define name="GUIDANCE_INDI_RC_DEBUG" value="FALSE"/>
 		</module> 
-		-->
 	</firmware>
 
 	<modules main_freq="512">
@@ -70,7 +67,7 @@
 			<define name="VIEWVIDEO_SHOT_PATH" value="/data/ftp/internal_000" />
 			<define name="VIEWVIDEO_FPS" value="18" />
 			<define name="VIEWVIDEO_WRITE_VIDEO" value="FALSE" />
-			<define name="VIEWVIDEO_VIDEO_FILE" value="autoswarm_demo" />
+			<define name="VIEWVIDEO_VIDEO_FILE" value="ar_filter_demo" />
 			<define name="VIEWVIDEO_STREAM_VIDEO" value="TRUE" />
 		</module>
 	</modules>

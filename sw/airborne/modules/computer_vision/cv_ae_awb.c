@@ -36,11 +36,11 @@
 #endif
 
 #ifndef CV_AE_AWB_TARGET_BRIGHT
-#define CV_AE_AWB_TARGET_BRIGHT 0.15
+#define CV_AE_AWB_TARGET_BRIGHT 0.055
 #endif
 
 #ifndef CV_AE_AWB_MAX_SATURATED
-#define CV_AE_AWB_MAX_SATURATED 0.08
+#define CV_AE_AWB_MAX_SATURATED 0.03
 #endif
 
 #ifndef CV_AE_AWB_FTOLERANCE
@@ -114,6 +114,16 @@ struct image_t* cv_ae_awb_periodic(struct image_t* img) {
             while (bright_pixels < target_bright_pixels && l > 0) {
                 bright_pixels += yuv_stats.ae_histogram_Y[l];
                 l--;
+            }
+            // that level is supposed to be at MAX_HIST_Y-31;
+            adjustment = ( (float) (MAX_HIST_Y - 31 + 1) ) / (l+1);
+        }
+        else if (bright_pixels > target_bright_pixels) {
+            // decrese brightness to try and hit the desired number of well exposed pixels
+            int l = MAX_HIST_Y - 30;
+            while (bright_pixels > target_bright_pixels && l < MAX_HIST_Y) {
+                bright_pixels -= yuv_stats.ae_histogram_Y[l];
+                l++;
             }
             // that level is supposed to be at MAX_HIST_Y-31;
             adjustment = ( (float) (MAX_HIST_Y - 31 + 1) ) / (l+1);

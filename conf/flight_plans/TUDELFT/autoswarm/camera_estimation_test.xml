@@ -58,7 +58,7 @@
     <block key="s" name="Standby" strip_button="Standby" strip_icon="home.png">
       <call_once fun="NavSetWaypointHere(WP_STDBY)"/>
       <stay wp="STDBY"/>
-      <exception cond="LessThan(15, block_time)" deroute="circle_cw"/>
+      <exception cond="LessThan(10, block_time)" deroute="circle_cw"/>
     </block>
     <block name="Swarm" strip_button="Swarm" strip_icon="lookfore.png">
     	<set var="viewvideo_recording" value="TRUE"/>
@@ -66,7 +66,6 @@
 		<set var="AUTOSWARM_SEPERATION" value="0.01"/> <!-- Do not try and avoid anything -->
     	<call_once fun="nav_set_heading_towards_waypoint(WP__CAM)"/>
     	<stay wp="_GOAL"/>
-    	<exception cond="LessThan(150, block_time)" deroute="circle_ccw"/>
     </block>
     <block name="Swarm Home">
     	<exception cond="amIhome()" deroute="Land"/>

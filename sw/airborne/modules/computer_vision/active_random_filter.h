@@ -75,6 +75,7 @@ extern double       AR_FILTER_MAX_CIRCLE_DEF;
 extern double       AR_FILTER_VIEW_R;
 extern double       default_k;
 extern double       default_6th_o;
+extern double       default_2nd_o;
 extern uint16_t     default_calArea;
 extern float        angleOfView;
 
