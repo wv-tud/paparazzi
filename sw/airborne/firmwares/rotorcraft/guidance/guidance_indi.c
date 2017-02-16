@@ -42,7 +42,6 @@
 #include "stabilization/stabilization_attitude_ref_quat_int.h"
 #include "firmwares/rotorcraft/stabilization.h"
 #include "stdio.h"
-#include "filters/low_pass_filter.h"
 #include "subsystems/abi.h"
 
 // The acceleration reference is calculated with these gains. If you use GPS,
@@ -52,13 +51,13 @@
 #ifdef GUIDANCE_INDI_POS_GAIN
 float guidance_indi_pos_gain = GUIDANCE_INDI_POS_GAIN;
 #else
-float guidance_indi_pos_gain = 0.5;
+float guidance_indi_pos_gain = 1.0;
 #endif
 
 #ifdef GUIDANCE_INDI_SPEED_GAIN
 float guidance_indi_speed_gain = GUIDANCE_INDI_SPEED_GAIN;
 #else
-float guidance_indi_speed_gain = 1.8;
+float guidance_indi_speed_gain = 2.7;
 #endif
 
 struct FloatVect3 sp_accel = {0.0,0.0,0.0};
@@ -94,7 +93,12 @@ struct FloatMat33 Ga;
 struct FloatMat33 Ga_inv;
 struct FloatVect3 euler_cmd;
 
+#ifndef GUIDANCE_INDI_THRUST_FILTER_CUTOFF
+#define GUIDANCE_INDI_THRUST_FILTER_CUTOFF GUIDANCE_INDI_FILTER_CUTOFF
+#endif
+
 float filter_cutoff = GUIDANCE_INDI_FILTER_CUTOFF;
+float thrust_filter_cutoff = GUIDANCE_INDI_THRUST_FILTER_CUTOFF;
 
 struct FloatEulers guidance_euler_cmd;
 float thrust_in;
@@ -111,13 +115,14 @@ void guidance_indi_enter(void) {
   thrust_act = 0;
 
   float tau = 1.0/(2.0*M_PI*filter_cutoff);
+  float tau_thrust = 1.0/(2.0*M_PI*thrust_filter_cutoff);
   float sample_time = 1.0/PERIODIC_FREQUENCY;
   for(int8_t i=0; i<3; i++) {
     init_butterworth_2_low_pass(&filt_accel_ned[i], tau, sample_time, 0.0);
   }
   init_butterworth_2_low_pass(&roll_filt, tau, sample_time, 0.0);
   init_butterworth_2_low_pass(&pitch_filt, tau, sample_time, 0.0);
-  init_butterworth_2_low_pass(&thrust_filt, tau, sample_time, 0.0);
+  init_butterworth_2_low_pass(&thrust_filt, tau_thrust, sample_time, 0.0);
 }
 
 /**

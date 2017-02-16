@@ -33,6 +33,7 @@
 #include "std.h"
 #include "math/pprz_algebra_int.h"
 #include "math/pprz_algebra_float.h"
+#include "filters/low_pass_filter.h"
 
 extern void guidance_indi_enter(void);
 extern void guidance_indi_run(bool in_flight, int32_t heading);
@@ -40,5 +41,8 @@ extern void stabilization_attitude_set_setpoint_rp_quat_f(struct FloatEulers* in
 
 extern float guidance_indi_thrust_specific_force_gain;
 extern struct FloatVect3 euler_cmd;
+
+extern struct FloatVect3 sp_accel;
+extern Butterworth2LowPass filt_accel_ned[3];
 
 #endif /* GUIDANCE_INDI_H */

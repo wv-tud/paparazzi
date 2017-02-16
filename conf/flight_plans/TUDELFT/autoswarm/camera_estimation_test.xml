@@ -1,6 +1,6 @@
 <!DOCTYPE flight_plan SYSTEM "../../flight_plan.dtd">
 
-<flight_plan alt="0.5" ground_alt="0" lat0="51.990634" lon0="4.376789" max_dist_from_home="25" name="Bebop avoid orange TU Delft Cyberzoo" security_height="0.25">
+<flight_plan alt="1.5" ground_alt="0" lat0="51.990634" lon0="4.376789" max_dist_from_home="25" name="Bebop avoid orange TU Delft Cyberzoo" security_height="0.25">
   <header>
 #include "autopilot.h"
 #include "subsystems/datalink/datalink.h"
@@ -58,7 +58,6 @@
     <block key="s" name="Standby" strip_button="Standby" strip_icon="home.png">
       <call_once fun="NavSetWaypointHere(WP_STDBY)"/>
       <stay wp="STDBY"/>
-      <exception cond="LessThan(10, block_time)" deroute="circle_cw"/>
     </block>
     <block name="Swarm" strip_button="Swarm" strip_icon="lookfore.png">
     	<set var="viewvideo_recording" value="TRUE"/>
