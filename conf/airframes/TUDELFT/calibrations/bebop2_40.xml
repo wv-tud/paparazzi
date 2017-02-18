@@ -1,0 +1,19 @@
+<!DOCTYPE airframe SYSTEM "../../airframe.dtd">
+
+<airframe>
+  <section name="IMU" prefix="IMU_">
+		<define name="ACCEL_X_NEUTRAL" value="17"/>
+    	<define name="ACCEL_Y_NEUTRAL" value="-22"/>
+    	<define name="ACCEL_Z_NEUTRAL" value="-50"/>
+    	<define name="MAG_X_SENS" value="8.32441255621" integer="16"/>
+    	<define name="MAG_Y_SENS" value="8.25720085664" integer="16"/>
+    	<define name="MAG_Z_SENS" value="8.60009819293" integer="16"/>
+	</section>
+	<section name="STABILIZATION_ATTITUDE_INDI" prefix="STABILIZATION_INDI_">
+		<define name="G1_ROLL" 		value="{17.761, 	-18.726, 	-16.318, 	14.175 }" />
+		<define name="G1_PITCH" 	value="{14.834, 	13.017, 	-14.577, 	-14.674 }" />
+		<define name="G1_YAW" 		value="{0.621, 		-0.844, 	0.992, 		-0.810}" />
+		<define name="G1_THRUST" 	value="{-0.668, 	-0.577, 	-0.677, 	-0.667}" />
+		<define name="G2" 			value="{120.820, 	-128.095, 	89.216, 	-78.116}" />
+	</section>
+</airframe>
