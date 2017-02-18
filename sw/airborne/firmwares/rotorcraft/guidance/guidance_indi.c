@@ -57,7 +57,7 @@ float guidance_indi_pos_gain = 1.0;
 #ifdef GUIDANCE_INDI_SPEED_GAIN
 float guidance_indi_speed_gain = GUIDANCE_INDI_SPEED_GAIN;
 #else
-float guidance_indi_speed_gain = 2.7;
+float guidance_indi_speed_gain = 2.8;
 #endif
 
 struct FloatVect3 sp_accel = {0.0,0.0,0.0};
@@ -93,9 +93,11 @@ struct FloatMat33 Ga;
 struct FloatMat33 Ga_inv;
 struct FloatVect3 euler_cmd;
 
+/*
 #ifndef GUIDANCE_INDI_THRUST_FILTER_CUTOFF
 #define GUIDANCE_INDI_THRUST_FILTER_CUTOFF GUIDANCE_INDI_FILTER_CUTOFF
 #endif
+*/
 
 float filter_cutoff = GUIDANCE_INDI_FILTER_CUTOFF;
 float thrust_filter_cutoff = GUIDANCE_INDI_THRUST_FILTER_CUTOFF;
@@ -117,9 +119,11 @@ void guidance_indi_enter(void) {
   float tau = 1.0/(2.0*M_PI*filter_cutoff);
   float tau_thrust = 1.0/(2.0*M_PI*thrust_filter_cutoff);
   float sample_time = 1.0/PERIODIC_FREQUENCY;
-  for(int8_t i=0; i<3; i++) {
+  for(int8_t i=0; i<2; i++) {
     init_butterworth_2_low_pass(&filt_accel_ned[i], tau, sample_time, 0.0);
   }
+  init_butterworth_2_low_pass(&filt_accel_ned[2], tau_thrust, sample_time, 0.0);
+
   init_butterworth_2_low_pass(&roll_filt, tau, sample_time, 0.0);
   init_butterworth_2_low_pass(&pitch_filt, tau, sample_time, 0.0);
   init_butterworth_2_low_pass(&thrust_filt, tau_thrust, sample_time, 0.0);
@@ -137,8 +141,8 @@ void guidance_indi_run(bool in_flight, int32_t heading) {
   guidance_indi_propagate_filters();
 
   //Linear controller to find the acceleration setpoint from position and velocity
-  float pos_x_err = POS_FLOAT_OF_BFP(guidance_h.ref.pos.x) - stateGetPositionNed_f()->x;
-  float pos_y_err = POS_FLOAT_OF_BFP(guidance_h.ref.pos.y) - stateGetPositionNed_f()->y;
+  float pos_x_err = POS_FLOAT_OF_BFP(guidance_h.ref.pos.x - stateGetPositionNed_i()->x);
+  float pos_y_err = POS_FLOAT_OF_BFP(guidance_h.ref.pos.y - stateGetPositionNed_i()->y);
   float pos_z_err = POS_FLOAT_OF_BFP(guidance_v_z_ref - stateGetPositionNed_i()->z);
 
   float speed_sp_x = pos_x_err * guidance_indi_pos_gain;

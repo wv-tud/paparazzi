@@ -62,7 +62,7 @@ parser.add_argument('--host', metavar='HOST', default='192.168.42.1',
                     help='the ip address of bebop')
 parser.add_argument('--min_version', metavar='MIN', default='3.2.0',
                     help='force minimum version allowed')
-parser.add_argument('--max_version', metavar='MAX', default='3.9.0',
+parser.add_argument('--max_version', metavar='MAX', default='4.0.3',
                     help='force maximum version allowed')
 subparsers = parser.add_subparsers(title='Command to execute', metavar='command', dest='command')
 

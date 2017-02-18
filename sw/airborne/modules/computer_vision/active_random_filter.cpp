@@ -53,7 +53,7 @@ using namespace cv;
 
 #define xSign(x) ( ( x ) >= ( 0 ) ? ( 1 ) : ( -1 ) )
 
-#define AR_FILTER_UNIT_TEST     1   // Do unit tests with random points
+#define AR_FILTER_UNIT_TEST     0   // Do unit tests with random points
 #define AR_FILTER_SHOW_REJECT   0   // Print why shapes are rejected
 #define AR_FILTER_MOD_VIDEO     1   // Modify the frame to show relevant info
 #define AR_FILTER_CROSSHAIR     1   // Show centre of frame with crosshair
@@ -68,7 +68,7 @@ using namespace cv;
 #define AR_FILTER_NOYAW 		0   // Output in body horizontal XY
 #define AR_FILTER_TIMEOUT       150 // Frames from start
 #define AR_FILTER_USE_ALTITUDE  1   // Use own altitude for world pos
-#define AR_FILTER_WRITE_LOG     1   // Write tracking results to logfile
+#define AR_FILTER_WRITE_LOG     0   // Write tracking results to logfile
 #define AR_FILTER_DISTANCE_PLOT 1   // Plot lines with distance
 
 static void             active_random_filter_header ( void );
@@ -208,18 +208,18 @@ uint8_t     AR_FILTER_V_MAX             = 209;                          // 240 -
 */
 
 /* Cyberzoo */
-uint8_t     AR_FILTER_Y_MIN             = 50;                           // 0  [0,65 84,135 170,255]zoo 45
-uint8_t     AR_FILTER_Y_MAX             = 240;                          // 255
-uint8_t     AR_FILTER_U_MIN             = 105;                          // 84
+uint8_t     AR_FILTER_Y_MIN             = 70;                           // 0  [0,65 84,135 170,255]zoo 45
+uint8_t     AR_FILTER_Y_MAX             = 250;                          // 255
+uint8_t     AR_FILTER_U_MIN             = 110;                          // 84
 uint8_t     AR_FILTER_U_MAX             = 140;                          // 113
-uint8_t     AR_FILTER_V_MIN             = 160;                          // 218 -> 150?
-uint8_t     AR_FILTER_V_MAX             = 225;                          // 240 -> 255?
+uint8_t     AR_FILTER_V_MIN             = 150;                          // 218 -> 150?
+uint8_t     AR_FILTER_V_MAX             = 205;                          // 240 -> 255?
 
-uint8_t     AR_FILTER_CDIST_YTHRES      = 12;
-uint8_t     AR_FILTER_CDIST_UTHRES      = 1;
-uint8_t     AR_FILTER_CDIST_VTHRES      = 1;
+uint8_t     AR_FILTER_CDIST_YTHRES      = 15;
+uint8_t     AR_FILTER_CDIST_UTHRES      = 10;
+uint8_t     AR_FILTER_CDIST_VTHRES      = 5;
 
-double 	    AR_FILTER_IMAGE_CROP_FOVY 	= 65.0 * M_PI / 180.0; 		    // Radians
+double 	    AR_FILTER_IMAGE_CROP_FOVY 	= 45.0 * M_PI / 180.0; 		    // Radians
 double 	    AR_FILTER_CROP_X 			= 1.2;
 uint8_t     AR_FILTER_MEMORY 			= 40;
 double      AR_FILTER_FPS               = 18.0;
@@ -295,7 +295,7 @@ void active_random_filter_init(void){
     }
     else{
         fprintf(arf_File,"NR\tUS\tID\tMEM\tPOSX\tPOSY\tPOSZ\tPSI\tOBJX\tOBJY\tOBJZ\n");
-        printf("[AS] Writing tracking results to: %s\n", arf_FileName);
+        PRINT("Writing tracking results to: %s\n", arf_FileName);
     }
 #endif
 }
@@ -385,7 +385,7 @@ Rect setISPvars( uint16_t width, uint16_t height){
     point2pixel(x1,y1,&right[0],&right[1]);
     int16_t desOffset   = (uint16_t) round( min( right[1], min( left[1], center[1])));
 
-    PRINT("t: %d, h: %d, b: %d\n",top, horizPos, desOffset);
+    //PRINT("t: %d, h: %d, b: %d\n",top, horizPos, desOffset);
 
     uint16_t desHeight  = (top - desOffset);
     int16_t fillHeight          = (int16_t) round( 0.5*initialWidth - (horizPos - desOffset) );
@@ -598,7 +598,6 @@ void estimatePosition(uint16_t xp, uint16_t yp, uint32_t area, double position[3
     //double areaCorFrac      = 1 + min(fabs(cos(theta)), fabs(sin(theta))) * ((corR - r) / r);
     double corArea          = area;// * pow(areaCorFrac, 2.0); // TODO: Fix better
     double dist             = sqrt((double) calArea) / sqrt(corArea);
-    PRINT("dist: %0.2f\n", dist);
     pixel2point((double) yp, (double) xp, &x_in, &y_in);
     point2angles(x_in, y_in, &xAngle, &yAngle);
     VERBOSE_PRINT("pixel(%d, %d) point(%0.2f, %0.2f) angles(%0.2f, %0.2f)\n",xp, yp, x_in, y_in, xAngle / M_PI * 180, yAngle / M_PI * 180);

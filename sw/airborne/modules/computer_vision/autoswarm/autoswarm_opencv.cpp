@@ -59,6 +59,7 @@ static void calcDiffVelocity(double totV[3], double di[3]);
 static void limitVelocityYaw(double totV[3]);
 static void autoswarm_opencv_run_header(void);
 static void autoswarm_opencv_run_trailer(void);
+static void calcGlobalCoeff(struct NedCoor_f *pos, double gi[3], double* g_coeff);
 
 // Debug options
 #define AUTOSWARM_SHOW_WAYPOINT 1                   // Show the updated positions of the waypoints
@@ -68,19 +69,20 @@ static void autoswarm_opencv_run_trailer(void);
 
 // Set up swarm parameters
 int     AUTOSWARM_MODE          = 2;                // 0: follow (deprecated), 1: look in direction of flight, 2: look in direction of global component
-double  AUTOSWARM_SEPERATION    = 1.75;              // m
-double  AUTOSWARM_E             = 0.0025;            // Was 0.01x - 0.0005 at 12m/s OK (but close)
+double  AUTOSWARM_SEPERATION    = 1.5;              // m
+double  AUTOSWARM_LATTICE_RATIO = 2.0;
+double  AUTOSWARM_E             = 0.005;            // Was 0.01x - 0.0005 at 12m/s OK (but close)
 double  AUTOSWARM_EPS           = 0.05;             //
-double  AUTOSWARM_GLOBAL        = 0.9;              // % of V_MAX
+double  AUTOSWARM_GLOBAL        = 1.0;              // % of V_MAX
 int     AUTOSWARM_FPS           = 18;               // Frames per second
-double  AUTOSWARM_VMAX          = 0.5;                // m/s
+double  AUTOSWARM_VMAX          = 3.0;        // m/s
 double  AUTOSWARM_YAWRATEMAX    = 70;               // deg/s
 int     AUTOSWARM_MEMORY        = 1.5;              // seconds
 double  AUTOSWARM_HOME          = 0.3;              // m
 
 // Set up global attractor parameters
 int     AUTOSWARM_ATTRACTOR     = AUTOSWARM_GLOBAL_ATTRACTOR;
-double  AUTOSWARM_CIRCLE_R      = 2;
+double  AUTOSWARM_CIRCLE_R      = 1.5;
 double  AUTOSWARM_DEADZONE      = 0.1;
 
 // Initialize parameters to be assigned during runtime
@@ -148,8 +150,11 @@ void calcVelocityResponse(struct NedCoor_f *pos, double totV[3], double gi[3]){
     double di[3]    = {0.0, 0.0, 0.0};              // Initialize differential contribution
     calcLocalVelocity(pos, li);                     // Get the contribution due to the neighbours we see and have memorized
     calcGlobalVelocity(pos, gi);                    // Get the contribution due to the "attraction" towards global origin
-    totV[0]         = li[0] + gi[0];                // Average the X local contribution (#neighbours independent) and add the X global contribution
-    totV[1]         = li[1] + gi[1];                // Do the same for Y
+    double g_coeff;
+    calcGlobalCoeff(pos, gi, &g_coeff);
+    PRINT("g_coeff: %f\n", g_coeff);
+    totV[0]         = li[0] + g_coeff * gi[0];      // Average the X local contribution (#neighbours independent) and add the X global contribution
+    totV[1]         = li[1] + g_coeff * gi[1];      // Do the same for Y
     limitNorm(totV, AUTOSWARM_VMAX);                // Check if ideal velocity exceeds AUTOSWARM_VMAX
     calcDiffVelocity(totV, di);                     // Calculate the differential component based on change in totV
     totV[0]         = totV[0] + di[0];              // Add differential x component
@@ -178,6 +183,38 @@ void calcLocalVelocity(struct NedCoor_f *pos, double li[3]){
                                                     // TODO: What if I don't see anyone?
     }
     return;
+}
+
+void calcGlobalCoeff(struct NedCoor_f *pos, double gi[3], double* g_coeff){
+    if (neighbourMem_size > 0){
+        double nDir[2], rel_dist, range, c_gi_coef, c_gi[2];
+        PRINT("gi: [%f %f]\n", gi[0], gi[1]);
+        double w_neighbours[2]  = {0.0, 0.0};
+        double gi_n             = sqrt(pow(gi[0], 2.0) + pow(gi[1], 2.0));
+
+        for (unsigned int r = 0; r < neighbourMem_size; r++){
+            range            = sqrt(pow((pos->x - neighbourMem[r].x_w), 2.0) + pow((pos->y - neighbourMem[r].y_w), 2.0));
+            if(range > AUTOSWARM_SEPERATION * AUTOSWARM_LATTICE_RATIO){
+                continue;
+            }
+            nDir[0]          = (pos->x - neighbourMem[r].x_w) / range;
+            nDir[1]          = (pos->y - neighbourMem[r].y_w) / range;
+            rel_dist         = min(1.0, ( AUTOSWARM_LATTICE_RATIO * AUTOSWARM_SEPERATION - range) / (AUTOSWARM_SEPERATION * (AUTOSWARM_LATTICE_RATIO - 1)));
+            PRINT("ID: %d - range: %f, rel_dist: %f  dir: [%f %f]\n", r, range, rel_dist, nDir[0], nDir[1]);
+            w_neighbours[0] += pow(rel_dist, 2.0) * nDir[0];
+            w_neighbours[1] += pow(rel_dist, 2.0) * nDir[1];
+        }
+        w_neighbours[0] *= gi_n;
+        w_neighbours[1] *= gi_n;
+        PRINT("w_neighbours: [%f %f]\n", w_neighbours[0], w_neighbours[1]);
+        c_gi_coef   = (w_neighbours[0] * gi[0] + w_neighbours[1] * gi[1]) / pow(gi_n, 2.0); // dot(w_neighbours, gi) / dot(gi, gi);
+        c_gi[0]     = c_gi_coef * gi[0];
+        c_gi[1]     = c_gi_coef * gi[1];
+        PRINT("c_gi: [%f %f]\n", c_gi[0], c_gi[1]);
+        *g_coeff    = min(1.0, max(0.0, 2.0 - sqrt(pow(gi[0] - c_gi[0], 2.0) + pow(gi[1] - c_gi[1], 2.0)) / gi_n ));
+    }else{
+        *g_coeff = 1.0;
+    }
 }
 
 void calcGlobalVelocity(struct NedCoor_f *pos, double gi[3]){
@@ -342,7 +379,8 @@ void autoswarm_opencv_init(int globalMode){
     }
 #endif
     AUTOSWARM_ATTRACTOR = globalMode;
-    printf("[AS] initialized\n");
+    AR_FILTER_CAM_RANGE = AUTOSWARM_SEPERATION * AUTOSWARM_LATTICE_RATIO;
+    printf("[AS] initialized, set ar_filter cam_range to %0.2f\n",AR_FILTER_CAM_RANGE);
     return;
 }
 

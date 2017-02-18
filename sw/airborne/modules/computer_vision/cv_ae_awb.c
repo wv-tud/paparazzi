@@ -143,12 +143,12 @@ struct image_t* cv_ae_awb_periodic(struct image_t* img) {
                 // filter output: avgU
                 float error = awb_targetAWB - avgU;
                 VERBOSE_PRINT("Adjust blue gain (error: %f)  blue_gain = %f + %f * %d\n", error, mt9f002.gain_blue, awb_mu, awb_muK(error));
-                mt9f002.gain_blue   += awb_mu * awb_muK(error);
+                mt9f002.gain_blue   += 2 * awb_mu * awb_muK(error);
             }else if((fabs(avgU) + awb_fTolerance) < fabs(avgV)){
                 // filter output: avgV
                 float error = awb_targetAWB - avgV;
                 VERBOSE_PRINT("Adjust red gain (error: %f)  red_gain = %f + %f * %d\n", error, mt9f002.gain_red, awb_mu, awb_muK(error));
-                mt9f002.gain_red    += awb_mu * awb_muK(error);
+                mt9f002.gain_red    += 2 * awb_mu * awb_muK(error);
             }else{
                 VERBOSE_PRINT("White balance achieved\n");
             }
