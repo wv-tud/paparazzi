@@ -33,6 +33,10 @@ extern float setting_max_saturated;
 extern float awb_fTolerance;
 extern float awb_targetAWB;
 extern float awb_mu;
+
+extern uint8_t bright_bin;
+extern uint8_t sat_bin;
+
 extern void cv_ae_awb_init(void);
 
 #endif

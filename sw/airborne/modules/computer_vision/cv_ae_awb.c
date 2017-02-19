@@ -36,11 +36,11 @@
 #endif
 
 #ifndef CV_AE_AWB_TARGET_BRIGHT
-#define CV_AE_AWB_TARGET_BRIGHT 0.055
+#define CV_AE_AWB_TARGET_BRIGHT 0.06
 #endif
 
 #ifndef CV_AE_AWB_MAX_SATURATED
-#define CV_AE_AWB_MAX_SATURATED 0.03
+#define CV_AE_AWB_MAX_SATURATED 0.005
 #endif
 
 #ifndef CV_AE_AWB_FTOLERANCE
@@ -53,10 +53,6 @@
 
 #ifndef CV_AE_AWB_MU
 #define CV_AE_AWB_MU 0.0312 // 0.0312
-#endif
-
-#ifndef CV_AE_AWB_MAX_GAINS
-#define CV_AE_AWB_MAX_GAINS 55
 #endif
 
 #ifndef CV_AE_AWB_VERBOSE
@@ -76,7 +72,7 @@
 
 #define awb_muAbs(x) ( ( x ) >= ( 0 ) ? ( x ) : ( -x ))
 #define awb_muSign(x) ( ( x ) > ( 0 ) ? ( 1 ) : ( ( x ) < ( 0 ) ? ( -1 ) : ( 0 ) ) )
-#define awb_muK(x) ( awb_muAbs(x) >= ( 0.8 ) ? ( 2 * awb_muSign( x ) ) : ( awb_muAbs( x ) >= ( 0.05 ) ? awb_muSign( x ) : ( 0 )) )
+#define awb_muK(x) (awb_muAbs(x) >= ( 1.6 ) ? ( 4.0 * awb_muSign( x ) ) : ( awb_muAbs(x) >= ( 0.8 ) ? ( 2.0 * awb_muSign( x ) ) : ( awb_muAbs( x ) >= ( 0.05 ) ? awb_muSign( x ) : ( 0 )) ))
 
 bool gains_maxed            = false;
 float setting_target_bright = CV_AE_AWB_TARGET_BRIGHT;
@@ -84,6 +80,9 @@ float setting_max_saturated = CV_AE_AWB_MAX_SATURATED;
 float awb_fTolerance        = CV_AE_AWB_FTOLERANCE;
 float awb_targetAWB         = CV_AE_AWB_TARGET_AWB;
 float awb_mu                = CV_AE_AWB_MU;
+
+uint8_t  bright_bin             = 75;
+uint8_t  sat_bin                = 35;
 
 #include "boards/bebop/mt9f002.h"
 struct image_t* cv_ae_awb_periodic(struct image_t* img);
@@ -98,8 +97,8 @@ struct image_t* cv_ae_awb_periodic(struct image_t* img) {
             cdf[i] = cdf[i-1] + yuv_stats.ae_histogram_Y[i];
         }
         // Calculate bright and saturated pixels
-        uint32_t bright_pixels          = cdf[MAX_HIST_Y-1] - cdf[MAX_HIST_Y-31];           // Top 30-15 bins
-        uint32_t saturated_pixels       = cdf[MAX_HIST_Y-1] - cdf[MAX_HIST_Y-16];            // top 15 bins
+        uint32_t bright_pixels          = cdf[MAX_HIST_Y - sat_bin] - cdf[MAX_HIST_Y - bright_bin];           // Top 30-15 bins
+        uint32_t saturated_pixels       = cdf[MAX_HIST_Y - 1] - cdf[MAX_HIST_Y - sat_bin];            // top 15 bins
         uint32_t target_bright_pixels   = yuv_stats.nb_valid_Y * setting_target_bright;
         uint32_t max_saturated_pixels   = yuv_stats.nb_valid_Y * setting_max_saturated;
         float adjustment                = 1.0f;
@@ -110,23 +109,23 @@ struct image_t* cv_ae_awb_periodic(struct image_t* img) {
         // Fix bright pixels
         else if (bright_pixels < target_bright_pixels) {
             // increase brightness to try and hit the desired number of well exposed pixels
-            int l = MAX_HIST_Y - 31;
+            int l = MAX_HIST_Y - bright_bin;
             while (bright_pixels < target_bright_pixels && l > 0) {
                 bright_pixels += yuv_stats.ae_histogram_Y[l];
                 l--;
             }
             // that level is supposed to be at MAX_HIST_Y-31;
-            adjustment = ( (float) (MAX_HIST_Y - 31 + 1) ) / (l+1);
+            adjustment = ( (float) (MAX_HIST_Y - bright_bin + 1) ) / (l+1);
         }
         else if (bright_pixels > target_bright_pixels) {
             // decrese brightness to try and hit the desired number of well exposed pixels
-            int l = MAX_HIST_Y - 30;
+            int l = MAX_HIST_Y - bright_bin + 1;
             while (bright_pixels > target_bright_pixels && l < MAX_HIST_Y) {
                 bright_pixels -= yuv_stats.ae_histogram_Y[l];
                 l++;
             }
             // that level is supposed to be at MAX_HIST_Y-31;
-            adjustment = ( (float) (MAX_HIST_Y - 31 + 1) ) / (l+1);
+            adjustment = ( (float) (MAX_HIST_Y - bright_bin + 1) ) / (l+1);
         }
         // Calculate exposure
         Bound(adjustment, 1/16.0f, 4.0);
@@ -143,32 +142,40 @@ struct image_t* cv_ae_awb_periodic(struct image_t* img) {
                 // filter output: avgU
                 float error = awb_targetAWB - avgU;
                 VERBOSE_PRINT("Adjust blue gain (error: %f)  blue_gain = %f + %f * %d\n", error, mt9f002.gain_blue, awb_mu, awb_muK(error));
-                mt9f002.gain_blue   += 2 * awb_mu * awb_muK(error);
+                mt9f002.gain_blue   += awb_mu * awb_muK(error);
             }else if((fabs(avgU) + awb_fTolerance) < fabs(avgV)){
                 // filter output: avgV
                 float error = awb_targetAWB - avgV;
                 VERBOSE_PRINT("Adjust red gain (error: %f)  red_gain = %f + %f * %d\n", error, mt9f002.gain_red, awb_mu, awb_muK(error));
-                mt9f002.gain_red    += 2 * awb_mu * awb_muK(error);
+                mt9f002.gain_red    += awb_mu * awb_muK(error);
             }else{
                 VERBOSE_PRINT("White balance achieved\n");
             }
             // filter output: 0
             //error = awb_targetAWB - 0.0;
-            if((mt9f002.target_exposure > 1.1 * mt9f002.real_exposure) && !gains_maxed)
+            if((mt9f002.target_exposure > 25.0) && !gains_maxed)
             {
-                mt9f002.gain_blue     += mt9f002.target_exposure / mt9f002.real_exposure * awb_mu;
-                mt9f002.gain_red      += mt9f002.target_exposure / mt9f002.real_exposure * awb_mu;
-                mt9f002.gain_green1   += mt9f002.target_exposure / mt9f002.real_exposure * awb_mu;
-                mt9f002.gain_green2   += mt9f002.target_exposure / mt9f002.real_exposure * awb_mu;
-                if(mt9f002.gain_blue >= CV_AE_AWB_MAX_GAINS || mt9f002.gain_red >= CV_AE_AWB_MAX_GAINS  || mt9f002.gain_green1 >= CV_AE_AWB_MAX_GAINS  || mt9f002.gain_green2 >= CV_AE_AWB_MAX_GAINS){
+                mt9f002.gain_blue     += awb_mu;
+                mt9f002.gain_red      += awb_mu;
+                mt9f002.gain_green1   += awb_mu;
+                mt9f002.gain_green2   += awb_mu;
+            }
+            else if((mt9f002.target_exposure < 0.4))
+            {
+                mt9f002.gain_blue     -= awb_mu;
+                mt9f002.gain_red      -= awb_mu;
+                mt9f002.gain_green1   -= awb_mu;
+                mt9f002.gain_green2   -= awb_mu;
+                /*if(mt9f002.gain_blue >= CV_AE_AWB_MAX_GAINS || mt9f002.gain_red >= CV_AE_AWB_MAX_GAINS  || mt9f002.gain_green1 >= CV_AE_AWB_MAX_GAINS  || mt9f002.gain_green2 >= CV_AE_AWB_MAX_GAINS){
                     gains_maxed = true;
                 }
                 VERBOSE_PRINT("Exposure saturated: new gains(B %f, R %f, G %f, G %f)\r\n", mt9f002.gain_blue, mt9f002.gain_red, mt9f002.gain_green1, mt9f002.gain_green2);
+                */
             }
-            Bound(mt9f002.gain_blue,    2, 75);
-            Bound(mt9f002.gain_red,     2, 75);
-            Bound(mt9f002.gain_green1,  2, 75);
-            Bound(mt9f002.gain_green2,  2, 75);
+            Bound(mt9f002.gain_blue,    1, 75);
+            Bound(mt9f002.gain_red,     1, 75);
+            Bound(mt9f002.gain_green1,  1, 75);
+            Bound(mt9f002.gain_green2,  1, 75);
             mt9f002_set_gains(&mt9f002);
         }
         else{

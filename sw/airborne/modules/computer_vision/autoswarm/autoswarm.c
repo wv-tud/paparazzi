@@ -43,12 +43,8 @@
 struct image_t* autoswarm_func(struct image_t* img);
 struct image_t* autoswarm_func(struct image_t* img)
 {
-  if (img->type == IMAGE_YUV422)
-  {
-	  // Call OpenCV (C++ from paparazzi C function)
-	  autoswarm_opencv_run();
-  }
-  return img;
+  autoswarm_opencv_run();
+  return NULL;
 }
 
 void autoswarm_init(void)

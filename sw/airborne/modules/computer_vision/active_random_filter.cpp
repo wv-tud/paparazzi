@@ -269,6 +269,9 @@ memoryBlock                 neighbourMem[AR_FILTER_MAX_OBJECTS];
 // Flood CW parameters
 static Point            objCont_store[AR_FILTER_MAX_OBJCONT_SIZE];
 static uint16_t         objCont_size    = 0;
+static uint16_t         objCont_sRow    = 0;
+static uint16_t         objCont_sCol    = 0;
+
 static uint8_t          cmpY            = 0;
 static uint8_t          cmpU            = 0;
 static uint8_t          cmpV            = 0;
@@ -1245,6 +1248,8 @@ int pixFindContour_cw(Mat& sourceFrame, Mat& destFrame, uint16_t row, uint16_t c
                     }
                     else{
                         destFrame.at<uint8_t>(row, col) = 76;
+                        objCont_sRow                    = row;
+                        objCont_sCol                    = col;
                         objCont_size                    = 0;
                         result                          = pixFollowContour_cw(sourceFrame, destFrame, newRow, newCol, nextDir[d]);
                     }
@@ -1303,7 +1308,8 @@ int pixFindContour_cw(Mat& sourceFrame, Mat& destFrame, uint16_t row, uint16_t c
 int pixFollowContour_cw(Mat& sourceFrame, Mat& destFrame, uint16_t row, uint16_t col, uint8_t prevDir){
     layerDepth++;
     pixCount++;
-    if(destFrame.at<uint8_t>(row, col) == 76){
+    if(destFrame.at<uint8_t>(row, col) == 76  // Arrived neatly back at starting pos
+            || (abs(objCont_sRow - row) < 4 && abs(objCont_sCol - col) < 4 && layerDepth > AR_FILTER_MIN_LAYERS)){  // Close enough
         // This is my starting position, finished!
         if(layerDepth > AR_FILTER_MIN_LAYERS){
             destFrame.at<uint8_t>(row, col) = 255;
