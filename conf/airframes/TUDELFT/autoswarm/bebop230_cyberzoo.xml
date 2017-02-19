@@ -169,6 +169,7 @@
 
 		<define name="ESTIMATION_FILT_CUTOFF" value="4.0" />
 		<define name="FILT_CUTOFF" value="5.0" />
+		<define name="ACT_DYN" value="{0.15, 0.15, 0.15, 0.15}"/>
 
 		<!-- Adaptive Learning Rate -->
 		<define name="USE_ADAPTIVE" value="FALSE" />
