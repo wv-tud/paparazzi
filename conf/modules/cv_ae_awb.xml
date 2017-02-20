@@ -4,6 +4,19 @@
   <doc>
     <description>Auto exposure and Auto white balancing for the Bebop 1 and 2</description>
   </doc>
+  <settings>
+  <dl_settings>
+    <dl_settings NAME="AE/AWB">
+      <dl_setting var="setting_target_bright" min="0" step="0.0001" max="1" module="computer_vision/cv_ae_awb" shortname="Target bright (%)"/>
+      <dl_setting var="setting_max_saturated" min="0" step="0.0001" max="1" module="computer_vision/cv_ae_awb" shortname="Max saturated (%)"/>
+      <dl_setting var="awb_fTolerance"        min="0" step="0.01"   max="1" module="computer_vision/cv_ae_awb" shortname="AWB Tolerance"/>
+      <dl_setting var="awb_targetAWB"         min="-10" step="0.01" max="10" module="computer_vision/cv_ae_awb" shortname="AWB Target"/>
+      <dl_setting var="awb_mu"                min="0" step="0.001"  max="1" module="computer_vision/cv_ae_awb" shortname="AWB Mu"/>
+      <dl_setting var="bright_bin"            min="1" step="1"  max="100" module="computer_vision/cv_ae_awb" shortname="Bright bins"/>
+      <dl_setting var="sat_bin"               min="1" step="1"  max="100" module="computer_vision/cv_ae_awb" shortname="Saturated bins"/>
+    </dl_settings>
+  </dl_settings>
+</settings>
   <header>
     <file name="cv_ae_awb.h"/>
   </header>

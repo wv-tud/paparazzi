@@ -1309,7 +1309,7 @@ int pixFollowContour_cw(Mat& sourceFrame, Mat& destFrame, uint16_t row, uint16_t
     layerDepth++;
     pixCount++;
     if(destFrame.at<uint8_t>(row, col) == 76  // Arrived neatly back at starting pos
-            || (abs(objCont_sRow - row) < 4 && abs(objCont_sCol - col) < 4 && layerDepth > AR_FILTER_MIN_LAYERS)){  // Close enough
+            || (abs(objCont_sRow - row) < 2 && abs(objCont_sCol - col) < 2 && layerDepth > AR_FILTER_MIN_LAYERS)){  // Close enough
         // This is my starting position, finished!
         if(layerDepth > AR_FILTER_MIN_LAYERS){
             destFrame.at<uint8_t>(row, col) = 255;

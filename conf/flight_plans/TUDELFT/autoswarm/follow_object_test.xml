@@ -1,6 +1,6 @@
 <!DOCTYPE flight_plan SYSTEM "../../flight_plan.dtd">
 
-<flight_plan alt="1.0" ground_alt="0" lat0="51.990634" lon0="4.376789" max_dist_from_home="25" name="Bebop avoid orange TU Delft Cyberzoo" security_height="0.4">
+<flight_plan alt="1.5" ground_alt="0" lat0="51.990634" lon0="4.376789" max_dist_from_home="25" name="Bebop avoid orange TU Delft Cyberzoo" security_height="0.4">
   <header>
 #include "autopilot.h"
 #include "subsystems/datalink/datalink.h"
@@ -13,11 +13,11 @@
     <waypoint name="STDBY" 	x="1.0" y="1.0"/>
     <waypoint name="_GOAL" 	x="1.0" y="0.0"/>
     <waypoint name="_CAM" 	x="1.0" y="0.0"/>
-    <waypoint name="GLOBAL" lat="51.9906375" lon="4.3767963"/>
-    <waypoint lat="51.9905836" lon="4.3767729" name="CZ1"/>
+    <waypoint name="GLOBAL" lat="51.9906316" lon="4.3767929"/>
+    <waypoint lat="51.9905938" lon="4.3767670" name="CZ1"/>
     <waypoint lat="51.9906367" lon="4.3767153" name="CZ2"/>
     <waypoint lat="51.9906757" lon="4.3768068" name="CZ3"/>
-    <waypoint lat="51.9906226" lon="4.3768699" name="CZ4"/>
+    <waypoint lat="51.9906297" lon="4.3768616" name="CZ4"/>
     <!--
     <waypoint lat="51.9906258" lon="4.3768571" name="CZ1"/>
     <waypoint lat="51.9905925" lon="4.3767779" name="CZ2"/>
