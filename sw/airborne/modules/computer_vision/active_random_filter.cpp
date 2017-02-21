@@ -27,18 +27,18 @@
 #include <vector>
 #include <ctime>
 
-#define BOARD_CONFIG "boards/bebop.h"
+#define BOARD_CONFIG "boards/bebop.h"               ///< Define which board
 
 extern "C" {
-    #include "boards/bebop.h"                       // C header used for bebop specific settings
-    #include <state.h>                              // C header used for state functions and data
-    #include <sys/time.h>
-    #include "mcu_periph/sys_time.h"
+    #include "boards/bebop.h"                       ///< C header used for bebop specific settings
+    #include <state.h>                              ///< C header used for state functions and data
+    #include <sys/time.h>                           ///< C header used for system time functions and data
+    #include "mcu_periph/sys_time.h"                ///< C header used for PPRZ time functions and data
 }
 
 using namespace std;
-#include <opencv2/core/core.hpp>
-#include <opencv2/imgproc/imgproc.hpp>
+#include <opencv2/core/core.hpp>                    ///< Load openCV
+#include <opencv2/imgproc/imgproc.hpp>              ///< Load openCV image processing library
 using namespace cv;
 
 
@@ -53,23 +53,23 @@ using namespace cv;
 
 #define xSign(x) ( ( x ) >= ( 0 ) ? ( 1 ) : ( -1 ) )
 
-#define AR_FILTER_UNIT_TEST     0   // Do unit tests with random points
-#define AR_FILTER_SHOW_REJECT   0   // Print why shapes are rejected
-#define AR_FILTER_MOD_VIDEO     1   // Modify the frame to show relevant info
-#define AR_FILTER_CROSSHAIR     1   // Show centre of frame with crosshair
-#define AR_FILTER_MARK_CONTOURS 1   // Mark all contour pixels green on sourceframe
-#define AR_FILTER_DRAW_CIRCLES  1   // Draw circles
-#define AR_FILTER_DRAW_BOXES 	1   // Draw boxes
-#define AR_FILTER_SHOW_MEM      1   // Print object locations to terminal
-#define AR_FILTER_SAVE_FRAME    0   // Save a frame for post-processing
-#define AR_FILTER_MEASURE_FPS   1   // Measure average FPS
-#define AR_FILTER_CALIBRATE_CAM 0   // Calibrate camera
-#define AR_FILTER_WORLDPOS 		1   // Use world coordinates
-#define AR_FILTER_NOYAW 		0   // Output in body horizontal XY
-#define AR_FILTER_TIMEOUT       150 // Frames from start
-#define AR_FILTER_USE_ALTITUDE  1   // Use own altitude for world pos
-#define AR_FILTER_WRITE_LOG     0   // Write tracking results to logfile
-#define AR_FILTER_DISTANCE_PLOT 1   // Plot lines with distance
+#define AR_FILTER_UNIT_TEST     0   ///< Do unit tests with random points
+#define AR_FILTER_SHOW_REJECT   0   ///< Print why shapes are rejected
+#define AR_FILTER_MOD_VIDEO     1   ///< Modify the frame to show relevant info
+#define AR_FILTER_CROSSHAIR     1   ///< Show centre of frame with crosshair
+#define AR_FILTER_MARK_CONTOURS 1   ///< Mark all contour pixels green on sourceframe
+#define AR_FILTER_DRAW_CIRCLES  1   ///< Draw circles
+#define AR_FILTER_DRAW_BOXES 	1   ///< Draw boxes
+#define AR_FILTER_SHOW_MEM      1   ///< Print object locations to terminal
+#define AR_FILTER_SAVE_FRAME    0   ///< Save a frame for post-processing
+#define AR_FILTER_MEASURE_FPS   1   ///< Measure average FPS
+#define AR_FILTER_CALIBRATE_CAM 0   ///< Calibrate camera
+#define AR_FILTER_WORLDPOS 		1   ///< Use world coordinates
+#define AR_FILTER_NOYAW 		0   ///< Output in body horizontal XY
+#define AR_FILTER_TIMEOUT       150 ///< Frames from start
+#define AR_FILTER_USE_ALTITUDE  1   ///< Use own altitude for world pos
+#define AR_FILTER_WRITE_LOG     0   ///< Write tracking results to logfile
+#define AR_FILTER_DISTANCE_PLOT 1   ///< Plot lines with distance on frame
 
 static void             active_random_filter_header ( void );
 static void             active_random_filter_footer ( void );
@@ -86,19 +86,19 @@ static bool             getNewPosition      ( uint8_t nextDir, uint16_t* newRow,
 static void             eraseMemory         ( void );
 static void             getYUVColours       ( Mat& sourceFrame, uint16_t row, uint16_t col, uint8_t* Y, uint8_t* U, uint8_t* V );
 static void             createSearchGrid    ( uint16_t x_p, uint16_t y_p, Point searchGrid[], uint8_t searchLayer, uint16_t sGridSize, int* maxRow, int* maxCol);
-// Fisheye correction
+/** Fisheye correction **/
 static double 			correctRadius		( double r, double f, double k );
 static double           invertRadius        ( double r, double f, double k );
-// Perspective correction
+/** Perspective correction **/
 static void             inputCoord          ( double x_out, double y_out, double *x_in, double *y_in );
 static void             outputCoord         ( double x_in, double y_in, double *x_out, double *y_out );
-// Fisheye + Perspective correction
+/** Fisheye + Perspective correction **/
 static void             point2pixel        (double x_out, double y_out, double *x_in, double *y_in);
 static void             pixel2point        (double x_in, double y_in, double *x_out, double *y_out);
-// Conversion from angles to output frame point
+/** Conversion from angles to output frame point **/
 static void             angles2point        (double xAngle, double yAngle, double *x_out, double * y_out);
 static void             point2angles        (double x_out, double y_out, double *xAngle, double *yAngle);
-// Flood CW declarations
+/** Flood CW declarations **/
 static bool             processImage_cw     ( Mat& sourceFrame, Mat& destFrame, uint16_t sampleSize );
 static int              pixFindContour_cw   ( Mat& sourceFrame, Mat& destFrame, uint16_t row, uint16_t col, uint8_t prevDir, bool cascade );
 static int              pixFollowContour_cw ( Mat& sourceFrame, Mat& destFrame, uint16_t row, uint16_t col, uint8_t prevDir );
@@ -106,7 +106,7 @@ static void             getNextDirection_cw ( uint8_t prevDir, uint8_t* nextDir,
 static bool             objCont_add         ( double minDist = 0.0, double maxDist = 0.0);
 static void             objCont_addPoint    ( uint16_t* row, uint16_t* col );
 static Moments          objCont_moments     ( void );
-// Flood omni declarations
+/** Flood omni declarations **/
 static bool             processImage_omni   ( Mat& sourceFrame, Mat& destFrame, uint16_t sampleSize );
 static int              pixFindContour_omni ( Mat& sourceFrame, Mat& destFrame, uint16_t row, uint16_t col, uint8_t prevDir, bool cascade );
 static void             getNextDirection_omni( uint8_t prevDir, uint8_t* nextDir, uint8_t* nextDirCnt );
@@ -114,16 +114,16 @@ static void             processCrops        ( Mat& frameGrey);
 static void             addCrop             ( void );
 static Rect             enlargeRectangle    ( Mat& sourceFrame, Rect rectangle, double scale );
 static bool             inRectangle         ( Point pt, Rect rectangle );
-// Set up trackRes
+/** Set up trackRes **/
 static uint8_t          trackRes_size = 0;
 static bool             trackRes_findMax    ( void );
 static bool             trackRes_add        ( trackResults newRes, uint8_t overwriteId = trackRes_size);
 static bool             trackRes_clear      ( void );
-// Set up neighbourMem
+/** Set up neighbourMem **/
 uint8_t                 neighbourMem_size = 0;
 static bool             neighbourMem_findMax( void );
 static bool             neighbourMem_add    ( memoryBlock newRes, uint8_t overwriteId = neighbourMem_size);
-// Stabilization functions
+/** Stabilization functions **/
 static void             getMVP              ( double MVP[16] );
 static void             setPerspectiveMat   (double m[16]);
 static void             setRotationMat      (float, float, float, double m[16]);
@@ -135,9 +135,10 @@ static float            vector_length       (const float x, const float y, const
 static void             translate_xyz       (double result[16], const float translatex, const float translatey, const float translatez);
 static void             rotateVector        (float x, float y, float z, double vector[4]);
 static void             setTranslationMat   (float x, float y, float z, double outputMat[16]);
-
+/** Line drawing functions **/
 static void             plotHorizontalLine  (Mat& sourceFrameCrop, double yAngle, double xResDeg);
 static void             plotVerticalLine    (Mat& sourceFrameCrop, double xAngle, double yResDeg);
+/** Optional functions **/
 #if AR_FILTER_MOD_VIDEO
 static void             mod_video           (Mat& sourceFrame, Mat& frameGrey);
 #endif
@@ -148,135 +149,128 @@ static void 			calibrateEstimation (void);
 static void 			saveBuffer			(Mat sourceFrame, const char *filename);
 #endif
 
-// Set up tracking parameters
-#define     AR_FILTER_MAX_OBJCONT_SIZE  10000
-#define     AR_FILTER_OBJ_X_OFFSET      0.0             // Offset x from object centre to object c.g. in world frame
-#define     AR_FILTER_OBJ_Y_OFFSET      0.0             // Offset y from object centre to object c.g. in world frame
-#define     AR_FILTER_OBJ_Z_OFFSET      0.1             // Offset z from object centre to object c.g. in world frame
-uint8_t     AR_FILTER_FLOOD_STYLE       = AR_FILTER_FLOOD_CW;
-uint8_t     AR_FILTER_SAMPLE_STYLE      = AR_FILTER_STYLE_RANDOM;
+/** Set up tracking parameters **/
+#define     AR_FILTER_MAX_OBJCONT_SIZE  10000                               ///< Largest size of a contour allowed
+#define     AR_FILTER_OBJ_X_OFFSET      0.0                                 ///< Offset x from object centre to object c.g. in world frame
+#define     AR_FILTER_OBJ_Y_OFFSET      0.0                                 ///< Offset y from object centre to object c.g. in world frame
+#define     AR_FILTER_OBJ_Z_OFFSET      0.1                                 ///< Offset z from object centre to object c.g. in world frame
 
-double      AR_FILTER_CAM_RANGE         = 10.0;          // Maximum r_c of newly added objects
-uint16_t    AR_FILTER_RND_PIX_SAMPLE    = 2500;         // Random pixel sample size
-uint16_t    AR_FILTER_MAX_LAYERS        = 5000;         // Maximum recursive depth of CW flood
-double 	    AR_FILTER_MAX_CIRCLE_DEF 	= 0.81;         // Max contour eccentricity
-double      AR_FILTER_MIN_CIRCLE_PERC   = 0.50;         // Minimum percentage of circle in view
-// Automatically calculated parameters
-uint16_t    AR_FILTER_MIN_POINTS;           // Mimimum contour length
-double      AR_FILTER_MIN_CIRCLE_SIZE;      // Minimum contour area
-uint16_t    AR_FILTER_MIN_LAYERS;           // Miminum recursive depth of CW flood
+uint8_t     AR_FILTER_FLOOD_STYLE       = AR_FILTER_FLOOD_CW;               ///< Flood style to search for contours
+uint8_t     AR_FILTER_SAMPLE_STYLE      = AR_FILTER_STYLE_RANDOM;           ///< Sample style to search for contours
+double      AR_FILTER_CAM_RANGE         = 10.0;                             ///< Maximum camera range of newly added objects
+uint16_t    AR_FILTER_RND_PIX_SAMPLE    = 2500;                             ///< Random pixel sample size
+uint16_t    AR_FILTER_MAX_LAYERS        = 5000;                             ///< Maximum recursive depth of CW flood
+double 	    AR_FILTER_MAX_CIRCLE_DEF 	= 0.81;                             ///< Maximum contour eccentricity
+double      AR_FILTER_MIN_CIRCLE_PERC   = 0.50;                             ///< Minimum percentage of circle in view
+/** Automatically calculated tracking parameters **/
+uint16_t    AR_FILTER_MIN_POINTS;                                           ///< Mimimum contour length
+double      AR_FILTER_MIN_CIRCLE_SIZE;                                      ///< Minimum contour area
+uint16_t    AR_FILTER_MIN_LAYERS;                                           ///< Miminum recursive depth of CW flood
 
-uint16_t    AR_FILTER_MIN_CROP_AREA     = 100;          // Minimal area of a crop rectangle
-// 1.525 too much - 1.5 (just) too little
-double      AR_FILTER_VIEW_R            = 0.00113; // 0.0091
-double      default_k                   = 1.2247445; // 1.22474604174 max Fisheye correction factor
-double      default_6th_o               = 0.255;
-double      default_2nd_o               = 0.155;
-uint16_t    default_calArea             = 7650;  // Calibrate at full resolution
-double      default_orbDiag             = 2 * CFG_MT9F002_FISHEYE_RADIUS;  // Measured circular image diagonal using full resolution
-float angleOfView                       = 179.85;
-// Lens correction parameter k
-float near                              = 0.075;
-float far                               = 1.5;
-
-
-uint8_t     AR_FILTER_GREY_THRES        = 15;
+uint16_t    AR_FILTER_MIN_CROP_AREA     = 100;                              ///< Minimal area of a crop rectangle
+/** Set up perspective and correction parameters **/
+double      AR_FILTER_VIEW_R            = 0.00113;                          ///< Perspective viewing distance
+double      default_k                   = 1.2247445;                        ///< Fisheye correction factor (1.22474604174 max)
+double      default_6th_o               = 0.255;                            ///< First order remaing correction factor
+double      default_2nd_o               = 0.155;                            ///< Second order counter remaing correction factor
+uint16_t    default_calArea             = 7650;                             ///< Area of a ball at 1m resolution on full sensor resolution
+double      default_orbDiag             = 2 * CFG_MT9F002_FISHEYE_RADIUS;   ///< Diagonal size of the fisheye picture in full sensor resolution
+float       angleOfView                 = 179.85;                           ///< Perspective angle of view ( < 180 )
+float       near                        = 0.075;                            ///< Perspective near clipping plane
+float       far                         = 1.5;                              ///< Perspective far clipping plane
+/** Set up colour filter **/
 /* FAKE LIGHT
-uint8_t     AR_FILTER_Y_MIN             = 0;                            // 0  [0,65 84,135 170,255]zoo 45
-uint8_t     AR_FILTER_Y_MAX             = 255;                          // 255
-uint8_t     AR_FILTER_U_MIN             = 0;                            // 84
-uint8_t     AR_FILTER_U_MAX             = 255;                          // 113
-uint8_t     AR_FILTER_V_MIN             = 158;                          // 218 -> 150?
-uint8_t     AR_FILTER_V_MAX             = 255;                          // 240 -> 255?
+uint8_t     AR_FILTER_Y_MIN             = 0;
+uint8_t     AR_FILTER_Y_MAX             = 255;
+uint8_t     AR_FILTER_U_MIN             = 0;
+uint8_t     AR_FILTER_U_MAX             = 255;
+uint8_t     AR_FILTER_V_MIN             = 158;
+uint8_t     AR_FILTER_V_MAX             = 255;
 */
 
 /* DAYLIGHT
-uint8_t 	AR_FILTER_Y_MIN 			= 130;                           // 0  [0,65 84,135 170,255]zoo 45
-uint8_t 	AR_FILTER_Y_MAX 			= 255;                          // 255
-uint8_t 	AR_FILTER_U_MIN 			= 95;                          // 84
-uint8_t 	AR_FILTER_U_MAX 			= 131;                          // 113
-uint8_t 	AR_FILTER_V_MIN 			= 145;                          // 218 -> 150?
-uint8_t 	AR_FILTER_V_MAX 			= 188;                          // 240 -> 255?
-*/
-/* DAYLIGHT 2
-uint8_t     AR_FILTER_Y_MIN             = 123;                           // 0  [0,65 84,135 170,255]zoo 45
-uint8_t     AR_FILTER_Y_MAX             = 222;                          // 255
-uint8_t     AR_FILTER_U_MIN             = 109;                          // 84
-uint8_t     AR_FILTER_U_MAX             = 130;                          // 113
-uint8_t     AR_FILTER_V_MIN             = 150;                          // 218 -> 150?
-uint8_t     AR_FILTER_V_MAX             = 209;                          // 240 -> 255?
+uint8_t 	AR_FILTER_Y_MIN 			= 130;
+uint8_t 	AR_FILTER_Y_MAX 			= 255;
+uint8_t 	AR_FILTER_U_MIN 			= 95;
+uint8_t 	AR_FILTER_U_MAX 			= 131;
+uint8_t 	AR_FILTER_V_MIN 			= 145;
+uint8_t 	AR_FILTER_V_MAX 			= 188;
 */
 
 /* Cyberzoo */
-uint8_t     AR_FILTER_Y_MIN             = 70;                           // 0  [0,65 84,135 170,255]zoo 45
-uint8_t     AR_FILTER_Y_MAX             = 250;                          // 255
-uint8_t     AR_FILTER_U_MIN             = 110;                          // 84
-uint8_t     AR_FILTER_U_MAX             = 140;                          // 113
-uint8_t     AR_FILTER_V_MIN             = 150;                          // 218 -> 150?
-uint8_t     AR_FILTER_V_MAX             = 205;                          // 240 -> 255?
+uint8_t     AR_FILTER_Y_MIN             = 50;                           ///< Minimum Y whilst searching and following contours
+uint8_t     AR_FILTER_Y_MAX             = 250;                          ///< Maximum Y whilst searching and following contours
+uint8_t     AR_FILTER_U_MIN             = 110;                          ///< Minimum U whilst searching and following contours
+uint8_t     AR_FILTER_U_MAX             = 140;                          ///< Maximum U whilst searching and following contours
+uint8_t     AR_FILTER_V_MIN             = 150;                          ///< Minimum V whilst searching and following contours
+uint8_t     AR_FILTER_V_MAX             = 205;                          ///< Maximum V whilst searching and following contours
 
-uint8_t     AR_FILTER_CDIST_YTHRES      = 15;
-uint8_t     AR_FILTER_CDIST_UTHRES      = 10;
-uint8_t     AR_FILTER_CDIST_VTHRES      = 5;
+uint8_t     AR_FILTER_CDIST_YTHRES      = 0;                           ///< Y difference threshold whilst searching and following contours
+uint8_t     AR_FILTER_CDIST_UTHRES      = 0;                           ///< U difference threshold whilst searching and following contours
+uint8_t     AR_FILTER_CDIST_VTHRES      = 0;                            ///< V difference threshold whilst searching and following contours
 
-double 	    AR_FILTER_IMAGE_CROP_FOVY 	= 45.0 * M_PI / 180.0; 		    // Radians
-double 	    AR_FILTER_CROP_X 			= 1.2;
-uint8_t     AR_FILTER_MEMORY 			= 40;
-double      AR_FILTER_FPS               = 18.0;
-double      AR_FILTER_VMAX              = 3.5;
+uint8_t     AR_FILTER_GREY_THRES        = 15;                           ///< V-U threshold whilst searching and following contours
 
-// Initialize parameters to be assigned during runtime
-static uint16_t 	        pixCount            = 0;
-static uint16_t 	        pixSucCount         = 0;
-static uint16_t             pixDupCount         = 0;
-static uint16_t             pixSrcCount         = 0;
-static uint16_t             pixNofCount         = 0;
-static uint16_t 	        layerDepth          = 0;
-static uint16_t 	        sample              = 0;
-static uint16_t 	        runCount            = 0;
-static uint16_t 	        maxId 		        = 0;
-static uint8_t              trackRes_maxId      = 0;
-static double               trackRes_maxVal     = 0;
-static uint8_t              trackRes_lastId     = 0;
-static uint8_t              neighbourMem_maxId  = 0;
-static double               neighbourMem_maxVal = 0;
-static uint8_t              neighbourMem_lastId = 0;
-static uint16_t             ispWidth            = 0;
-static uint16_t             ispHeight           = 0;
-static uint16_t             initialWidth;
-static uint16_t             initialHeight;
-static uint16_t             cropCol;
-static double               ispScalar;
-static Rect 			    objCrop;
-static vector<Rect> 	    cropAreas;
-static struct FloatEulers*  eulerAngles;
-struct NedCoor_f*           pos;
-static trackResults         trackRes[AR_FILTER_MAX_OBJECTS];
-memoryBlock                 neighbourMem[AR_FILTER_MAX_OBJECTS];
+uint8_t     AR_FILTER_MAX_SEARCH_PIXEL_SKIP = 6;                        ///< Maximum nr of false pixels to skip whilst searching upwards for contours
+/** Set up Remaining parameters **/
+double 	    AR_FILTER_IMAGE_CROP_FOVY 	= 45.0 * M_PI / 180.0; 		    ///< (in Radians) FOV centered around the horizon to search for contours
+double 	    AR_FILTER_CROP_X 			= 1.2;                          ///< Crop margin for blobs when using omni detection
+uint8_t     AR_FILTER_MEMORY 			= 40;                           ///< Frames to keep neighbours in memory
+double      AR_FILTER_FPS               = 17.0;                         ///< Estimated FPS to estimate lost neighbour decay
+double      AR_FILTER_VMAX              = 7.0;                          ///< Maximum estimated velocity of a neighbour (account for some noise)
+
+/** Initialize parameters to be assigned during runtime **/
+static uint16_t 	        pixCount            = 0;                    ///< Total pixels processed (resets to 0 before each frame)
+static uint16_t 	        pixSucCount         = 0;                    ///< Total pixels passing pixTest whilst following contours (resets to 0 before each frame)
+static uint16_t             pixDupCount         = 0;                    ///< Total pixels processed whilst being a duplicate contour (resets to 0 before each frame)
+static uint16_t             pixSrcCount         = 0;                    ///< Total pixels processed during search for contours (resets to 0 before each frame)
+static uint16_t             pixNofCount         = 0;                    ///< Total pixels failing pixTest (resets to 0 before each frame)
+static uint16_t 	        layerDepth          = 0;                    ///< Recursive depth of pixel being processed (resets to 0 before each frame)
+static uint16_t 	        sample              = 0;                    ///< Current sample being processed (resets to 0 before each frame)
+static uint16_t 	        runCount            = 0;                    ///< Current frame number
+static uint16_t 	        maxId 		        = 0;                    ///< Highest nr of unique neighbours trackes (used for assigning unique IDs)
+static uint8_t              trackRes_maxId      = 0;                    ///< Index of current farthest tracking result
+static double               trackRes_maxVal     = 0;                    ///< Range of current farthest tracking result
+static uint8_t              trackRes_lastId     = 0;                    ///< Index of last processed tracking result
+static uint8_t              neighbourMem_maxId  = 0;                    ///< Index of current farthest neighbour
+static double               neighbourMem_maxVal = 0;                    ///< Range of current farthest neighbour
+static uint8_t              neighbourMem_lastId = 0;                    ///< Index of last processed neighbour
+static uint16_t             ispWidth            = 0;                    ///< Maximum width of ISP after applied scaling
+static uint16_t             ispHeight           = 0;                    ///< Maximum height of ISP after applied scaling
+static uint16_t             initialWidth;                               ///< Initial width of ISP after applied scaling
+static uint16_t             initialHeight;                              ///< Initial height of ISP after applied scaling
+static uint16_t             cropCol;                                    ///< Column from which the ISP is cropped relative to MIN
+static double               ispScalar;                                  ///< Applied scalar by the ISP
+static Rect 			    objCrop;                                    ///< Current recangle being processed when using omni search
+static vector<Rect> 	    cropAreas;                                  ///< All the rectangles found
+static struct FloatEulers*  eulerAngles;                                ///< Euler angles the moment the image was recored (supplied externally)
+struct NedCoor_f*           pos;                                        ///< Current position of the UAV
+static trackResults         trackRes[AR_FILTER_MAX_OBJECTS];            ///< Array to store the tracking results
+memoryBlock                 neighbourMem[AR_FILTER_MAX_OBJECTS];        ///< Array to store the neighbours
 
 #if AR_FILTER_MEASURE_FPS
-    static struct timespec time_now;
-    static struct timespec time_prev;
-    static struct timespec time_init;
-    static uint32_t curT;
+    static struct timespec      time_now;                               ///< The current time
+    static struct timespec      time_prev;                              ///< The time of the previous frame
+    static struct timespec      time_init;                              ///< The time the processing began (after timeout)
+    static uint32_t curT;                                               ///< The time in us between time_init and time_now
 #endif
 
 #if AR_FILTER_WRITE_LOG
-    FILE *                      arf_File;
-    char                        arf_FileName[150];
+    FILE *                      arf_File;                               ///< File handle of log file
+    char                        arf_FileName[150];                      ///< File name of log file
 #endif
 
 // Flood CW parameters
-static Point            objCont_store[AR_FILTER_MAX_OBJCONT_SIZE];
-static uint16_t         objCont_size    = 0;
-static uint16_t         objCont_sRow    = 0;
-static uint16_t         objCont_sCol    = 0;
+static Point            objCont_store[AR_FILTER_MAX_OBJCONT_SIZE];      ///< Point in the current contour
+static uint16_t         objCont_size    = 0;                            ///< Number of points in the current contour
+static uint16_t         objCont_sRow    = 0;                            ///< Starting row of the current contour
+static uint16_t         objCont_sCol    = 0;                            ///< Starting column of the current contour
 
-static uint8_t          cmpY            = 0;
-static uint8_t          cmpU            = 0;
-static uint8_t          cmpV            = 0;
+//static uint8_t          cmpY            = 0;                            ///< The Y value to compare the colour difference thresholds against
+//static uint8_t          cmpU            = 0;                            ///< The U value to compare the colour difference thresholds against
+//static uint8_t          cmpV            = 0;                            ///< The V value to compare the colour difference thresholds against
 
-static double MVP[16];
+static double           MVP[16];                                        ///< The model view projection matrix of the current frame
 
 void active_random_filter_init(void){
     ispScalar                   = mt9f002.output_scaler * 2.0/((double) mt9f002.y_odd_inc + 1.0);
@@ -795,6 +789,7 @@ bool addContour(vector<Point> contour, uint16_t offsetX, uint16_t offsetY, doubl
 	return false;
 }
 
+/** This function is adapted from the openCV source code, please refer to their documentation **/
 static Moments objCont_moments( void ){
     Moments m;
     if( objCont_size == 0 )
@@ -1203,19 +1198,19 @@ bool pixTest(uint8_t *Y, uint8_t *U, uint8_t *V, uint8_t *prevDir){
         return true;
     }
     else{
-        if(*prevDir != ARF_SEARCH){
-            if(abs(cmpY - *Y) <= AR_FILTER_CDIST_YTHRES && abs(cmpU - *U) <= AR_FILTER_CDIST_UTHRES && abs(cmpV - *V) <= AR_FILTER_CDIST_VTHRES){
+        //if(*prevDir != ARF_SEARCH){
+            //if(abs(cmpY - *Y) <= AR_FILTER_CDIST_YTHRES && abs(cmpU - *U) <= AR_FILTER_CDIST_UTHRES && abs(cmpV - *V) <= AR_FILTER_CDIST_VTHRES){
                 //PRINT("(cmpY: %d cmpU: %d cmpV: %d) (Y: %d U: %d V: %d) (dY: %d  dU: %d  dV: %d)\n", cmpY, cmpU, cmpV, *Y, *U, *V,(cmpY - *Y),(cmpU - *U),(cmpV - *V));
-                return true;
-            }
-            else{
+            //    return true;
+            //}
+            //else{
                 return false;
-            }
-        }
-        else{
-            return false;
-        }
-    }
+            //}
+        //}
+        //else{
+        //    return false;
+        //}
+    }//
 }
 
 int pixFindContour_cw(Mat& sourceFrame, Mat& destFrame, uint16_t row, uint16_t col, uint8_t prevDir, bool cascade){
@@ -1236,15 +1231,21 @@ int pixFindContour_cw(Mat& sourceFrame, Mat& destFrame, uint16_t row, uint16_t c
             uint8_t d = 0, edge = 0;
             getNextDirection_cw(prevDir, nextDir, &nextDirCnt);
             while(layerDepth < AR_FILTER_MAX_LAYERS && d < nextDirCnt && success == false){
-                cmpY                = Y;
-                cmpU                = U;
-                cmpV                = V;
+                //cmpY                = Y;
+                //cmpU                = U;
+                //cmpV                = V;
                 newRow              = row;
                 newCol              = col;
                 if(getNewPosition(nextDir[d], &newRow, &newCol, &sourceFrame.rows, &sourceFrame.cols)){
                     int result;
                     if(d == 0){
                         result = pixFindContour_cw(sourceFrame, destFrame, newRow, newCol, nextDir[d], true);
+                        double depth = 0;
+                        while( depth < AR_FILTER_MAX_SEARCH_PIXEL_SKIP && result == ARF_NO_FOUND && getNewPosition(nextDir[d], &newRow, &newCol, &sourceFrame.rows, &sourceFrame.cols) ){
+                            result = pixFindContour_cw(sourceFrame, destFrame, newRow, newCol, nextDir[d], true);
+                            ///< Check up another pixel to account for noise
+                            depth++;
+                        }
                     }
                     else{
                         destFrame.at<uint8_t>(row, col) = 76;
@@ -1309,7 +1310,7 @@ int pixFollowContour_cw(Mat& sourceFrame, Mat& destFrame, uint16_t row, uint16_t
     layerDepth++;
     pixCount++;
     if(destFrame.at<uint8_t>(row, col) == 76  // Arrived neatly back at starting pos
-            || (abs(objCont_sRow - row) < 2 && abs(objCont_sCol - col) < 2 && layerDepth > AR_FILTER_MIN_LAYERS)){  // Close enough
+            || ( layerDepth > 20 * AR_FILTER_MIN_LAYERS && abs(objCont_sRow - row) < round( layerDepth / 20.0 ) && abs(objCont_sCol - col) < round( layerDepth / 20.0 ) )){  // Close enough for large contours
         // This is my starting position, finished!
         if(layerDepth > AR_FILTER_MIN_LAYERS){
             destFrame.at<uint8_t>(row, col) = 255;
