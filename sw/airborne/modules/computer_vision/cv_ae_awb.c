@@ -36,11 +36,11 @@
 #endif
 
 #ifndef CV_AE_AWB_TARGET_BRIGHT
-#define CV_AE_AWB_TARGET_BRIGHT 0.06
+#define CV_AE_AWB_TARGET_BRIGHT 0.05
 #endif
 
 #ifndef CV_AE_AWB_MAX_SATURATED
-#define CV_AE_AWB_MAX_SATURATED 0.005
+#define CV_AE_AWB_MAX_SATURATED 0.01
 #endif
 
 #ifndef CV_AE_AWB_FTOLERANCE
@@ -81,8 +81,8 @@ float awb_fTolerance        = CV_AE_AWB_FTOLERANCE;
 float awb_targetAWB         = CV_AE_AWB_TARGET_AWB;
 float awb_mu                = CV_AE_AWB_MU;
 
-uint8_t  bright_bin             = 75;
-uint8_t  sat_bin                = 35;
+uint8_t  bright_bin             = 55;
+uint8_t  sat_bin                = 25;
 
 #include "boards/bebop/mt9f002.h"
 struct image_t* cv_ae_awb_periodic(struct image_t* img);

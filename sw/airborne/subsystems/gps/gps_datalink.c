@@ -125,6 +125,7 @@ static void parse_gps_datalink_small(int16_t heading, uint32_t pos_xyz, uint32_t
 }
 
 /** Parse the REMOTE_GPS datalink packet */
+int32_t prev_ecef_x, prev_ecef_y, prev_ecef_z;
 static void parse_gps_datalink(uint8_t numsv, int32_t ecef_x, int32_t ecef_y, int32_t ecef_z,
                                int32_t lat, int32_t lon, int32_t alt, int32_t hmsl,
                                int32_t ecef_xd, int32_t ecef_yd, int32_t ecef_zd,
@@ -138,39 +139,44 @@ static void parse_gps_datalink(uint8_t numsv, int32_t ecef_x, int32_t ecef_y, in
   gps_datalink.hmsl        = hmsl;
   SetBit(gps_datalink.valid_fields, GPS_VALID_HMSL_BIT);
 
-  gps_datalink.ecef_pos.x = ecef_x;
-  gps_datalink.ecef_pos.y = ecef_y;
-  gps_datalink.ecef_pos.z = ecef_z;
-  SetBit(gps_datalink.valid_fields, GPS_VALID_POS_ECEF_BIT);
+  if(sqrt(pow(gps_datalink.ecef_pos.x - ecef_x, 2.0) + pow(gps_datalink.ecef_pos.y - ecef_y, 2.0) + pow(gps_datalink.ecef_pos.z - ecef_z, 2.0)) > 1.0){
+      gps_datalink.fix = GPS_FIX_NONE;
+  }
+  else{
+      gps_datalink.ecef_pos.x = ecef_x;
+      gps_datalink.ecef_pos.y = ecef_y;
+      gps_datalink.ecef_pos.z = ecef_z;
+      SetBit(gps_datalink.valid_fields, GPS_VALID_POS_ECEF_BIT);
 
-  gps_datalink.ecef_vel.x = ecef_xd;
-  gps_datalink.ecef_vel.y = ecef_yd;
-  gps_datalink.ecef_vel.z = ecef_zd;
-  SetBit(gps_datalink.valid_fields, GPS_VALID_VEL_ECEF_BIT);
+      gps_datalink.ecef_vel.x = ecef_xd;
+      gps_datalink.ecef_vel.y = ecef_yd;
+      gps_datalink.ecef_vel.z = ecef_zd;
+      SetBit(gps_datalink.valid_fields, GPS_VALID_VEL_ECEF_BIT);
 
-  ned_of_ecef_vect_i(&gps_datalink.ned_vel, &ltp_def , &gps_datalink.ecef_vel);
-  SetBit(gps_datalink.valid_fields, GPS_VALID_VEL_NED_BIT);
+      ned_of_ecef_vect_i(&gps_datalink.ned_vel, &ltp_def , &gps_datalink.ecef_vel);
+      SetBit(gps_datalink.valid_fields, GPS_VALID_VEL_NED_BIT);
 
-  gps_datalink.gspeed = (int16_t)FLOAT_VECT2_NORM(gps_datalink.ned_vel);
-  gps_datalink.speed_3d = (int16_t)FLOAT_VECT3_NORM(gps_datalink.ned_vel);
+      gps_datalink.gspeed = (int16_t)FLOAT_VECT2_NORM(gps_datalink.ned_vel);
+      gps_datalink.speed_3d = (int16_t)FLOAT_VECT3_NORM(gps_datalink.ned_vel);
 
-  gps_datalink.course = course;
-  SetBit(gps_datalink.valid_fields, GPS_VALID_COURSE_BIT);
+      gps_datalink.course = course;
+      SetBit(gps_datalink.valid_fields, GPS_VALID_COURSE_BIT);
 
-  gps_datalink.num_sv = numsv;
-  gps_datalink.tow = tow;
-  gps_datalink.fix = GPS_FIX_3D;
+      gps_datalink.num_sv = numsv;
+      gps_datalink.tow = tow;
+      gps_datalink.fix = GPS_FIX_3D;
 
-  // set gps msg time
-  gps_datalink.last_msg_ticks = sys_time.nb_sec_rem;
-  gps_datalink.last_msg_time = sys_time.nb_sec;
+      // set gps msg time
+      gps_datalink.last_msg_ticks = sys_time.nb_sec_rem;
+      gps_datalink.last_msg_time = sys_time.nb_sec;
 
-  gps_datalink.last_3dfix_ticks = sys_time.nb_sec_rem;
-  gps_datalink.last_3dfix_time = sys_time.nb_sec;
+      gps_datalink.last_3dfix_ticks = sys_time.nb_sec_rem;
+      gps_datalink.last_3dfix_time = sys_time.nb_sec;
 
-  // publish new GPS data
-  uint32_t now_ts = get_sys_time_usec();
-  AbiSendMsgGPS(GPS_DATALINK_ID, now_ts, &gps_datalink);
+      // publish new GPS data
+      uint32_t now_ts = get_sys_time_usec();
+      AbiSendMsgGPS(GPS_DATALINK_ID, now_ts, &gps_datalink);
+  }
 }
 
 

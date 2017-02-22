@@ -162,10 +162,12 @@ uint16_t    AR_FILTER_RND_PIX_SAMPLE    = 2500;                             ///<
 uint16_t    AR_FILTER_MAX_LAYERS        = 5000;                             ///< Maximum recursive depth of CW flood
 double 	    AR_FILTER_MAX_CIRCLE_DEF 	= 0.81;                             ///< Maximum contour eccentricity
 double      AR_FILTER_MIN_CIRCLE_PERC   = 0.50;                             ///< Minimum percentage of circle in view
+double      AR_FILTER_LARGE_SKIP_FACTOR = 1.0 / 20.0;                       ///< Percentage of length large contours are allowed to snap back to starting pos
 /** Automatically calculated tracking parameters **/
 uint16_t    AR_FILTER_MIN_POINTS;                                           ///< Mimimum contour length
 double      AR_FILTER_MIN_CIRCLE_SIZE;                                      ///< Minimum contour area
 uint16_t    AR_FILTER_MIN_LAYERS;                                           ///< Miminum recursive depth of CW flood
+uint16_t    AR_FILTER_LARGE_LAYERS;                                         ///< Miminum recursive depth of CW flood before classified as a large contour
 
 uint16_t    AR_FILTER_MIN_CROP_AREA     = 100;                              ///< Minimal area of a crop rectangle
 /** Set up perspective and correction parameters **/
@@ -200,20 +202,20 @@ uint8_t 	AR_FILTER_V_MAX 			= 188;
 /* Cyberzoo */
 uint8_t     AR_FILTER_Y_MIN             = 50;                           ///< Minimum Y whilst searching and following contours
 uint8_t     AR_FILTER_Y_MAX             = 250;                          ///< Maximum Y whilst searching and following contours
-uint8_t     AR_FILTER_U_MIN             = 110;                          ///< Minimum U whilst searching and following contours
-uint8_t     AR_FILTER_U_MAX             = 140;                          ///< Maximum U whilst searching and following contours
+uint8_t     AR_FILTER_U_MIN             = 105;                          ///< Minimum U whilst searching and following contours
+uint8_t     AR_FILTER_U_MAX             = 170;                          ///< Maximum U whilst searching and following contours
 uint8_t     AR_FILTER_V_MIN             = 150;                          ///< Minimum V whilst searching and following contours
-uint8_t     AR_FILTER_V_MAX             = 205;                          ///< Maximum V whilst searching and following contours
+uint8_t     AR_FILTER_V_MAX             = 210;                          ///< Maximum V whilst searching and following contours
 
 uint8_t     AR_FILTER_CDIST_YTHRES      = 0;                           ///< Y difference threshold whilst searching and following contours
 uint8_t     AR_FILTER_CDIST_UTHRES      = 0;                           ///< U difference threshold whilst searching and following contours
 uint8_t     AR_FILTER_CDIST_VTHRES      = 0;                            ///< V difference threshold whilst searching and following contours
 
-uint8_t     AR_FILTER_GREY_THRES        = 15;                           ///< V-U threshold whilst searching and following contours
+uint8_t     AR_FILTER_GREY_THRES        = 7;                           ///< V-U threshold whilst searching and following contours
 
 uint8_t     AR_FILTER_MAX_SEARCH_PIXEL_SKIP = 6;                        ///< Maximum nr of false pixels to skip whilst searching upwards for contours
 /** Set up Remaining parameters **/
-double 	    AR_FILTER_IMAGE_CROP_FOVY 	= 45.0 * M_PI / 180.0; 		    ///< (in Radians) FOV centered around the horizon to search for contours
+double 	    AR_FILTER_IMAGE_CROP_FOVY 	= 30.0 * M_PI / 180.0; 		    ///< (in Radians) FOV centered around the horizon to search for contours
 double 	    AR_FILTER_CROP_X 			= 1.2;                          ///< Crop margin for blobs when using omni detection
 uint8_t     AR_FILTER_MEMORY 			= 40;                           ///< Frames to keep neighbours in memory
 double      AR_FILTER_FPS               = 17.0;                         ///< Estimated FPS to estimate lost neighbour decay
@@ -342,6 +344,7 @@ Rect setISPvars( uint16_t width, uint16_t height){
     getMVP(MVP);
     AR_FILTER_MIN_CIRCLE_SIZE   = pow(sqrt((double) default_calArea  * pow(ispScalar,2.0)) / AR_FILTER_CAM_RANGE, 2.0);
     AR_FILTER_MIN_LAYERS        = (uint16_t) round(AR_FILTER_MIN_CIRCLE_PERC * 2 * M_PI * sqrt((double) default_calArea  * pow(ispScalar,2.0)/ M_PI) / AR_FILTER_CAM_RANGE);
+    AR_FILTER_LARGE_LAYERS      = (uint16_t) round(AR_FILTER_MIN_CIRCLE_PERC * 2 * M_PI * sqrt((double) default_calArea  * pow(ispScalar,2.0)/ M_PI) / 1.0);
     AR_FILTER_MIN_POINTS        = (uint16_t) round(0.25 * AR_FILTER_MIN_LAYERS);
 #if AR_FILTER_UNIT_TEST
     double f, r, x1_o, y1_o, x1p, y1p, r_o, corR;
@@ -1310,7 +1313,7 @@ int pixFollowContour_cw(Mat& sourceFrame, Mat& destFrame, uint16_t row, uint16_t
     layerDepth++;
     pixCount++;
     if(destFrame.at<uint8_t>(row, col) == 76  // Arrived neatly back at starting pos
-            || ( layerDepth > 20 * AR_FILTER_MIN_LAYERS && abs(objCont_sRow - row) < round( layerDepth / 20.0 ) && abs(objCont_sCol - col) < round( layerDepth / 20.0 ) )){  // Close enough for large contours
+            || ( layerDepth > AR_FILTER_LARGE_LAYERS && abs(objCont_sRow - row) < round( layerDepth * AR_FILTER_LARGE_SKIP_FACTOR ) && abs(objCont_sCol - col) < round( layerDepth * AR_FILTER_LARGE_SKIP_FACTOR ) )){  // Close enough for large contours
         // This is my starting position, finished!
         if(layerDepth > AR_FILTER_MIN_LAYERS){
             destFrame.at<uint8_t>(row, col) = 255;
