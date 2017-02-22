@@ -71,13 +71,7 @@ extern uint8_t      AR_FILTER_GREY_THRES;
 extern double       AR_FILTER_CAM_RANGE;
 extern double       AR_FILTER_MIN_CIRCLE_PERC;
 extern double       AR_FILTER_MAX_CIRCLE_DEF;
-
-extern double       AR_FILTER_VIEW_R;
-extern double       default_k;
-extern double       default_6th_o;
-extern double       default_2nd_o;
 extern uint16_t     default_calArea;
-extern float        angleOfView;
 
 // Filter sample styles
 #define AR_FILTER_STYLE_FULL   0

@@ -46,18 +46,6 @@
 				<dl_setting var="default_calArea" min="1" step="1" max="30000"
 					module="computer_vision/active_random_filter" shortname="calArea" />
 			</dl_settings>
-			<dl_settings NAME="Stabilization">
-				<dl_setting var="AR_FILTER_VIEW_R" min="0" step="0.000001"
-					max="5" module="computer_vision/active_random_filter" shortname="p dist" />
-				<dl_setting var="default_k" min="1" step="0.0000001" max="2"
-					module="computer_vision/active_random_filter" shortname="k" />
-				<dl_setting var="default_6th_o" min="0" step="0.001" max="25"
-					module="computer_vision/active_random_filter" shortname="6th order coef" />
-				<dl_setting var="default_2nd_o" min="0" step="0.001" max="25"
-					module="computer_vision/active_random_filter" shortname="2nd order coef" />
-				<dl_setting var="angleOfView" min="0" step="0.001" max="180"
-					module="computer_vision/active_random_filter" shortname="angle of view" />
-			</dl_settings>
 		</dl_settings>
 	</settings>
   <header>
