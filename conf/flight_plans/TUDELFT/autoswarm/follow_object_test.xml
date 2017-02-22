@@ -118,7 +118,6 @@
     	<attitude pitch="0" roll="0" throttle="0.49" until="GpsFixValid() && LessThan(GetPosAlt(), 0.15)" vmode="throttle"/>
     	<deroute block="Landed"/>
     	<exception cond="!nav_is_in_flight()" 	deroute="Landed"/>
-    	<exception cond="GpsFixValid()" 	deroute="Standby" />
     </block>
     <block name="circle_cw">
       <set var="AUTOSWARM_ATTRACTOR" value="2"/>

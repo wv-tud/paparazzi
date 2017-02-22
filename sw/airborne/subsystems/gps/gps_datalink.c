@@ -33,6 +33,10 @@
 #include "subsystems/abi.h"
 #include "subsystems/datalink/datalink.h"
 
+#ifndef GPS_DATALINK_MAX_JUMP
+#define GPS_DATALINK_MAX_JUMP 0 ///< Max jump in cm between packets (safe solution to motive rigid body switching)
+#endif
+
 struct LtpDef_i ltp_def;
 
 struct GpsState gps_datalink;
@@ -139,8 +143,8 @@ static void parse_gps_datalink(uint8_t numsv, int32_t ecef_x, int32_t ecef_y, in
   gps_datalink.hmsl        = hmsl;
   SetBit(gps_datalink.valid_fields, GPS_VALID_HMSL_BIT);
 
-  if(gps_datalink.ecef_pos.x && sqrt(pow(gps_datalink.ecef_pos.x - ecef_x, 2.0) + pow(gps_datalink.ecef_pos.y - ecef_y, 2.0) + pow(gps_datalink.ecef_pos.z - ecef_z, 2.0)) > 100.0){
-      gps_datalink.fix = GPS_FIX_NONE;
+  if(GPS_DATALINK_MAX_JUMP && gps_datalink.ecef_pos.x && sqrt(pow(gps_datalink.ecef_pos.x - ecef_x, 2.0) + pow(gps_datalink.ecef_pos.y - ecef_y, 2.0) + pow(gps_datalink.ecef_pos.z - ecef_z, 2.0)) > GPS_DATALINK_MAX_JUMP){
+      gps_datalink.fix = GPS_FIX_NONE; ///< We've most likely been switched by motive to a different rigid body [FAILURE!]
   }
   else{
       gps_datalink.ecef_pos.x = ecef_x;

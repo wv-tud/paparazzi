@@ -7,7 +7,7 @@
 		<configure name="HOST" value="192.168.40.$(AC_ID)" />
 		<configure name="MODEM_HOST" value="192.168.40.255" />
 		<!-- Camera parameters -->
-		<define name="GPS_TIMEOUT" value="1"/>
+		<define name="GPS_TIMEOUT" value="0"/>
 		<define name="H264_ROTATE" value="TRUE" />
 		<define name="MT9F002_SENSOR_WIDTH" value="1920" />
 		<define name="MT9F002_OUTPUT_WIDTH" value="960" /> <!-- 480 / 960 / 1920 / 3840 -->
@@ -23,7 +23,9 @@
 		<module name="radio_control" type="datalink" />
 		<module name="actuators" type="bebop" />
 		<module name="imu" type="bebop" />
-		<module name="gps" type="datalink" />
+		<module name="gps" type="datalink">
+			<define name="GPS_DATALINK_MAX_JUMP" value="75.0"/>
+		</module>
 		<module name="stabilization" type="indi">
 			<define name="INDI_RPM_FEEDBACK" value="TRUE" />
 		</module>
