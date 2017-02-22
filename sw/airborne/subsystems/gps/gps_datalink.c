@@ -139,7 +139,7 @@ static void parse_gps_datalink(uint8_t numsv, int32_t ecef_x, int32_t ecef_y, in
   gps_datalink.hmsl        = hmsl;
   SetBit(gps_datalink.valid_fields, GPS_VALID_HMSL_BIT);
 
-  if(sqrt(pow(gps_datalink.ecef_pos.x - ecef_x, 2.0) + pow(gps_datalink.ecef_pos.y - ecef_y, 2.0) + pow(gps_datalink.ecef_pos.z - ecef_z, 2.0)) > 1.0){
+  if(gps_datalink.ecef_pos.x && sqrt(pow(gps_datalink.ecef_pos.x - ecef_x, 2.0) + pow(gps_datalink.ecef_pos.y - ecef_y, 2.0) + pow(gps_datalink.ecef_pos.z - ecef_z, 2.0)) > 100.0){
       gps_datalink.fix = GPS_FIX_NONE;
   }
   else{

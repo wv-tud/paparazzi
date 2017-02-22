@@ -31,6 +31,7 @@
 
 #include "subsystems/imu.h"
 #include "firmwares/rotorcraft/stabilization.h"
+#include "firmwares/rotorcraft/stabilization/stabilization_indi.h"
 #include "firmwares/rotorcraft/guidance/guidance_indi.h"
 #include "state.h"
 
@@ -62,7 +63,7 @@ void file_logger_start(void)
   if (file_logger != NULL) {
     fprintf(
       file_logger,
-      "counter,accel_unscaled_x, accel_unscaled_y, accel_unscaled_z, accel_x, accel_y, accel_z, filt_accel_ned_x, filt_accel_ned_y, filt_accel_ned_z, sp_accel_x, sp_accel_y, sp_accel_z\n"
+      "counter,pos_NED_x, pos_NED_y, pos_NED_z, filt_accel_ned_x, filt_accel_ned_y, filt_accel_ned_z, quat_i, quat_x, quat_y, quat_z,  sp_quat_i, sp_quat_x, sp_quat_y, sp_quat_z, sp_accel_x, sp_accel_y, sp_accel_z, accel_ned_x, accel_ned_y, accel_ned_z, speed_ned_x, speed_ned_y, speed_ned_z, imu_accel_unscaled_x, imu_accel_unscaled_y, imu_accel_unscaled_z\n"
     );
   }
 }
@@ -83,22 +84,39 @@ void file_logger_periodic(void)
     return;
   }
   static uint32_t counter;
-  struct Int32Quat *quat = stateGetNedToBodyQuat_i();
+  struct Int32Quat * quat       = stateGetNedToBodyQuat_i();
+  struct NedCoor_f * pos        = stateGetPositionNed_f();
+  struct NedCoor_f * accel_ned  = stateGetAccelNed_f();
+  struct NedCoor_f * speed_ned  = stateGetSpeedNed_f();
 
-  fprintf(file_logger, "%d,%d,%d,%d,%f,%f,%f,%f,%f,%f,%f,%f,%f\n",
+  fprintf(file_logger, "%d,%f,%f,%f,%f,%f,%f,%d,%d,%d,%d,%d,%d,%d,%d,%f,%f,%f,%f,%f,%f,%f,%f,%f,%d,%d,%d\n",
           counter,
-          imu.accel_unscaled.x,
-          imu.accel_unscaled.y,
-          imu.accel_unscaled.z,
-          ACCEL_FLOAT_OF_BFP(imu.accel.x),
-          ACCEL_FLOAT_OF_BFP(imu.accel.y),
-          ACCEL_FLOAT_OF_BFP(imu.accel.z),
+          pos->x,
+          pos->y,
+          pos->z,
           filt_accel_ned[0].o[0],
           filt_accel_ned[1].o[0],
           filt_accel_ned[2].o[0],
+          quat->qi,
+          quat->qx,
+          quat->qy,
+          quat->qz,
+          stab_att_sp_quat.qi,
+          stab_att_sp_quat.qx,
+          stab_att_sp_quat.qy,
+          stab_att_sp_quat.qz,
           sp_accel.x,
           sp_accel.y,
-          sp_accel.z
+          sp_accel.z,
+          accel_ned->x,
+          accel_ned->y,
+          accel_ned->z,
+          speed_ned->x,
+          speed_ned->y,
+          speed_ned->z,
+          imu.accel_unscaled.x,
+          imu.accel_unscaled.y,
+          imu.accel_unscaled.z
          );
   counter++;
 }
