@@ -73,8 +73,8 @@ double  AUTOSWARM_SEPERATION    = 1.0;              // m
 double  AUTOSWARM_LATTICE_RATIO = 2.5;
 
 double  AUTOSWARM_E             = 0.0299;           // Was 0.01x - 0.0005 at 12m/s OK (but close)
-double  AUTOSWARM_EPS           = 0.03;           //
-double  AUTOSWARM_LOGLO         = 2.0;
+double  AUTOSWARM_EPS           = 0.03;             //
+double  AUTOSWARM_LOGLO         = 1.75;
 
 double  AUTOSWARM_GLOBAL        = 1.0;              // % of V_MAX
 int     AUTOSWARM_FPS           = 18;               // Frames per second
@@ -84,7 +84,7 @@ double  AUTOSWARM_HOME          = 0.4;              // m
 
 // Set up global attractor parameters
 int     AUTOSWARM_ATTRACTOR     = AUTOSWARM_GLOBAL_ATTRACTOR;
-double  AUTOSWARM_CIRCLE_R      = 2.0;
+double  AUTOSWARM_CIRCLE_R      = 1.5;
 double  AUTOSWARM_DEADZONE      = 0.2;
 
 // Initialize parameters to be assigned during runtime
