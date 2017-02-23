@@ -26,7 +26,6 @@
 // Own header
 #include "modules/computer_vision/video_thread.h"
 
-
 #include <stdlib.h>
 #include <stdio.h>
 #include <errno.h>
@@ -152,28 +151,9 @@ static void *video_thread_function(void *data)
 
     // Wait for a new frame (blocking)
     struct image_t img;
-    struct FloatEulers *beforeEuler, *afterEuler;
-    beforeEuler = stateGetNedToBodyEulers_f();
     v4l2_image_get(vid->thread.dev, &img);
-    afterEuler  = stateGetNedToBodyEulers_f();
-    struct FloatEulers image_euler;
-    image_euler.phi   = (beforeEuler->phi + afterEuler->phi ) / 2;
-    image_euler.psi   = (beforeEuler->psi + afterEuler->psi ) / 2;
-    image_euler.theta = (beforeEuler->theta + afterEuler->theta ) / 2;
-    img.eulerAngles  = &image_euler;
-    // pointer to the final image to pass for saving and further processing
-    struct image_t *img_final = &img;
-    // run selected filters
-    /*
-    if (vid->filters & VIDEO_FILTER_DEBAYER) {
-    	BayerToYUV(&img, &img_color, 0, 0);
-      // use color image for further processing
-      img_final = &img_color;
-    }
-    */
-
     // Run processing if required
-    cv_run_device(vid, img_final);
+    cv_run_device(vid, &img);
 
     // Free the image
 #if !H264_ROTATE

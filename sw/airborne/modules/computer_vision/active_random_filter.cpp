@@ -125,6 +125,7 @@ static void 			saveBuffer			(Mat sourceFrame, const char *filename);
 #define     AR_FILTER_OBJ_Y_OFFSET      0.0                                 ///< Offset y from object centre to object c.g. in world frame
 #define     AR_FILTER_OBJ_Z_OFFSET      0.1                                 ///< Offset z from object centre to object c.g. in world frame
 
+uint16_t    default_calArea             = 7650;                             ///< Area of a ball at 1m resolution on full sensor resolution
 uint8_t     AR_FILTER_FLOOD_STYLE       = AR_FILTER_FLOOD_CW;               ///< Flood style to search for contours
 uint8_t     AR_FILTER_SAMPLE_STYLE      = AR_FILTER_STYLE_RANDOM;           ///< Sample style to search for contours
 double      AR_FILTER_CAM_RANGE         = 10.0;                             ///< Maximum camera range of newly added objects

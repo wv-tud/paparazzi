@@ -24,13 +24,10 @@
  */
 #include "std.h"
 
-#define CAM_STAB_MAX_OBJECTS   30  // Maximum nr of objects
-
-
-extern double       CAM_STAB_VIEW_R;
+extern double       viewR;
 extern double       default_k;
-extern double       default_6th_o;
-extern double       default_2nd_o;
+extern double       firstOrder_comp;
+extern double       secondOrder_comp;
 extern float        angleOfView;
 
 #ifdef __cplusplus
