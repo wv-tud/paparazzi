@@ -32,27 +32,27 @@
     <exception cond="LessThan(3, datalink_time) &&
       !(IndexOfBlock('Holding point') > nav_block) &&
       !(nav_block >= IndexOfBlock('land here')) &&
-      (autopilot_in_flight == true)" deroute="land here"/>
+      (autopilot.in_flight == true)" deroute="land here"/>
       
     <exception cond="!GpsFixValid() &&
       !(IndexOfBlock('Holding point') > nav_block) &&
       !(nav_block >= IndexOfBlock('Landed')) &&
-      (autopilot_in_flight == true)" deroute="No GPS Landing" />
+      (autopilot.in_flight == true)" deroute="No GPS Landing" />
     
     <exception cond="LessThan(3.5, GetPosAlt()) &&
       !(IndexOfBlock('Holding point') > nav_block) &&
       !(nav_block >= IndexOfBlock('land here')) &&
-      (autopilot_in_flight == true)" deroute="land here"/>
+      (autopilot.in_flight == true)" deroute="land here"/>
       
     <exception cond="(electrical.bat_low &&
       !(IndexOfBlock('Holding point') > nav_block) &&
       !(nav_block >= IndexOfBlock('Swarm Home')) &&
-      (autopilot_in_flight == true) )" deroute="Swarm Home"/>
+      (autopilot.in_flight == true) )" deroute="Swarm Home"/>
 
     <exception cond="(electrical.bat_critical &&
       !(IndexOfBlock('Holding point') > nav_block) &&
       !(nav_block >= IndexOfBlock('land here')) &&
-      (autopilot_in_flight == true) )" deroute="land here"/>
+      (autopilot.in_flight == true) )" deroute="land here"/>
   </exceptions>
   <blocks>
     <block name="Wait GPS">
