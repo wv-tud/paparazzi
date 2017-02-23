@@ -24,16 +24,12 @@
  */
 
 #include "bebop_camera_stabilization.h"
-#include <vector>
-#include <ctime>
-
 #define BOARD_CONFIG "boards/bebop.h"               ///< Define which board
 
 extern "C" {
     #include "boards/bebop.h"                       ///< C header used for bebop specific settings
     #include <state.h>                              ///< C header used for state functions and data
-    #include <sys/time.h>                           ///< C header used for system time functions and data
-    #include "mcu_periph/sys_time.h"                ///< C header used for PPRZ time functions and data
+    #include "math/pprz_algebra_float.h"
 }
 
 using namespace std;
@@ -42,7 +38,7 @@ using namespace std;
 using namespace cv;
 
 
-#define PRINT(string,...) fprintf(stderr, "[AR-FILTER->%s()] " string,__FUNCTION__ , ##__VA_ARGS__)
+#define PRINT(string,...) fprintf(stderr, "[CAM-STAB->%s()] " string,__FUNCTION__ , ##__VA_ARGS__)
 
 #define CAM_STAB_VERBOSE FALSE
 #if CAM_STAB_VERBOSE
@@ -51,18 +47,12 @@ using namespace cv;
 #define VERBOSE_PRINT(...)
 #endif
 
-#define xSign(x) ( ( x ) >= ( 0 ) ? ( 1 ) : ( -1 ) )
+#define CAM_STAB_UNIT_TEST     0                    ///< Do unit tests with random points
+#define CAM_STAB_MOD_VIDEO     1                    ///< Modify the frame to show relevant info
+#define CAM_STAB_CROSSHAIR     1                    ///< Show centre of frame with crosshair
 
-#define CAM_STAB_UNIT_TEST     0   ///< Do unit tests with random points
-#define CAM_STAB_MOD_VIDEO     1   ///< Modify the frame to show relevant info
-#define CAM_STAB_CROSSHAIR     1   ///< Show centre of frame with crosshair
-#define CAM_STAB_MEASURE_FPS   1   ///< Measure average FPS
-
-static void             bebop_camera_stabilization_header ( void );
-static void             bebop_camera_stabilization_footer ( void );
-static Rect             setISPvars          ( uint16_t width, uint16_t height );
-static uint16_t         horizonPos          ( double y_orig );
-static void             plotHorizon         (Mat& sourceFrameCrop);
+static uint16_t         horizontalLinePixel ( double x_min, double x_max, double y_angle, int8_t dir );
+static void             plotHorizon         ( Mat& sourceFrameCrop );
 /** Fisheye correction **/
 static double 			correctRadius		( double r, double f, double k );
 static double           invertRadius        ( double r, double f, double k );
@@ -71,168 +61,136 @@ static void             inputCoord          ( double x_out, double y_out, double
 static void             outputCoord         ( double x_in, double y_in, double *x_out, double *y_out );
 /** Stabilization functions **/
 static void             getMVP              ( double MVP[16] );
-static void             setPerspectiveMat   (double m[16]);
-static void             setRotationMat      (float, float, float, double m[16]);
-static void             setIdentityMatrix   (double m[16]);
-static void             matrixMultiply      (double m1[16], double m2[16], double result[16]);
-static void             matvecMultiply      (double m1[16], double v1[4], double result[4]);
-static void             view_set_lookat     (double result[16], double eye[4], double center[4], double up[4]);
-static float            vector_length       (const float x, const float y, const float z);
-static void             translate_xyz       (double result[16], const float translatex, const float translatey, const float translatez);
-static void             rotateVector        (float x, float y, float z, double vector[4]);
-static void             setTranslationMat   (float x, float y, float z, double outputMat[16]);
+static void             setPerspectiveMat   ( double m[16] );
+static void             view_set_lookat     ( double result[16], double eye[4], double center[4], double up[4] );
+/** Helper functions **/
+static void             setRotationMat      ( float, float, float, double m[16] );
+static void             setIdentityMat      ( double m[16] );
+static void             translate_xyz       ( double result[16], const float translatex, const float translatey, const float translatez );
+static void             float_mat4_mul      ( double m1[16], double m2[16], double result[16] );
+static void             float_mat4vec_mul   ( double m1[16], double v1[4], double result[4] );
+static void             rotateVector        ( float x, float y, float z, double vector[4] );
 /** Line drawing functions **/
-static void             plotHorizontalLine  (Mat& sourceFrameCrop, double yAngle, double xResDeg);
-static void             plotVerticalLine    (Mat& sourceFrameCrop, double xAngle, double yResDeg);
+static void             plotHorizontalLine  ( Mat& sourceFrameCrop, double yAngle, double xResDeg );
+static void             plotVerticalLine    ( Mat& sourceFrameCrop, double xAngle, double yResDeg );
 /** Optional functions **/
 #if CAM_STAB_MOD_VIDEO
-static void             mod_video           (Mat& sourceFrame);
+static void             mod_video           ( Mat& sourceFrame );
 #endif
-#if CAM_STAB_CALIBRATE_CAM
-static void 			calibrateEstimation (void);
-#endif
-#if CAM_STAB_SAVE_FRAME
-static void 			saveBuffer			(Mat sourceFrame, const char *filename);
-#endif
+
 /** Set up perspective and correction parameters **/
-double      CAM_STAB_VIEW_R            = 0.00113;                          ///< Perspective viewing distance
-double      default_k                   = 1.2247445;                        ///< Fisheye correction factor (1.22474604174 max)
-double      default_6th_o               = 0.255;                            ///< First order remaing correction factor
-double      default_2nd_o               = 0.155;                            ///< Second order counter remaing correction factor
-uint16_t    default_calArea             = 7650;                             ///< Area of a ball at 1m resolution on full sensor resolution
-double      default_orbDiag             = 2 * CFG_MT9F002_FISHEYE_RADIUS;   ///< Diagonal size of the fisheye picture in full sensor resolution
-float       angleOfView                 = 179.85;                           ///< Perspective angle of view ( < 180 )
-float       near                        = 0.075;                            ///< Perspective near clipping plane
-float       far                         = 1.5;                              ///< Perspective far clipping plane
-/** Set up Remaining parameters **/
-double 	    CAM_STAB_IMAGE_CROP_FOVY 	= 30.0 * M_PI / 180.0; 		    ///< (in Radians) FOV centered around the horizon to search for contours
-
-double      CAM_STAB_FPS               = 17.0;
+double                      viewR               =  0.00113;                         ///< Perspective viewing distance
+double                      default_k           =  1.2247445;                       ///< Fisheye correction factor (1.22474604174 max)
+double                      firstOrder_comp     = -0.255;                           ///< First order remaing correction factor
+double                      secondOrder_comp    =  0.155;                           ///< Second order counter remaing correction factor
+double                      default_orbDiag     =  2 * CFG_MT9F002_FISHEYE_RADIUS;  ///< Diagonal size of the fisheye picture in full sensor resolution
+float                       angleOfView         =  179.85;                          ///< Perspective angle of view ( < 180 )
+static float                near                =  0.075;                           ///< Perspective near clipping plane
+static float                far                 =  1.5;                             ///< Perspective far clipping plane
+static double               crop_fovY 	        =  30.0 * M_PI / 180.0; 		    ///< (in Radians) FOV centered around the horizon to search for contours
 /** Initialize parameters to be assigned during runtime **/
-uint16_t                    ispWidth            = 0;                    ///< Maximum width of ISP after applied scaling
-uint16_t                    ispHeight           = 0;                    ///< Maximum height of ISP after applied scaling
-uint16_t                    initialWidth;                               ///< Initial width of ISP after applied scaling
-uint16_t                    initialHeight;                              ///< Initial height of ISP after applied scaling
-uint16_t                    cropCol;                                    ///< Column from which the ISP is cropped relative to MIN
-int16_t                     fillHeight;
-double                      ispScalar;                                  ///< Applied scalar by the ISP
-static struct FloatEulers*  eulerAngles;                                ///< Euler angles the moment the image was recored (supplied externally)
-static uint16_t             runCount            = 0;
-
-#if CAM_STAB_MEASURE_FPS
-    static struct timespec      time_now;                               ///< The current time
-    static struct timespec      time_prev;                              ///< The time of the previous frame
-    static struct timespec      time_init;                              ///< The time the processing began (after timeout)
-    static uint32_t curT;                                               ///< The time in us between time_init and time_now
-#endif
-
-static double           MVP[16];                                        ///< The model view projection matrix of the current frame
+uint16_t                    ispWidth            = 0;                                ///< Maximum width of ISP after applied scaling
+uint16_t                    ispHeight           = 0;                                ///< Maximum height of ISP after applied scaling
+uint16_t                    initialWidth        = 0;                                ///< Initial width of ISP after applied scaling
+uint16_t                    initialHeight       = 0;                                ///< Initial height of ISP after applied scaling
+uint16_t                    cropCol             = 0;                                ///< Column from which the ISP is cropped relative to MIN
+int16_t                     fillHeight          = 0;                                ///< Extra height used to make sure the horizon is in the centre
+double                      ispScalar           = 1.0;                              ///< Applied scalar by the ISP
+static uint16_t             runCount            = 0;                                ///< Total number of frames processed
+static struct FloatEulers*  eulerAngles;                                            ///< Euler angles the moment the image was recored (supplied externally)
+static double               MVP[16];                                                ///< The model view projection matrix of the current frame
 
 void bebop_camera_stabilization_init(void){
-    ispScalar                   = mt9f002.output_scaler * 2.0/((double) mt9f002.y_odd_inc + 1.0);
-    ispHeight                   = round((CFG_MT9F002_X_ADDR_MAX - CFG_MT9F002_X_ADDR_MIN) * ispScalar);
-    ispWidth                    = round((CFG_MT9F002_Y_ADDR_MAX - CFG_MT9F002_Y_ADDR_MIN) * ispScalar);
-    initialWidth                = mt9f002.output_width;
-    initialHeight               = mt9f002.output_height;
-#if CAM_STAB_MEASURE_FPS || CAM_STAB_WRITE_LOG
-    clock_gettime(CLOCK_MONOTONIC, &time_prev);
-    time_init = time_prev;
-#endif
-#if CAM_STAB_WRITE_LOG
-    time_t startTime    = time(0);
-    tm * startTM        = localtime(&startTime);
-    sprintf(arf_FileName, "/data/ftp/internal_000/ARF_result-%d-%02d-%02d_%02d-%02d-%02d.txt", startTM->tm_year + 1900, startTM->tm_mon + 1, startTM->tm_mday, startTM->tm_hour, startTM->tm_min, startTM->tm_sec);
-    arf_File            = fopen(arf_FileName,"w");
-    if (arf_File == NULL){
-        perror("[AS-ERROR] File error");
-    }
-    else{
-        fprintf(arf_File,"NR\tUS\tID\tMEM\tPOSX\tPOSY\tPOSZ\tPSI\tOBJX\tOBJY\tOBJZ\n");
-        PRINT("Writing tracking results to: %s\n", arf_FileName);
-    }
-#endif
+    ispScalar       = mt9f002.output_scaler * 2.0 / ( (double) mt9f002.y_odd_inc + 1.0 );
+    ispHeight       = round( (CFG_MT9F002_X_ADDR_MAX - CFG_MT9F002_X_ADDR_MIN) * ispScalar );
+    ispWidth        = round( (CFG_MT9F002_Y_ADDR_MAX - CFG_MT9F002_Y_ADDR_MIN) * ispScalar );
+    initialWidth    = mt9f002.output_width;
+    initialHeight   = mt9f002.output_height;
 }
 
 void bebop_camera_stabilization(char* buff, uint16_t width, uint16_t height, struct FloatEulers* curEulerAngles){
-    eulerAngles = curEulerAngles;
-    Mat sourceFrame (height, width, CV_8UC2, buff);                 // Initialize current frame in openCV (UYVY) 2 channel
-    bebop_camera_stabilization_header();                                  // Mostly printing and storing
-    Rect crop 	        = setISPvars( width, height); 	            // Calculate ISP related parameters
-
-    Mat sourceFrameCrop = sourceFrame(crop); 				                // Crop the frame
-
-#if CAM_STAB_MOD_VIDEO
-	mod_video(sourceFrameCrop);                              // Modify the sourceframesourceFrame.cols-1
-#endif // CAM_STAB_MOD_VIDEO
-#if CAM_STAB_CROSSHAIR
-	//circle(sourceFrame,Point(ispHeight/2 - cropCol + crop.x, ispWidth/2), CFG_MT9F002_FISHEYE_RADIUS * ispScalar, cvScalar(0,255), 1);
-	plotHorizon(sourceFrameCrop);
-#endif
-	sourceFrameCrop.release();
-	sourceFrame.release();                                          // Release Mat
-	bebop_camera_stabilization_footer();
-	return;
-}
-
-Rect setISPvars( uint16_t width, uint16_t height){
-    double x1, y1, left[2], center[2], right[2];
-    // This function computes the cropping according to the desires FOV Y and the current euler angles
+    eulerAngles         = curEulerAngles;
     getMVP(MVP);
-    uint16_t horizPos             = horizonPos(0.0);
-    // Top
-    angles2point(-75.0/180.0*M_PI, 0.5 * CAM_STAB_IMAGE_CROP_FOVY, &x1, &y1);
-    point2pixel(x1,y1,&left[0],&left[1]);
-    angles2point(0.0, 0.5 * CAM_STAB_IMAGE_CROP_FOVY, &x1, &y1);
-    point2pixel(x1,y1,&center[0],&center[1]);
-    angles2point(75.0/180.0*M_PI, 0.5 * CAM_STAB_IMAGE_CROP_FOVY, &x1, &y1);
-    point2pixel(x1,y1,&right[0],&right[1]);
-    uint16_t top        = (uint16_t) round( max( right[1], max( left[1], center[1])));
-    // Bottom
-    angles2point(-75.0/180.0*M_PI, -0.5 * CAM_STAB_IMAGE_CROP_FOVY, &x1, &y1);
-    point2pixel(x1,y1,&left[0],&left[1]);
-    angles2point(0.0, -0.5 * CAM_STAB_IMAGE_CROP_FOVY, &x1, &y1);
-    point2pixel(x1,y1,&center[0],&center[1]);
-    angles2point(75.0/180.0*M_PI, -0.5 * CAM_STAB_IMAGE_CROP_FOVY, &x1, &y1);
-    point2pixel(x1,y1,&right[0],&right[1]);
-    int16_t desOffset   = (uint16_t) round( min( right[1], min( left[1], center[1])));
-
-    //PRINT("t: %d, h: %d, b: %d\n",top, horizPos, desOffset);
-
+    double   xAngle     = 75.0/180.0*M_PI;
+    uint16_t horizPos   = horizontalLinePixel(-xAngle, xAngle, 0.0, 0);
+    uint16_t top        = horizontalLinePixel(-xAngle, xAngle,  0.5 * crop_fovY, +1);
+    int16_t  desOffset  = horizontalLinePixel(-xAngle, xAngle, -0.5 * crop_fovY, -1);
     uint16_t desHeight  = (top - desOffset);
-    fillHeight          = (int16_t) round( 0.5*initialWidth - (horizPos - desOffset) );
-    desOffset                  -= fillHeight;
-    desHeight                  += fillHeight;
-    if(desOffset < -MT9F002_INITIAL_OFFSET_X){
-            desOffset = -MT9F002_INITIAL_OFFSET_X;
+
+    fillHeight          = (int16_t) fmax(0.0, round( 0.5*initialWidth - (horizPos - desOffset) ));
+    desOffset          -= fillHeight;
+    desHeight          += fillHeight;
+
+    if(desHeight > initialWidth){
+        desOffset          += (uint16_t) round((desHeight - initialWidth) / 2.0);
+        desHeight           = initialWidth;
+    }
+    if(desOffset < -MT9F002_INITIAL_OFFSET_X * ispScalar){
+        desOffset           = -MT9F002_INITIAL_OFFSET_X * ispScalar;
     }
     if(desHeight > ispHeight){
-        desOffset = 0;
-        desHeight = ispHeight;
-    }
-    if(desHeight > initialWidth){
-        desOffset                  += (uint16_t) round((desHeight - initialWidth) / 2.0);
-        desHeight                   = initialWidth;
+        desOffset           = 0;
+        desHeight           = ispHeight;
     }
     if((desHeight + desOffset) > ispHeight){
-        desHeight                   = ispHeight - desOffset;
-        //desOffset                   = ispHeight - desHeight;
+        desHeight           = ispHeight - desOffset;
     }
     if((desOffset & 1) != 0){
         desOffset--;
+        desHeight++;
     }
-    cropCol                     = desOffset + fillHeight;
-    mt9f002.offset_x            = MT9F002_INITIAL_OFFSET_X + desOffset / ispScalar;
-    mt9f002.output_width        = desHeight;
-    mt9f002.sensor_width        = desHeight / ispScalar;
+    cropCol              = desOffset + fillHeight;
+    mt9f002.offset_x     = MT9F002_INITIAL_OFFSET_X + desOffset / ispScalar;
+    mt9f002.output_width = desHeight;
+    mt9f002.sensor_width = desHeight / ispScalar;
     Rect crop;
-    if(fillHeight >= 0 && desHeight <= width && (desHeight - fillHeight) > 0){
+    if(desHeight <= width && (desHeight - fillHeight) > 0){
         crop                   = cvRect(fillHeight, 0, desHeight - fillHeight, height);
     }
     else{
-        crop                   = cvRect(0, 0, width, height);
+        fillHeight              = 0;
+        crop                    = cvRect(0, 0, width, height);
     }
     mt9f002_update_resolution(&mt9f002);
-    return crop;
+
+    Mat sourceFrame (height, width, CV_8UC2, buff);                         // Initialize current frame in openCV (UYVY) 2 channel
+    Mat sourceFrameCrop = sourceFrame(crop); 				                // Crop the frame
+#if CAM_STAB_MOD_VIDEO
+	mod_video(sourceFrameCrop);                                             // Modify the sourceframesourceFrame.cols-1
+#endif // CAM_STAB_MOD_VIDEO
+#if CAM_STAB_CROSSHAIR
+	plotHorizon(sourceFrameCrop);
+#endif
+	sourceFrameCrop.release();
+	sourceFrame.release();                                                  // Release Mat
+	runCount++;
+	return;
+}
+
+uint16_t horizontalLinePixel(double x_min, double x_max, double y_angle, int8_t dir){
+    double x_in, y_in, center[2];
+    angles2point(0.0, y_angle, &x_in, &y_in);
+    point2pixel(x_in,y_in,&center[0],&center[1]);
+    if(dir == 0){
+        y_in = center[1];
+    }
+    else{
+        double left[2], right[2];
+        angles2point(x_min, y_angle, &x_in, &y_in);
+        point2pixel(x_in,y_in,&left[0],&left[1]);
+
+        angles2point(x_max, y_angle, &x_in, &y_in);
+        point2pixel(x_in,y_in,&right[0],&right[1]);
+        if(dir > 0){
+            // Top of the line
+            y_in = fmax( right[1], fmax( left[1], center[1]));
+        }
+        else{
+            // Bottom of the line
+            y_in = fmin( right[1], fmin( left[1], center[1]));
+        }
+    }
+    return (uint16_t) round(y_in);
 }
 
 void pixel2point(double x_in, double y_in, double *x_out, double *y_out){
@@ -245,10 +203,9 @@ void pixel2point(double x_in, double y_in, double *x_out, double *y_out){
     // Approximation of 2nd order inversion
     double r_start, r_end;
     r_start = r;
-    r_end   = r_start * 1.0 / (1.0 - pow(r, 1.0) * default_6th_o / pow(CFG_MT9F002_FISHEYE_RADIUS * ispScalar, 1.0) + pow(r, 2.0) * default_2nd_o / pow(CFG_MT9F002_FISHEYE_RADIUS * ispScalar, 2.0));
-    r_end   = r_start * 1.0 / (1.0 - pow(r_end, 1.0) * default_6th_o / pow(CFG_MT9F002_FISHEYE_RADIUS * ispScalar, 1.0) + pow(r_end, 2.0) * default_2nd_o / pow(CFG_MT9F002_FISHEYE_RADIUS * ispScalar, 2.0));
-    r_end   = r_start * 1.0 / (1.0 - pow(r_end, 1.0) * default_6th_o / pow(CFG_MT9F002_FISHEYE_RADIUS * ispScalar, 1.0) + pow(r_end, 2.0) * default_2nd_o / pow(CFG_MT9F002_FISHEYE_RADIUS * ispScalar, 2.0));
-
+    r_end   = r_start * 1.0 / (1.0 + pow(r    , 1.0) * firstOrder_comp / pow(CFG_MT9F002_FISHEYE_RADIUS * ispScalar, 1.0) + pow(r    , 2.0) * secondOrder_comp / pow(CFG_MT9F002_FISHEYE_RADIUS * ispScalar, 2.0));
+    r_end   = r_start * 1.0 / (1.0 + pow(r_end, 1.0) * firstOrder_comp / pow(CFG_MT9F002_FISHEYE_RADIUS * ispScalar, 1.0) + pow(r_end, 2.0) * secondOrder_comp / pow(CFG_MT9F002_FISHEYE_RADIUS * ispScalar, 2.0));
+    r_end   = r_start * 1.0 / (1.0 + pow(r_end, 1.0) * firstOrder_comp / pow(CFG_MT9F002_FISHEYE_RADIUS * ispScalar, 1.0) + pow(r_end, 2.0) * secondOrder_comp / pow(CFG_MT9F002_FISHEYE_RADIUS * ispScalar, 2.0));
     corR    = correctRadius(r_end, f, default_k);
     maxR    = correctRadius(CFG_MT9F002_FISHEYE_RADIUS * ispScalar, f, default_k);
     x_in    = (corR * cos(theta)) / maxR;
@@ -264,36 +221,25 @@ void point2pixel(double x_out, double y_out, double *x_in, double *y_in){
     corR        = maxR * sqrt( pow( *x_in, 2.0 ) + pow( *y_in, 2.0 ) );
     theta       = atan2( *y_in, *x_in);
     r           = invertRadius(corR, f, default_k);
-
-    r           = r * (1.0 - pow(r, 1.0) * default_6th_o / pow(CFG_MT9F002_FISHEYE_RADIUS * ispScalar, 1.0) + pow(r, 2.0) * default_2nd_o / pow(CFG_MT9F002_FISHEYE_RADIUS * ispScalar, 2.0));
-
+    r           = r * (1.0 + pow(r, 1.0) * firstOrder_comp / pow(CFG_MT9F002_FISHEYE_RADIUS * ispScalar, 1.0) + pow(r, 2.0) * secondOrder_comp / pow(CFG_MT9F002_FISHEYE_RADIUS * ispScalar, 2.0));
     *x_in       = ispWidth * 0.5 + cos(theta) * (r);
     *y_in       = ispHeight * 0.5 + sin(theta) * (r);
 }
 
 void angles2point(double xAngle, double yAngle, double *x_out, double * y_out){
-    *x_out      = CAM_STAB_VIEW_R * tan(xAngle);
-    *y_out      = CAM_STAB_VIEW_R * tan(yAngle);
+    *x_out      = viewR * tan(xAngle);
+    *y_out      = viewR * tan(yAngle);
 }
 
 void point2angles(double x_out, double y_out, double *xAngle, double *yAngle){
 
-    *xAngle     = atan(x_out / CAM_STAB_VIEW_R);
-    *yAngle     = atan(y_out / CAM_STAB_VIEW_R);
+    *xAngle     = atan(x_out / viewR);
+    *yAngle     = atan(y_out / viewR);
 }
 
 void plotHorizon(Mat& sourceFrameCrop){
     plotHorizontalLine(sourceFrameCrop, 0.0 / 180.0 * M_PI, 5);
-    //plotHorizontalLine(sourceFrameCrop, 15.0 / 180.0 * M_PI, 5);
-    //plotHorizontalLine(sourceFrameCrop, -15.0 / 180.0 * M_PI, 5);
-    //plotHorizontalLine(sourceFrameCrop, 30.0 / 180.0 * M_PI, 5);
-    //plotHorizontalLine(sourceFrameCrop, -30.0 / 180.0 * M_PI, 5);
     plotVerticalLine(sourceFrameCrop,   0.0 / 180.0 * M_PI, 5);
-    //plotVerticalLine(sourceFrameCrop,   45.0 / 180.0 * M_PI, 5);
-    //plotVerticalLine(sourceFrameCrop,   -45.0 / 180.0 * M_PI, 5);
-    //plotVerticalLine(sourceFrameCrop,   63.4349 / 180.0 * M_PI, 5);
-    //plotVerticalLine(sourceFrameCrop,   -63.4349 / 180.0 * M_PI, 5);
-    //plotPerspective(sourceFrameCrop);
 }
 
 double correctRadius(double r, double f, double k){
@@ -320,76 +266,41 @@ double invertRadius(double r, double f, double k){
     }
 }
 
-uint16_t horizonPos( double y_orig ){
-    double x_in, y_in, x_pos, y_pos;
-    angles2point(0.0, y_orig, &x_pos, &y_pos);
-    point2pixel(x_pos, y_pos, &x_in, &y_in);
-    return (uint16_t) round(y_in);
-}
-
 void outputCoord(double x_in, double y_in, double *x_out, double *y_out){
     *x_out = (MVP[0] * x_in + MVP[4] * y_in + MVP[12]) / (MVP[3] * x_in + MVP[7] * y_in + MVP[15]);
     *y_out = (MVP[1] * x_in + MVP[5] * y_in + MVP[13]) / (MVP[3] * x_in + MVP[7] * y_in + MVP[15]);
 }
 
 void inputCoord(double x_out, double y_out, double *x_in, double *y_in){
-    double a = MVP[0];
-    double b = MVP[4];
-    double c = MVP[12];
+     double den     = ( MVP[0]*MVP[5]  - MVP[0]*MVP[7]*y_out  - MVP[4]*MVP[1]+ MVP[4]*MVP[3]*y_out  + MVP[1]*MVP[7]*x_out  - MVP[5]*MVP[3]*x_out);
 
-    double d = MVP[1];
-    double e = MVP[5];
-    double f = MVP[13];
+     double x_num   = (-MVP[4]*MVP[13] + MVP[4]*MVP[15]*y_out + MVP[12]*MVP[5]                  - MVP[12]*MVP[7]*y_out - MVP[5]*MVP[15]*x_out + MVP[13]*MVP[7]*x_out);
+     double y_num   = (-MVP[0]*MVP[13] + MVP[0]*MVP[15]*y_out + MVP[12]*(MVP[1] - MVP[3]*y_out) - MVP[1]*MVP[15]*x_out + MVP[13]*MVP[3]*x_out);
 
-    double k = MVP[3];
-    double l = MVP[7];
-    double m = MVP[15];
-
-    double den   = (a*e - a*l*y_out - b*d + b*k*y_out + d*l*x_out - e*k*x_out);
-    double x_num = (-b*f + b*m*y_out + c*e - c*l*y_out - e*m*x_out + f*l*x_out);
-    double y_num = (-a*f + a*m*y_out + c*(d - k*y_out) - d*m*x_out + f*k*x_out);
-
-    *x_in       =  x_num / (-den);
-    *y_in       =  y_num / den;
+     *x_in          =  x_num / (-den);
+     *y_in          =  y_num / den;
 }
 
 void getMVP(double MVP[16]){
-    double modelMat[16], viewMat[16], modelviewMat[16], projectionMat[16], tmpRes[16], postRotMat[16];
-    double eye[4], forward[4], up[4], center[4];
-    eye[0]      = 0.0;  eye[1]      =  0.0; eye[2]      = -CAM_STAB_VIEW_R;    eye[3]      = 1.0;
-    forward[0]  = 0.0;  forward[1]  =  0.0; forward[2]  =  1.0;                 forward[3]  = 1.0;
-    up[0]       = 0.0;  up[1]       =  1.0; up[2]       =  0.0;                 up[3]       = 1.0;
+    double modelMat[16], viewMat[16], modelviewMat[16], projectionMat[16];
+    double eye[4]       = {0.0, 0.0, -viewR, 1.0};
+    double forward[4]   = {0.0, 0.0, 1.0, 1.0};
+    double up[4]        = {0.0, 1.0, 0.0, 1.0};
     // Create The model matrix
-    double sensorRotation[16], eyeTranslationF[16], headingRotation[16], eyeTranslationR[16], modelMat_tmp1[16], modelMat_tmp2[16];
-    setRotationMat(0.0, M_PI, 0.0, sensorRotation);
-    setTranslationMat(-eye[0], -eye[1], -eye[2], eyeTranslationF);
-    setRotationMat(0.0, 0.0, 0.0, headingRotation);
-    setTranslationMat( eye[0],  eye[1],  eye[2], eyeTranslationR);
-    matrixMultiply(eyeTranslationF, sensorRotation, modelMat_tmp1);
-    matrixMultiply(headingRotation, modelMat_tmp1, modelMat_tmp2);
-    matrixMultiply(eyeTranslationR, modelMat_tmp2, modelMat);
+    setRotationMat(0.0, M_PI, 0.0, modelMat);
     // Create the view matrix
     rotateVector(-MT9F002_THETA_OFFSET - eulerAngles->theta, 0.0, -eulerAngles->phi, forward);
     rotateVector(-MT9F002_THETA_OFFSET - eulerAngles->theta, 0.0, -eulerAngles->phi, up);
-    center[0] = eye[0] + forward[0];
-    center[1] = eye[1] + forward[1];
-    center[2] = eye[2] + forward[2];
-    center[3] = 1.0;
+    double center[4] = {eye[0] + forward[0], eye[1] + forward[1], eye[2] + forward[2], 1.0};
     view_set_lookat(viewMat, eye,  center,  up);
+    // Create the projection matrix
     setPerspectiveMat(projectionMat);
-    matrixMultiply(viewMat, modelMat, modelviewMat);
-    matrixMultiply(projectionMat, modelviewMat, tmpRes);
-    setRotationMat(0.0, 0.0, 0.0, postRotMat);
-    matrixMultiply(postRotMat, tmpRes, MVP);
+    float_mat4_mul(viewMat, modelMat, modelviewMat);
+    float_mat4_mul(projectionMat, modelviewMat, MVP);
 }
 
 #if CAM_STAB_MOD_VIDEO
 void mod_video(Mat& sourceFrame){
-	char text[200];
-#if CAM_STAB_MEASURE_FPS
-	sprintf(text,"%5.2f %5.d %8.2fs", CAM_STAB_FPS,(runCount), curT / 1000000.0);
-#endif // CAM_STAB_MEASURE_FPS
-	putText(sourceFrame, text, Point(10,sourceFrame.rows-40), FONT_HERSHEY_PLAIN, 1, Scalar(0,255,255), 1);
 	if((cropCol & 1) == 0){
 	    line(sourceFrame, Point(0,0), Point(0, sourceFrame.rows-1), Scalar(0,255), 1);
 	}
@@ -462,84 +373,54 @@ void plotVerticalLine(Mat& sourceFrameCrop, double xAngle, double yResDeg){
 void plotPerspective(Mat& sourceFrameCrop){
     double x1,y1,x1p,y1p,x2p,y2p,scale = 10000.0;
     double offsetCol = -150;
-    y1 = -0.5*CAM_STAB_VIEW_R;
-    x1 =  0.5*CAM_STAB_VIEW_R;
+    y1 = -0.5*viewR;
+    x1 =  0.5*viewR;
     outputCoord(x1, y1, &x1p, &y1p);
     x1p *= scale;
     y1p *= scale;
-    y1 =  0.5*CAM_STAB_VIEW_R;
-    x1 =  0.5*CAM_STAB_VIEW_R;
+    y1 =  0.5*viewR;
+    x1 =  0.5*viewR;
     outputCoord(x1, y1, &x2p, &y2p);
     x2p *= scale;
     y2p *= scale;
     line(sourceFrameCrop, Point((y1p + sourceFrameCrop.cols/2.0) + offsetCol, (x1p + sourceFrameCrop.rows/2.0)), Point((y2p + sourceFrameCrop.cols/2.0) + offsetCol, (x2p + sourceFrameCrop.rows/2.0)), Scalar(0,127), 1);
-    y1 =  0.5*CAM_STAB_VIEW_R;
-    x1 = -0.5*CAM_STAB_VIEW_R;
+    y1 =  0.5*viewR;
+    x1 = -0.5*viewR;
     outputCoord(x1, y1, &x1p, &y1p);
     x1p *= scale;
     y1p *= scale;
     line(sourceFrameCrop, Point((y2p + sourceFrameCrop.cols/2.0) + offsetCol, (x2p + sourceFrameCrop.rows/2.0)), Point((y1p + sourceFrameCrop.cols/2.0) + offsetCol, (x1p + sourceFrameCrop.rows/2.0)), Scalar(0,127), 1);
-    y1 = -0.5*CAM_STAB_VIEW_R;
-    x1 = -0.5*CAM_STAB_VIEW_R;
+    y1 = -0.5*viewR;
+    x1 = -0.5*viewR;
     outputCoord(x1, y1, &x2p, &y2p);
     x2p *= scale;
     y2p *= scale;
     line(sourceFrameCrop, Point((y1p + sourceFrameCrop.cols/2.0) + offsetCol, (x1p + sourceFrameCrop.rows/2.0)), Point((y2p + sourceFrameCrop.cols/2.0) + offsetCol, (x2p + sourceFrameCrop.rows/2.0)), Scalar(0,127), 1);
-    y1 = -0.5*CAM_STAB_VIEW_R;
-    x1 =  0.5*CAM_STAB_VIEW_R;
+    y1 = -0.5*viewR;
+    x1 =  0.5*viewR;
     outputCoord(x1, y1, &x1p, &y1p);
     x1p *= scale;
     y1p *= scale;
     line(sourceFrameCrop, Point((y2p + sourceFrameCrop.cols/2.0) + offsetCol, (x2p + sourceFrameCrop.rows/2.0)), Point((y1p + sourceFrameCrop.cols/2.0) + offsetCol, (x1p + sourceFrameCrop.rows/2.0)), Scalar(0,127), 1);
-}
-
-void bebop_camera_stabilization_header( void ){
-#if CAM_STAB_MEASURE_FPS
-    clock_gettime(CLOCK_MONOTONIC, &time_now);
-    curT            = sys_time_elapsed_us(&time_init, &time_now);
-    uint32_t dt_us  = sys_time_elapsed_us(&time_prev, &time_now);
-    CAM_STAB_FPS    = 0.975 * CAM_STAB_FPS + 0.025 * 1000000.f / dt_us;
-    time_prev       = time_now;
-    VERBOSE_PRINT("Measured FPS: %0.2f\n", CAM_STAB_FPS);
-#endif
-}
-
-void bebop_camera_stabilization_footer(void){
-    runCount++;
 }
 
 void setPerspectiveMat(double perspectiveMat[16])
 {
     // Create perspective matrix
-    // These paramaters are about lens properties.
-    // The "near" and "far" create the Depth of Field.
-    // The "angleOfView", as the name suggests, is the angle of view.
-    // The "aspectRatio" is the cool thing about this matrix. OpenGL doesn't
-    // has any information about the screen you are rendering for. So the
-    // results could seem stretched. But this variable puts the thing into the
-    // right path. The aspect ratio is your device screen (or desired area) width divided
-    // by its height. This will give you a number < 1.0 the the area has more vertical
-    // space and a number > 1.0 is the area has more horizontal space.
-    // Aspect Ratio of 1.0 represents a square area.
-    // Some calculus before the formula.
     float size      =  near * tanf((angleOfView / 180.0 * M_PI) / 2.0);
-    float left      = -size;
-    float right     =  size;
-    float bottom    = -size;
-    float top       =  size;
     // First Column
-    perspectiveMat[0]  = 2 * near / (right - left);
+    perspectiveMat[0]  = 2 * near / (2 * size);
     perspectiveMat[1]  = 0.0;
     perspectiveMat[2]  = 0.0;
     perspectiveMat[3]  = 0.0;
     // Second Column
     perspectiveMat[4]  = 0.0;
-    perspectiveMat[5]  = 2 * near / (top - bottom);
+    perspectiveMat[5]  = 2 * near / (2 * size);
     perspectiveMat[6]  = 0.0;
     perspectiveMat[7]  = 0.0;
     // Third Column
-    perspectiveMat[8]  = (right + left) / (right - left);
-    perspectiveMat[9]  = (top + bottom) / (top - bottom);
+    perspectiveMat[8]  = 0.0;
+    perspectiveMat[9]  = 0.0;
     perspectiveMat[10] = -(far + near) / (far - near);
     perspectiveMat[11] = -1;
     // Fourth Column
@@ -550,56 +431,29 @@ void setPerspectiveMat(double perspectiveMat[16])
 }
 
 void view_set_lookat(double result[16], double eye[4], double center[4], double up[4]) {
-    float fx = center[0] - eye[0];
-    float fy = center[1] - eye[1];
-    float fz = center[2] - eye[2];
-
+    struct FloatVect3 f, s, u;
+    f.x = center[0] - eye[0];
+    f.y = center[1] - eye[1];
+    f.z = center[2] - eye[2];
     // normalize f
-    float rlf = 1.0f / vector_length(fx, fy, fz);
-    fx *= rlf;
-    fy *= rlf;
-    fz *= rlf;
-
+    float_vect3_normalize(&f);
     // compute s = f x up (x means "cross product")
-    float sx = fy * up[2] - fz * up[1];
-    float sy = fz * up[0] - fx * up[2];
-    float sz = fx * up[1] - fy * up[0];
-
+    s.x = f.y * up[2] - f.z * up[1];
+    s.y = f.z * up[0] - f.x * up[2];
+    s.z = f.x * up[1] - f.y * up[0];
     // and normalize s
-    float rls = 1.0f / vector_length(sx, sy, sz);
-    sx *= rls;
-    sy *= rls;
-    sz *= rls;
-
+    float_vect3_normalize(&s);
     //The up vector must not be parallel to the line of sight from the eye point to the reference point.
-    if((0 == sx)&&(0 == sy)&&(0 == sz))
+    if((0 == s.x)&&(0 == s.y)&&(0 == s.z))
         return;
-
     // compute u = s x f
-    float ux = sy * fz - sz * fy;
-    float uy = sz * fx - sx * fz;
-    float uz = sx * fy - sy * fx;
-
-    result[0] = sx;
-    result[1] = ux;
-    result[2] = -fx;
-    result[3] = 0.0f;
-
-    result[4] = sy;
-    result[5] = uy;
-    result[6] = -fy;
-    result[7] = 0.0f;
-
-    result[8] = sz;
-    result[9] = uz;
-    result[10] = -fz;
-    result[11] = 0.0f;
-
-    result[12] = 0.0f;
-    result[13] = 0.0f;
-    result[14] = 0.0f;
-    result[15] = 1.0f;
-
+    u.x = s.y * f.z - s.z * f.y;
+    u.y = s.z * f.x - s.x * f.z;
+    u.z = s.x * f.y - s.y * f.x;
+    result[0] =  s.x;   result[4] =  s.y;   result[8]  =  s.z;  result[12] =  0.0f;
+    result[1] =  u.x;   result[5] =  u.y;   result[9]  =  u.z;  result[13] =  0.0f;
+    result[2] = -f.x;   result[6] = -f.y;   result[10] = -f.z;  result[14] =  0.0f;
+    result[3] =  0.0f;  result[7] =  0.0f;  result[11] =  0.0f; result[15] =  1.0f;
     translate_xyz(result, -eye[0], -eye[1], -eye[2]);
 }
 
@@ -615,32 +469,19 @@ void translate_xyz(double result[16], const float translatex,
             + result[11] * translatez;
 }
 
-float vector_length(const float x, const float y, const float z) {
-    return (float) sqrt(x*x + y*y +z*z);
-}
-
 void rotateVector(float x, float y, float z, double vector[4])
 {
-    double rotX[16];
-    double rotY[16];
-    double rotZ[16];
-    setRotationMat(x, 0.0, 0.0, rotX);
-    setRotationMat(0.0, y, 0.0, rotY);
-    setRotationMat(0.0, 0.0, z, rotZ);
-    // Multiply
-    double rotZYXvec[4];
-    double tmp1[16], tmp2[16];
-    matrixMultiply(rotY, rotZ, tmp1);
-    matrixMultiply(rotX, tmp1, tmp2);
-    matvecMultiply(tmp2, vector, rotZYXvec);
-    vector[0] = rotZYXvec[0];
-    vector[1] = rotZYXvec[1];
-    vector[2] = rotZYXvec[2];
-    vector[3] = rotZYXvec[3];
+    double rotMat[16], output[4];
+    setRotationMat(x, y, z, rotMat);
+    float_mat4vec_mul(rotMat, vector, output);
+    vector[0] = output[0];
+    vector[1] = output[1];
+    vector[2] = output[2];
+    vector[3] = output[3];
 }
 
 
-void matrixMultiply(double m1[16], double m2[16], double result[16])
+void float_mat4_mul(double m1[16], double m2[16], double result[16])
 {
     // Fisrt Column
     result[0]  = m1[0]*m2[0] + m1[4]*m2[1] + m1[8]*m2[2] + m1[12]*m2[3];
@@ -664,7 +505,7 @@ void matrixMultiply(double m1[16], double m2[16], double result[16])
     result[15] = m1[3]*m2[12] + m1[7]*m2[13] + m1[11]*m2[14] + m1[15]*m2[15];
 }
 
-void matvecMultiply(double m1[16], double v1[4], double result[4])
+void float_mat4vec_mul(double m1[16], double v1[4], double result[4])
 {
     // Fisrt Column
     result[0]  = m1[0]*v1[0] + m1[4]*v1[1] + m1[8]*v1[2] + m1[12]*v1[3];
@@ -673,7 +514,7 @@ void matvecMultiply(double m1[16], double v1[4], double result[4])
     result[3]  = m1[3]*v1[0] + m1[7]*v1[1] + m1[11]*v1[2] + m1[15]*v1[3];
 }
 
-void setIdentityMatrix(double m[16])
+void setIdentityMat(double m[16])
 {
     m[0]  = m[5]  = m[10] = m[15] = 1.0;
     m[1]  = m[2]  = m[3]  = m[4]  = 0.0;
@@ -686,10 +527,10 @@ void setRotationMat(float x, float y, float z, double outputMat[16])
     double rotX[16];
     double rotY[16];
     double rotZ[16];
-    setIdentityMatrix(outputMat);
-    setIdentityMatrix(rotX);
-    setIdentityMatrix(rotY);
-    setIdentityMatrix(rotZ);
+    setIdentityMat(outputMat);
+    setIdentityMat(rotX);
+    setIdentityMat(rotY);
+    setIdentityMat(rotZ);
     // Set z rotation
     rotZ[0]  =  cosf(z);
     rotZ[1]  =  sinf(z);
@@ -705,19 +546,10 @@ void setRotationMat(float x, float y, float z, double outputMat[16])
     rotX[6] = -sinf(x);
     rotX[9] = -rotX[6];
     rotX[10] = rotX[5];
-
     // Multiply
-    double rotXY[16];
-    matrixMultiply(rotY, rotX, rotXY);
-    matrixMultiply(rotZ, rotXY, outputMat);
-}
-
-void setTranslationMat(float x, float y, float z, double outputMat[16])
-{
-    setIdentityMatrix(outputMat);
-    outputMat[12] = x;
-    outputMat[13] = y;
-    outputMat[14] = z;
+    double rotYZ[16];
+    float_mat4_mul(rotY, rotZ, rotYZ);
+    float_mat4_mul(rotX, rotYZ, outputMat);
 }
 
 /*

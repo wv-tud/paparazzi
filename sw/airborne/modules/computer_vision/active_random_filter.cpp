@@ -1436,6 +1436,10 @@ bool getNewPosition(uint8_t nextDir, uint16_t* newRow, uint16_t* newCol, int* ma
 #if AR_FILTER_MOD_VIDEO
 void mod_video(Mat& sourceFrame, Mat& frameGrey){
 	char text[200];
+#if AR_FILTER_MEASURE_FPS
+    sprintf(text,"%5.2f %5.d %8.2fs", AR_FILTER_FPS,(runCount), curT / 1000000.0);
+    putText(sourceFrame, text, Point(10,sourceFrame.rows-40), FONT_HERSHEY_PLAIN, 1, Scalar(0,255,255), 1);
+#endif // CAM_STAB_MEASURE_FPS
 	if(AR_FILTER_FLOOD_STYLE != AR_FILTER_FLOOD_CW){
 #if AR_FILTER_DRAW_BOXES
 		for(unsigned int r=0; r < cropAreas.size(); r++)
