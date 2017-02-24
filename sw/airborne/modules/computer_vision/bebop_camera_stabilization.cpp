@@ -52,7 +52,7 @@ using namespace cv;
 #define CAM_STAB_CROSSHAIR     1                    ///< Show centre of frame with crosshair
 
 static uint16_t         horizontalLinePixel ( double x_min, double x_max, double y_angle, int8_t dir );
-static void             plotHorizon         ( Mat& sourceFrameCrop );
+void                    plotHorizon         ( Mat& sourceFrameCrop );
 /** Fisheye correction **/
 static double 			correctRadius		( double r, double f, double k );
 static double           invertRadius        ( double r, double f, double k );
@@ -158,9 +158,6 @@ void bebop_camera_stabilization(char* buff, uint16_t width, uint16_t height, str
 #if CAM_STAB_MOD_VIDEO
 	mod_video(sourceFrameCrop);                                             // Modify the sourceframesourceFrame.cols-1
 #endif // CAM_STAB_MOD_VIDEO
-#if CAM_STAB_CROSSHAIR
-	plotHorizon(sourceFrameCrop);
-#endif
 	sourceFrameCrop.release();
 	sourceFrame.release();                                                  // Release Mat
 	runCount++;

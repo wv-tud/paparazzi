@@ -42,7 +42,6 @@ void             pixel2point        (double x_in, double y_in, double *x_out, do
 /** Conversion from angles to output frame point **/
 void             angles2point        (double xAngle, double yAngle, double *x_out, double * y_out);
 void             point2angles        (double x_out, double y_out, double *xAngle, double *yAngle);
-
 #ifdef __cplusplus
 }
 #endif

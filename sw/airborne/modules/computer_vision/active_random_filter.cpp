@@ -69,6 +69,9 @@ using namespace cv;
 #define AR_FILTER_USE_ALTITUDE  1   ///< Use own altitude for world pos
 #define AR_FILTER_WRITE_LOG     0   ///< Write tracking results to logfile
 #define AR_FILTER_DISTANCE_PLOT 1   ///< Plot lines with distance on frame
+#define AR_FILTER_CROSSHAIR     1   ///< Plot horizon
+
+extern void             plotHorizon         ( Mat& sourceFrameCrop );
 
 static void             active_random_filter_header ( void );
 static void             active_random_filter_footer ( void );

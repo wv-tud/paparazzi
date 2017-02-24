@@ -66,9 +66,9 @@
 			<define name="VIEWVIDEO_CAMERA" value="front_camera" />
 			<define name="VIEWVIDEO_SHOT_PATH" value="/data/ftp/internal_000" />
 			<define name="VIEWVIDEO_FPS" value="18" />
-			<define name="VIEWVIDEO_WRITE_VIDEO" value="FALSE" />
+			<define name="VIEWVIDEO_WRITE_VIDEO" value="TRUE" />
 			<define name="VIEWVIDEO_VIDEO_FILE" value="ar_filter_demo" />
-			<define name="VIEWVIDEO_STREAM_VIDEO" value="TRUE" />
+			<define name="VIEWVIDEO_STREAM_VIDEO" value="FALSE" />
 		</module>
 	</modules>
 

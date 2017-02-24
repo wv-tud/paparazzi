@@ -24,7 +24,7 @@ struct avi_isp_offsets
 	uint32_t chain_yuv;
 };
 
-#define AVI_ISP_STAT_YUV_MAX_WAIT 3
+#define AVI_ISP_STAT_YUV_MAX_WAIT 1
 uint8_t curWait = 0;
 
 /* IOCTL implemented in AVI drivers */
@@ -205,8 +205,8 @@ int isp_request_statistics_yuv_window( uint16_t x_start, uint16_t x_end, uint16_
     requestWindow[1] = x_end;
     requestWindow[2] = y_start;
     requestWindow[3] = y_end;
-    requestWindow[4] = 0;//x_odd_inc;
-    requestWindow[5] = 0;//y_odd_inc;
+    requestWindow[4] = 16;//x_odd_inc;
+    requestWindow[5] = 16;//y_odd_inc;
     //printf("[YUV-STAT] Requesting window: [%d %d],[%d %d], [%d %d]\n", requestWindow[0], requestWindow[1], requestWindow[2], requestWindow[3], requestWindow[4], requestWindow[5]);
     return 0;
 }
@@ -251,12 +251,13 @@ int isp_get_statistics_yuv(struct isp_yuv_stats_t *yuv_stats) {
     avi_isp_statistics_yuv_get_registers(&isp_ctx, &stats_yuv);
 
     if(!stats_yuv.measure_status.done){
-        //printf("[YUV-STAT] Waiting for YUV stats\n");
         curWait++;
         if(curWait <= AVI_ISP_STAT_YUV_MAX_WAIT){
+            printf("[YUV-STAT] Waiting for YUV stats (%d)\n", curWait);
             isp_config.statistics_yuv.measure_req.clear = 0; // Clear current results
         }
         else{
+            printf("[YUV-STAT] Waited %d frames for YUV stats, resetting now\n", curWait);
             isp_config.statistics_yuv.measure_req.clear = 1; // Clear current results
             isp_set_statistics_yuv_window();
             curWait = 0;
