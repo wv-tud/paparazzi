@@ -51,10 +51,10 @@
 			<define name="CV_AE_AWB_VERBOSE" value="0" />
 		</module>
 		<module name="cv_bebop_camera_stabilization">
-			<define name="CAM_STAB_CAMERA" value="front_camera" />
+			<define name="CAM_STAB_CAMERA"    value="front_camera" />
 		</module>
 		<module name="cv_active_random_filter">
-			<define name="AR_FILTER_CAMERA" value="front_camera" />
+			<define name="AR_FILTER_CAMERA"    value="front_camera" />
 		</module>
 		<module name="autoswarm">
 			<define name="AUTOSWARM_GLOBAL_ATTRACTOR" value="2" />
@@ -66,12 +66,12 @@
 			<define name="VIEWVIDEO_CAMERA" value="front_camera" />
 			<define name="VIEWVIDEO_SHOT_PATH" value="/data/ftp/internal_000" />
 			<define name="VIEWVIDEO_FPS" value="18" />
-			<define name="VIEWVIDEO_WRITE_VIDEO" value="TRUE" />
+			<define name="VIEWVIDEO_WRITE_VIDEO" value="FALSE" />
 			<define name="VIEWVIDEO_VIDEO_FILE" value="ar_filter_demo" />
-			<define name="VIEWVIDEO_STREAM_VIDEO" value="FALSE" />
+			<define name="VIEWVIDEO_STREAM_VIDEO" value="TRUE" />
 		</module>
 	</modules>
-
+	
 	<commands>
 		<axis name="PITCH" failsafe_value="0" />
 		<axis name="ROLL" failsafe_value="0" />
@@ -99,7 +99,21 @@
 		<define name="CALC_AMSL_BARO" value="FALSE" />
 	</section>
 	
-	<include href="conf/airframes/TUDELFT/calibrations/bebop2_$AC_ID.xml" />
+	  <section name="IMU" prefix="IMU_">
+		<define name="ACCEL_X_NEUTRAL" value="17"/>
+    	<define name="ACCEL_Y_NEUTRAL" value="-22"/>
+    	<define name="ACCEL_Z_NEUTRAL" value="-50"/>
+    	<define name="MAG_X_SENS" value="8.32441255621" integer="16"/>
+    	<define name="MAG_Y_SENS" value="8.25720085664" integer="16"/>
+    	<define name="MAG_Z_SENS" value="8.60009819293" integer="16"/>
+	</section>
+	<section name="STABILIZATION_ATTITUDE_INDI" prefix="STABILIZATION_INDI_">
+		<define name="G1_ROLL" 		value="{17.541, 	-14.466, 	-16.632, 	23.559 }" />
+		<define name="G1_PITCH" 	value="{14.673, 	12.930, 	-16.854, 	-17.459 }" />
+		<define name="G1_YAW" 		value="{0.413, 		-1.071, 	0.573, 		-0.711}" />
+		<define name="G1_THRUST" 	value="{-0.561, 	-0.507, 	-0.566, 	-0.554}" />
+		<define name="G2" 			value="{112.015, 	-131.258, 	154.486, 	-66.862}" />
+	</section>
 
 	<!-- local magnetic field -->
 	<!-- http://wiki.paparazziuav.org/wiki/Subsystem/ahrs#Local_Magnetic_Field -->

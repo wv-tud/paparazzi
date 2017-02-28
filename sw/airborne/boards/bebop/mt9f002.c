@@ -1057,5 +1057,15 @@ void mt9f002_update_resolution(struct mt9f002_t *mt){
     //double xScaler = mt->output_scaler * 2.0/(mt->x_odd_inc + 1);
     //double yScaler = mt->output_scaler * 2.0/(mt->y_odd_inc + 1);
     //isp_request_statistics_yuv_window(ALIGN(mt->offset_x,16), ALIGN(mt->offset_x + mt->sensor_width,16), ALIGN(mt->offset_y,16), ALIGN(mt->offset_y + mt->sensor_height,16));
-    isp_request_statistics_yuv_window(0 , (uint16_t) mt->output_width, 0, mt->output_height, mt->x_odd_inc, mt->y_odd_inc);
+    uint16_t x_odd_inc = 16;
+    uint16_t y_odd_inc = 16;
+    if(mt9f002.x_odd_inc < 7){
+        x_odd_inc = 16;
+        y_odd_inc = 16;
+    }
+    else if(mt9f002.x_odd_inc < 15){
+        x_odd_inc = 16;
+        y_odd_inc = 16;
+    }
+    isp_request_statistics_yuv_window(0 , (uint16_t) mt->output_width, 0, mt->output_height, x_odd_inc, y_odd_inc);
 }

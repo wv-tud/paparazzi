@@ -37,6 +37,8 @@
 
 #define PRINT(string,...) fprintf(stderr, "[P7_venc->%s()] " string,__FUNCTION__ , ##__VA_ARGS__)
 
+#define P7_FRAMERATE_DENOM 8
+
 #ifdef VERBOSE
 #define VERBOSE_PRINT PRINT
 static char* streamType[2] = { "BYTE_STREAM", "NAL_UNITS" };
@@ -95,18 +97,15 @@ static int OpenEncoder(P7_H264_context_t* context)
       PRINT( "No device found\n");
       return -1;
     }
-    cfg.width = context->width;
-    cfg.height = context->height;
-
-    cfg.frameRateDenom = 1;
-    cfg.frameRateNum = context->frameRate;
-
-    cfg.streamType = H264ENC_BYTE_STREAM;
-
-    cfg.level = H264ENC_LEVEL_5; // level 4 minimum for 1080p
-    cfg.viewMode = H264ENC_BASE_VIEW_DOUBLE_BUFFER; // maybe H264ENC_BASE_VIEW_SINGLE_BUFFER
-    cfg.scaledWidth = 0; // 0
-    cfg.scaledHeight = 0; // 0
+    cfg.width           = context->width;
+    cfg.height          = context->height;
+    cfg.frameRateDenom  = P7_FRAMERATE_DENOM; // TODO: Change?
+    cfg.frameRateNum    = P7_FRAMERATE_DENOM * context->frameRate;
+    cfg.streamType      = H264ENC_BYTE_STREAM;
+    cfg.level           = H264ENC_LEVEL_5; // level 4 minimum for 1080p
+    cfg.viewMode        = H264ENC_BASE_VIEW_SINGLE_BUFFER; // maybe H264ENC_BASE_VIEW_SINGLE_BUFFER
+    cfg.scaledWidth     = 0;
+    cfg.scaledHeight    = 0;
 
     VERBOSE_PRINT("Init config: size %dx%d   %d/%d fps  %s L %d\n",
          cfg.width, cfg.height, cfg.frameRateNum,
@@ -137,9 +136,10 @@ static int OpenEncoder(P7_H264_context_t* context)
                rcCfg.pictureRc, rcCfg.mbRc, rcCfg.pictureSkip, rcCfg.hrd,
                rcCfg.hrdCpbSize, rcCfg.gopLen);
 
-        rcCfg.bitPerSecond = context->bitRate;
-        rcCfg.gopLen = context->intraRate; // user guide says to set goLopen to I frame rate
-        rcCfg.hrd = 0; // disable Hrd conformance
+        rcCfg.bitPerSecond  = context->bitRate;
+        rcCfg.gopLen        = context->intraRate; // user guide says to set goLopen to I frame rate
+        rcCfg.pictureSkip   = 1; // TODO: disable?
+        rcCfg.hrd           = 0; // disable Hrd conformance
 #if 0
         if(cml->qpHdr != DEFAULT)
               rcCfg.qpHdr = cml->qpHdr;
@@ -191,6 +191,12 @@ static int OpenEncoder(P7_H264_context_t* context)
     }
     else
     {
+        codingCfg.videoFullRange            = 0;
+        codingCfg.seiMessages               = 1; // TODO: Does this add time info?
+        codingCfg.disableDeblockingFilter   = 2; // TODO: better?
+        codingCfg.enableCabac               = 2; // TODO: better?
+        codingCfg.quarterPixelMv            = 2; // TODO: better?
+
         VERBOSE_PRINT
             ("Set coding control: SEI %d  Slice %5d  deblocking %d "
              "constIntra %d  videoRange %d\n",
@@ -216,7 +222,7 @@ static int OpenEncoder(P7_H264_context_t* context)
         return -1;
     }
     VERBOSE_PRINT
-        ("Get PreP: input %4dx%d : offset %4dx%d : format %d : rotation %d "
+        ("Get PreP: input %4dx%d : offset %4dx%d : format %d :  rotation %d "
            ": stab %d : cc %d\n",
          preProcCfg.origWidth, preProcCfg.origHeight, preProcCfg.xOffset,
          preProcCfg.yOffset, preProcCfg.inputType, preProcCfg.rotation,
@@ -228,12 +234,11 @@ static int OpenEncoder(P7_H264_context_t* context)
     preProcCfg.origWidth = context->height;
     preProcCfg.origHeight = context->width;
 #else
-    preProcCfg.rotation = H264ENC_ROTATE_0;
-    preProcCfg.origWidth = context->width;
-    preProcCfg.origHeight = context->height;
+    preProcCfg.rotation     = H264ENC_ROTATE_0;
+    preProcCfg.origWidth    = context->width;
+    preProcCfg.origHeight   = context->height;
 #endif
     preProcCfg.scaledOutput = 0;
-
 
     VERBOSE_PRINT
         ("Set PreP: input %4dx%d : offset %4dx%d : format %d : rotation %d "
@@ -416,7 +421,7 @@ static int Encode(P7_H264_context_t* context, uint32_t inputBufferIndex, uint32_
 
   context->encIn.busLuma = context->inputBuffers[inputBufferIndex].vencMem.busAddress;
   context->encIn.busChromaU = context->encIn.busLuma + (context->width * context->height);
-  context->encIn.timeIncrement=1;
+  context->encIn.timeIncrement = P7_FRAMERATE_DENOM;
 
   switch(context->inputBuffers[inputBufferIndex].frameType)
   {

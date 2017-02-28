@@ -16,7 +16,7 @@
 		<define name="MT9F002_TARGET_EXPOSURE" value="4" />
 		<define name="MT9F002_GAIN_GREEN1" value="8.0" />
 		<define name="MT9F002_GAIN_GREEN2" value="8.0" />
-		<define name="MT9F002_GAIN_RED" value="8.0" />
+		<define name="MT9F002_GAIN_RED" value="7.0" />
 		<define name="MT9F002_GAIN_BLUE" value="8.0" />
 
 		<module name="telemetry" type="transparent_udp" />
@@ -61,7 +61,6 @@
 			<define name="AR_FILTER_CAMERA" value="front_camera" />
 		</module>
 		<module name="autoswarm">
-			<define name="AUTOSWARM_GLOBAL_ATTRACTOR" value="1" />
 			<define name="AUTOSWARM_CAMERA" value="front_camera" />
 		</module>
 		<module name="video_rtp_stream">

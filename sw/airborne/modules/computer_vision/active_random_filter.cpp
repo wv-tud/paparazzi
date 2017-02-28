@@ -54,22 +54,27 @@ using namespace cv;
 
 #define xSign(x) ( ( x ) >= ( 0 ) ? ( 1 ) : ( -1 ) )
 
-#define AR_FILTER_SHOW_REJECT   0   ///< Print why shapes are rejected
-#define AR_FILTER_MOD_VIDEO     1   ///< Modify the frame to show relevant info
 #define AR_FILTER_MARK_CONTOURS 1   ///< Mark all contour pixels green on sourceframe
 #define AR_FILTER_DRAW_CIRCLES  1   ///< Draw circles
-#define AR_FILTER_DRAW_BOXES 	1   ///< Draw boxes
-#define AR_FILTER_SHOW_MEM      1   ///< Print object locations to terminal
-#define AR_FILTER_SAVE_FRAME    0   ///< Save a frame for post-processing
-#define AR_FILTER_MEASURE_FPS   1   ///< Measure average FPS
-#define AR_FILTER_CALIBRATE_CAM 0   ///< Calibrate camera
-#define AR_FILTER_WORLDPOS 		1   ///< Use world coordinates
-#define AR_FILTER_NOYAW 		0   ///< Output in body horizontal XY
-#define AR_FILTER_TIMEOUT       150 ///< Frames from start
-#define AR_FILTER_USE_ALTITUDE  1   ///< Use own altitude for world pos
-#define AR_FILTER_WRITE_LOG     0   ///< Write tracking results to logfile
 #define AR_FILTER_DISTANCE_PLOT 1   ///< Plot lines with distance on frame
-#define AR_FILTER_CROSSHAIR     1   ///< Plot horizon
+#define AR_FILTER_CROSSHAIR     0   ///< Plot horizon
+#define AR_FILTER_SHOW_CAM_INFO 1   ///< Show colour gains and exposure on frame
+#define AR_FILTER_SHOW_STATS    0   ///< Show statistics on the performance of the contour detection
+
+#define AR_FILTER_MEASURE_FPS   1   ///< Measure average FPS
+#define AR_FILTER_TIMEOUT       150 ///< Frames from start
+#define AR_FILTER_WRITE_LOG     0   ///< Write tracking results to logfile
+
+#define AR_FILTER_WORLDPOS      1   ///< Use world coordinates
+#define AR_FILTER_NOYAW         0   ///< Output in body horizontal XY
+#define AR_FILTER_USE_ALTITUDE  1   ///< Use own altitude for world pos
+
+#define AR_FILTER_SHOW_REJECT   0   ///< Print why shapes are rejected
+#define AR_FILTER_MOD_VIDEO     1   ///< Modify the frame to show relevant info
+#define AR_FILTER_DRAW_BOXES 	1   ///< Draw boxes
+#define AR_FILTER_SHOW_MEM      0   ///< Print object locations to terminal
+#define AR_FILTER_SAVE_FRAME    0   ///< Save a frame for post-processing
+#define AR_FILTER_CALIBRATE_CAM 0   ///< Calibrate camera
 
 extern void             plotHorizon         ( Mat& sourceFrameCrop );
 
@@ -134,8 +139,8 @@ uint8_t     AR_FILTER_SAMPLE_STYLE      = AR_FILTER_STYLE_RANDOM;           ///<
 double      AR_FILTER_CAM_RANGE         = 10.0;                             ///< Maximum camera range of newly added objects
 uint16_t    AR_FILTER_RND_PIX_SAMPLE    = 2500;                             ///< Random pixel sample size
 uint16_t    AR_FILTER_MAX_LAYERS        = 5000;                             ///< Maximum recursive depth of CW flood
-double 	    AR_FILTER_MAX_CIRCLE_DEF 	= 0.81;                             ///< Maximum contour eccentricity
-double      AR_FILTER_MIN_CIRCLE_PERC   = 0.50;                             ///< Minimum percentage of circle in view
+double 	    AR_FILTER_MAX_CIRCLE_DEF 	= 0.15;                            ///< Maximum contour eccentricity
+double      AR_FILTER_MIN_CIRCLE_PERC   = 0.45;                             ///< Minimum percentage of circle in view
 double      AR_FILTER_LARGE_SKIP_FACTOR = 1.0 / 20.0;                       ///< Percentage of length large contours are allowed to snap back to starting pos
 /** Automatically calculated tracking parameters **/
 uint16_t    AR_FILTER_MIN_POINTS;                                           ///< Mimimum contour length
@@ -374,7 +379,7 @@ void identifyObject(trackResults* trackRes){
         double dy       = trackRes->y_w - neighbourMem[i].y_w;
         if(dx <= radius && dy <= radius && sqrt(pow(dx, 2.0) + pow(dy, 2.0)) <= radius)
         {
-            PRINT("Identified object %d at (%4d, %4d)p (%5.2f, %5.2f, %5.2f)w\n", neighbourMem[i].id, trackRes->x_p, trackRes->y_p, trackRes->x_w, trackRes->y_w, trackRes->z_w);
+            VERBOSE_PRINT("Identified object %d at (%4d, %4d)p (%5.2f, %5.2f, %5.2f)w\n", neighbourMem[i].id, trackRes->x_p, trackRes->y_p, trackRes->x_w, trackRes->y_w, trackRes->z_w);
             neighbourMem[i].lastSeen 	= runCount;
             neighbourMem[i].x_w 		= trackRes->x_w;
             neighbourMem[i].y_w 		= trackRes->y_w;
@@ -387,7 +392,7 @@ void identifyObject(trackResults* trackRes){
         }
     }
     // We haven't identified
-    PRINT("New object at (%4d, %4d)p (%6.2f, %6.2f)c (%5.2f, %5.2f)b (%5.2f, %5.2f, %5.2f)w\n", trackRes->x_p, trackRes->y_p, trackRes->x_c * 180 / M_PI, trackRes->y_c * 180 / M_PI, trackRes->x_b, trackRes->y_b, trackRes->x_w, trackRes->y_w,  trackRes->z_w);
+    VERBOSE_PRINT("New object at (%4d, %4d)p (%6.2f, %6.2f)c (%5.2f, %5.2f)b (%5.2f, %5.2f, %5.2f)w\n", trackRes->x_p, trackRes->y_p, trackRes->x_c * 180 / M_PI, trackRes->y_c * 180 / M_PI, trackRes->x_b, trackRes->y_b, trackRes->x_w, trackRes->y_w,  trackRes->z_w);
     memoryBlock curN;
     curN.lastSeen 	= runCount;
     curN.id 		= maxId;
@@ -472,13 +477,13 @@ bool addContour(vector<Point> contour, uint16_t offsetX, uint16_t offsetY, doubl
         VERBOSE_PRINT("Analyzing contour of length %d\n", contour.size());
         m = moments(contour);
     }
-    VERBOSE_PRINT("m00: %f  x: %f  y: %f\n",m.m00, m.m10 / m.m00, m.m01 / m.m00);
-    //double e = (pow(m.mu20 - m.mu02,2.0) - 4 * pow(m.mu11,2.0)) / pow(m.mu20 + m.mu02,2.0);
     double semi_major   = sqrt( 2 * ( m.mu20 + m.mu02 + sqrt( pow(m.mu20 - m.mu02, 2.0) + 4 * pow( m.mu11, 2.0 ) ) ) / m.m00 );
     double semi_minor   = sqrt( 2 * ( m.mu20 + m.mu02 - sqrt( pow(m.mu20 - m.mu02, 2.0) + 4 * pow( m.mu11, 2.0 ) ) ) / m.m00 );
-    double e            = sqrt( 1 - pow( semi_minor, 2.0 ) / pow( semi_major, 2.0 ));
+    //double e            = sqrt( 1 - pow( semi_minor, 2.0 ) / pow( semi_major, 2.0 ));
+    double e          = (pow(m.mu20 - m.mu02,2.0) - 4 * pow(m.mu11,2.0)) / pow(m.mu20 + m.mu02,2.0);
     double corArea      = M_PI * pow( semi_major, 2.0 );
-    if(e < AR_FILTER_MAX_CIRCLE_DEF)
+    VERBOSE_PRINT("m00: %7.2f  cA: %7.2f  x: %5.2f  y: %5.2f  ecc: %4.2f  fill: %4.2f\n",m.m00, corArea, m.m10 / m.m00, m.m01 / m.m00, e, m.m00 / corArea);
+    if(fabs(e) < AR_FILTER_MAX_CIRCLE_DEF)
     {
         if ( m.m00 / corArea > AR_FILTER_MIN_CIRCLE_PERC && corArea >= AR_FILTER_MIN_CIRCLE_SIZE)
         {
@@ -499,9 +504,13 @@ bool addContour(vector<Point> contour, uint16_t offsetX, uint16_t offsetY, doubl
                     for(uint8_t tr = 0; tr < trackRes_size; tr++){
                         if( sqrt( pow( (double) (curRes.x_p - trackRes[tr].x_p), 2.0) + pow( (double) (curRes.y_p - trackRes[tr].y_p),2.0)) < sqrt( max( curRes.area_p, trackRes[tr].area_p ) / M_PI ) ){
                             if(curRes.area_p < trackRes[tr].area_p){
+                                // We are inside another contour
                                 return false;
                             }
-                            overwriteId = tr;               // Mark this result for overwriting
+                            else{
+                                // There is another contour inside the current contour
+                                overwriteId = tr;               // Mark this result for overwriting
+                            }
                         }
                     }
                     trackRes_add(curRes, overwriteId);     // Save results and push into trackRes
@@ -509,10 +518,10 @@ bool addContour(vector<Point> contour, uint16_t offsetX, uint16_t offsetY, doubl
                 }
             }
         }else if(AR_FILTER_SHOW_REJECT){
-            VERBOSE_PRINT("Rejected. contour area %0.1f, circle area %0.1f\n",m.m00,corArea);
+            VERBOSE_PRINT("Rejected. fill: %4.2f (min %4.2f), area %7.2f (min %7.2f)\n", m.m00 / corArea, AR_FILTER_MIN_CIRCLE_PERC, corArea, AR_FILTER_MIN_CIRCLE_SIZE);
         }
     }else if(AR_FILTER_SHOW_REJECT) {
-        VERBOSE_PRINT("Rejected. contour area %f, eccentricity: %f.\n",m.m00, e);
+        VERBOSE_PRINT("Rejected. eccentricity: %4.2f (max %4.2f)\n", e, AR_FILTER_MAX_CIRCLE_DEF);
     }
 	return false;
 }
@@ -632,9 +641,10 @@ static Moments objCont_moments( void ){
 
 void createSearchGrid(uint16_t x_p, uint16_t y_p, Point searchGrid[], uint8_t searchLayer, uint16_t sGridSize, int* maxRow, int* maxCol){
     if(searchLayer > 0){
-        int16_t curY   = y_p - searchLayer * sGridSize;
-        int16_t curX   = x_p - searchLayer * sGridSize;
-        int8_t  dX,dY;
+        int16_t curY   = y_p + 1 * searchLayer * sGridSize;
+        int16_t curX   = x_p - 1 * searchLayer * sGridSize;
+        int8_t  dX,dY, jitterX, jitterY;
+        float jitterInd;
         for(unsigned int s = 0; s < 4; s++){
             switch(s){
             case 0 :    dX =  sGridSize;    dY =  0;            break; // Right
@@ -645,8 +655,29 @@ void createSearchGrid(uint16_t x_p, uint16_t y_p, Point searchGrid[], uint8_t se
             for(unsigned int i = 0; i < searchLayer * 2; i++){
                 curY += dY;
                 curX += dX;
-                if(curY >= 0 && curX >= 0 && curY < *maxRow && curX < *maxCol){
-                    searchGrid[ s * 2 * searchLayer + i] = Point(curY , curX);
+                jitterInd = rand() / ((float) RAND_MAX);
+                if(jitterInd < 0.1){
+                    jitterX = 1;
+                    jitterY = 0;
+                }
+                else if(jitterInd < 0.2){
+                    jitterX = 0;
+                    jitterY = 1;
+                }
+                else if(jitterInd < 0.3){
+                    jitterX = -1;
+                    jitterY =  0;
+                }
+                else if(jitterInd < 0.4){
+                    jitterX =  0;
+                    jitterY = -1;
+                }
+                else{
+                    jitterX = 0;
+                    jitterY = 0;
+                }
+                if((curY+jitterY) >= 0 && (curX+jitterX) >= 0 && (curY+jitterY) < *maxRow && (curX+jitterX) < *maxCol){
+                    searchGrid[ s * 2 * searchLayer + i] = Point(curY + jitterY , curX + jitterX);
                 }
                 else{
                     searchGrid[ s * 2 * searchLayer + i] = Point(y_p, x_p); // Add duplicate point
@@ -674,13 +705,17 @@ bool processImage_cw(Mat& sourceFrame, Mat& destFrame, uint16_t sampleSize){
                     VERBOSE_PRINT("Looking for object %d\n",neighbourMem[rnm].id);
                     uint8_t searchLayer     = 0;
                     uint8_t searchPoints    = 1;
-                    uint16_t sGridSize      = 0.0667 * sqrt(((float) neighbourMem[rnm].area_p) / M_PI);
-                    foundObj                = false; // We're pessimistic that we can find the same object
-                    while(!foundObj && searchLayer < maxLayer){
+                    uint16_t sGridSize      = 0.1 * sqrt(((float) neighbourMem[rnm].area_p) / M_PI);
+                    foundObj                = false;
+                    while(foundObj == false && searchLayer < maxLayer){
+                        VERBOSE_PRINT("Searching layer %d\n",searchLayer);
                         createSearchGrid(neighbourMem[rnm].x_p - cropCol, neighbourMem[rnm].y_p, searchGrid, searchLayer, sGridSize, &sourceFrame.rows, &sourceFrame.cols);
                         for(uint8_t rsg = 0; rsg < searchPoints; rsg++)
                         {
+                            //VERBOSE_PRINT("Searching (%d,%d)\n",searchGrid[rsg].x, searchGrid[rsg].y);
                             layerDepth              = 0;
+                            //sourceFrame.at<Vec2b>(searchGrid[rsg].x, searchGrid[rsg].y)[0] = 0;
+                            //sourceFrame.at<Vec2b>(searchGrid[rsg].x, searchGrid[rsg].y)[0] = 255;
                             if(pixFindContour_cw(sourceFrame, destFrame, searchGrid[rsg].x, searchGrid[rsg].y, ARF_SEARCH, true) == ARF_FINISHED){
                                 double r_margin = (runCount - neighbourMem[rnm].lastSeen) * AR_FILTER_VMAX * 1 / AR_FILTER_FPS;
                                 if(objCont_add(neighbourMem[rnm].r_c - r_margin, neighbourMem[rnm].r_c + r_margin)){
@@ -688,6 +723,9 @@ bool processImage_cw(Mat& sourceFrame, Mat& destFrame, uint16_t sampleSize){
                                     foundObj                = true;
                                     obj_detected            = true;
                                     break;
+                                }
+                                else{
+                                    VERBOSE_PRINT("Object too small/big to be object %d\n", neighbourMem[rnm].id);
                                 }
                             }
                         }
@@ -1038,7 +1076,8 @@ int pixFollowContour_cw(Mat& sourceFrame, Mat& destFrame, uint16_t row, uint16_t
     layerDepth++;
     pixCount++;
     if(destFrame.at<uint8_t>(row, col) == 76  // Arrived neatly back at starting pos
-            || ( layerDepth > AR_FILTER_LARGE_LAYERS && abs(objCont_sRow - row) < round( layerDepth * AR_FILTER_LARGE_SKIP_FACTOR ) && abs(objCont_sCol - col) < round( layerDepth * AR_FILTER_LARGE_SKIP_FACTOR ) )){  // Close enough for large contours
+            || (destFrame.at<uint8_t>(row, col) == 250 && layerDepth > 5 * AR_FILTER_MIN_LAYERS)){
+            //|| ( layerDepth > AR_FILTER_LARGE_LAYERS && abs(objCont_sRow - row) < round( layerDepth * AR_FILTER_LARGE_SKIP_FACTOR ) && abs(objCont_sCol - col) < round( layerDepth * AR_FILTER_LARGE_SKIP_FACTOR ) )){  // Close enough for large contours
         // This is my starting position, finished!
         if(layerDepth > AR_FILTER_MIN_LAYERS){
             destFrame.at<uint8_t>(row, col) = 255;
@@ -1063,16 +1102,18 @@ int pixFollowContour_cw(Mat& sourceFrame, Mat& destFrame, uint16_t row, uint16_t
     uint8_t U, Y, V;
     getYUVColours(sourceFrame, row, col, &Y, &U, &V);
     if(pixTest(&Y, &U, &V, &prevDir)){
-        destFrame.at<uint8_t>(row, col) = 255;
+        if(layerDepth < 4 * AR_FILTER_MIN_LAYERS){
+            destFrame.at<uint8_t>(row, col) = 250;
+        }
+        else{
+            destFrame.at<uint8_t>(row, col) = 255;
+        }
         uint8_t nextDirCnt, nextDir[6];
         uint16_t newRow, newCol;
         bool success = false;
         uint8_t d = 0, edge = 0;
         getNextDirection_cw(prevDir, nextDir, &nextDirCnt);
         while(layerDepth < AR_FILTER_MAX_LAYERS && d < nextDirCnt && success == false){
-            //cmpY                = Y;
-            //cmpU                = U;
-            //cmpV                = V;
             newRow              = row;
             newCol              = col;
             if(getNewPosition(nextDir[d], &newRow, &newCol, &sourceFrame.rows, &sourceFrame.cols)){
@@ -1083,7 +1124,7 @@ int pixFollowContour_cw(Mat& sourceFrame, Mat& destFrame, uint16_t row, uint16_t
                     }
 #if AR_FILTER_MARK_CONTOURS
                     sourceFrame.at<Vec2b>(row, col)[0] = 0;
-                    sourceFrame.at<Vec2b>(row, col)[1] = 255;
+                    sourceFrame.at<Vec2b>(row, col)[1] = 127;
 #endif
                     pixSucCount++;
                     return ARF_FINISHED;
@@ -1500,13 +1541,16 @@ void mod_video(Mat& sourceFrame, Mat& frameGrey){
 	    sprintf(text,"z%5.2f", trackRes[r].z_w);
 	    putText(sourceFrame, text, Point(trackRes[r].x_p - cropCol + sqrt(trackRes[r].area_p / M_PI) + 10, trackRes[r].y_p + 15), FONT_HERSHEY_PLAIN, 1, Scalar(0,255,255), 1);
 	}
+#if AR_FILTER_SHOW_STATS
 	sprintf(text,"t:%4.1f%% o:%4.1f%%", pixCount/((float) ispHeight * ispWidth) * 100, pixSucCount/((float) pixCount) * 100);
 	putText(sourceFrame, text, Point(10,sourceFrame.rows-80), FONT_HERSHEY_PLAIN, 1, Scalar(0,255,255), 1);
 	sprintf(text,"d:%4.1f%% n:%4.1f%% s:%4.1f%%", pixDupCount/((float) pixCount) * 100, pixNofCount/((float) pixCount) * 100, pixSrcCount/((float) pixCount) * 100);
 	putText(sourceFrame, text, Point(10,sourceFrame.rows-60), FONT_HERSHEY_PLAIN, 1, Scalar(0,255,255), 1);
-
+#endif
+#if AR_FILTER_SHOW_CAM_INFO
 	sprintf(text,"R:%4.1f B:%4.1f G1:%4.1f G2:%4.1f Exp: %4.1f / %4.1f", mt9f002.gain_red, mt9f002.gain_blue, mt9f002.gain_green1, mt9f002.gain_green2, mt9f002.real_exposure, mt9f002.target_exposure);
 	putText(sourceFrame, text, Point(10 , 40), FONT_HERSHEY_PLAIN, 1, Scalar(0,255,255), 1);
+#endif
 	return;
 }
 #endif // AR_FILTER_MOD_VIDEO

@@ -7,7 +7,11 @@
     <program name="Mass uploader CB" command="sw/tools/autoswarm/clean_build.sh"/>
     <program name="Mass uploader U" command="sw/tools/autoswarm/upload.sh"/>
     <program name="Mass uploader CBU" command="sw/tools/autoswarm/clean_build_upload.sh"/>
-    <program name="Bebop Stream" command="/usr/bin/cvlc ftp://192.168.42.1/internal_000/stream.sdp --avcodec-hw=vaapi --no-xlib --no-interact --quiet"/>
+    <program name="Bebop Stream" command="sw/tools/parrot/bebop/start_h264_stream.sh">
+    	<arg flag="-ac" constant="@AC_ID"/>
+    	<arg flag="-t" constant="350"/>
+    	<arg flag="-f" constant="18"/>
+    </program>
     <program name="Server" command="sw/ground_segment/tmtc/server"/>
     <program name="Data Link" command="sw/ground_segment/tmtc/link">
       <arg flag="-d" constant="/dev/ttyUSB0"/>

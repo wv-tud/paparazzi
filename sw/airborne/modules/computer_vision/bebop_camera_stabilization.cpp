@@ -49,7 +49,6 @@ using namespace cv;
 
 #define CAM_STAB_UNIT_TEST     0                    ///< Do unit tests with random points
 #define CAM_STAB_MOD_VIDEO     1                    ///< Modify the frame to show relevant info
-#define CAM_STAB_CROSSHAIR     1                    ///< Show centre of frame with crosshair
 
 static uint16_t         horizontalLinePixel ( double x_min, double x_max, double y_angle, int8_t dir );
 void                    plotHorizon         ( Mat& sourceFrameCrop );
@@ -79,12 +78,12 @@ static void             mod_video           ( Mat& sourceFrame );
 #endif
 
 /** Set up perspective and correction parameters **/
-double                      viewR               =  0.00113;                         ///< Perspective viewing distance
+double                      viewR               =  0.00105;                         ///< Perspective viewing distance
 double                      default_k           =  1.2247445;                       ///< Fisheye correction factor (1.22474604174 max)
 double                      firstOrder_comp     = -0.255;                           ///< First order remaing correction factor
 double                      secondOrder_comp    =  0.155;                           ///< Second order counter remaing correction factor
 double                      default_orbDiag     =  2 * CFG_MT9F002_FISHEYE_RADIUS;  ///< Diagonal size of the fisheye picture in full sensor resolution
-float                       angleOfView         =  179.85;                          ///< Perspective angle of view ( < 180 )
+float                       angleOfView         =  179.872;                         ///< Perspective angle of view ( < 180 )
 static float                near                =  0.075;                           ///< Perspective near clipping plane
 static float                far                 =  1.5;                             ///< Perspective far clipping plane
 static double               crop_fovY 	        =  30.0 * M_PI / 180.0; 		    ///< (in Radians) FOV centered around the horizon to search for contours

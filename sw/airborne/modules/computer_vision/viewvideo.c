@@ -157,12 +157,14 @@ struct image_t *viewvideo_function(struct image_t *img)
   uint8_t* h264Buffer;
   struct image_t releaseImg;
 
+  /*
   // Resize image if needed
     struct image_t img_small;
     image_create(&img_small,
                  img->w / VIEWVIDEO_DOWNSIZE_FACTOR,
                  img->h / VIEWVIDEO_DOWNSIZE_FACTOR,
                  IMAGE_YUV422);
+  */
   if (viewvideo.is_streaming) {
 #if VIEWVIDEO_WRITE_VIDEO || VIEWVIDEO_STREAM_VIDEO
 /*
@@ -320,20 +322,20 @@ void viewvideo_init(void)
   videoEncoder.inputType = H264ENC_YUV422_INTERLEAVED_UYVY;
 #endif
 #if VIEWVIDEO_WRITE_VIDEO
-  videoEncoder.bitRate   = 6*8*1000*1000; // 6 MBps
+  videoEncoder.bitRate   = 6 * 8 * 1024 * 1024; // 6 MBps
 #else
-  videoEncoder.bitRate   = 1 * 1000*1000; // 0.5 Mbps
+  videoEncoder.bitRate   = 4 * 1024 * 1024; // 0.5 Mbps
 #endif
 #if VIEWVIDEO_WRITE_VIDEO || VIEWVIDEO_STREAM_VIDEO
   videoEncoder.frameRate = VIEWVIDEO_FPS;
-  videoEncoder.intraRate = VIEWVIDEO_FPS;
+  videoEncoder.intraRate = 0;//VIEWVIDEO_FPS;
   P7_H264_open(&videoEncoder, VIEWVIDEO_CAMERA.thread.dev);
 #endif
   // Open udp socket
 #if VIEWVIDEO_STREAM_VIDEO
   char save_name[512];
   udp_socket_create(&video_sock, STRINGIFY(VIEWVIDEO_HOST), VIEWVIDEO_PORT_OUT, -1, VIEWVIDEO_BROADCAST);
-  udp_socket_set_sendbuf(&video_sock, 1500*10);
+  udp_socket_set_sendbuf(&video_sock, 1042 * 1024);
   // Create an SDP file for the streaming
   sprintf(save_name, "%s/stream.sdp", STRINGIFY(VIEWVIDEO_SHOT_PATH));
   FILE *fp = fopen(save_name, "w");

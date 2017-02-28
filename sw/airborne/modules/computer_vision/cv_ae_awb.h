@@ -34,8 +34,7 @@ extern float awb_fTolerance;
 extern float awb_targetAWB;
 extern float awb_mu;
 
-extern uint8_t bright_bin;
-extern uint8_t sat_bin;
+extern uint8_t  middle_index;
 
 extern void cv_ae_awb_init(void);
 

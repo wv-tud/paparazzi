@@ -205,8 +205,8 @@ int isp_request_statistics_yuv_window( uint16_t x_start, uint16_t x_end, uint16_
     requestWindow[1] = x_end;
     requestWindow[2] = y_start;
     requestWindow[3] = y_end;
-    requestWindow[4] = 16;//x_odd_inc;
-    requestWindow[5] = 16;//y_odd_inc;
+    requestWindow[4] = x_odd_inc;
+    requestWindow[5] = y_odd_inc;
     //printf("[YUV-STAT] Requesting window: [%d %d],[%d %d], [%d %d]\n", requestWindow[0], requestWindow[1], requestWindow[2], requestWindow[3], requestWindow[4], requestWindow[5]);
     return 0;
 }
@@ -253,11 +253,11 @@ int isp_get_statistics_yuv(struct isp_yuv_stats_t *yuv_stats) {
     if(!stats_yuv.measure_status.done){
         curWait++;
         if(curWait <= AVI_ISP_STAT_YUV_MAX_WAIT){
-            printf("[YUV-STAT] Waiting for YUV stats (%d)\n", curWait);
+            //printf("[YUV-STAT] Waiting for YUV stats (%d)\n", curWait);
             isp_config.statistics_yuv.measure_req.clear = 0; // Clear current results
         }
         else{
-            printf("[YUV-STAT] Waited %d frames for YUV stats, resetting now\n", curWait);
+            //printf("[YUV-STAT] Waited %d frames for YUV stats, resetting now\n", curWait);
             isp_config.statistics_yuv.measure_req.clear = 1; // Clear current results
             isp_set_statistics_yuv_window();
             curWait = 0;
