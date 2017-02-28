@@ -65,9 +65,9 @@ using namespace cv;
 #define AR_FILTER_TIMEOUT       150 ///< Frames from start
 #define AR_FILTER_WRITE_LOG     0   ///< Write tracking results to logfile
 
-#define AR_FILTER_WORLDPOS      1   ///< Use world coordinates
-#define AR_FILTER_NOYAW         0   ///< Output in body horizontal XY
-#define AR_FILTER_USE_ALTITUDE  1   ///< Use own altitude for world pos
+#define AR_FILTER_WORLDPOS      0   ///< Use world coordinates
+#define AR_FILTER_NOYAW         1   ///< Output in body horizontal XY
+#define AR_FILTER_USE_ALTITUDE  0   ///< Use own altitude for world pos
 
 #define AR_FILTER_SHOW_REJECT   0   ///< Print why shapes are rejected
 #define AR_FILTER_MOD_VIDEO     1   ///< Modify the frame to show relevant info
@@ -75,6 +75,10 @@ using namespace cv;
 #define AR_FILTER_SHOW_MEM      0   ///< Print object locations to terminal
 #define AR_FILTER_SAVE_FRAME    0   ///< Save a frame for post-processing
 #define AR_FILTER_CALIBRATE_CAM 0   ///< Calibrate camera
+
+#define ARF_BALL                0
+#define ARF_GATE                1
+#define AR_FILTER_OBJECT        ARF_GATE
 
 extern void             plotHorizon         ( Mat& sourceFrameCrop );
 
@@ -168,19 +172,31 @@ uint8_t 	AR_FILTER_V_MIN 			= 145;
 uint8_t 	AR_FILTER_V_MAX 			= 188;
 */
 
-/* Cyberzoo */
+/* GATE CYBERZOO */
+uint8_t     AR_FILTER_Y_MIN             = 10;
+uint8_t     AR_FILTER_Y_MAX             = 250;
+uint8_t     AR_FILTER_U_MIN             = 100;
+uint8_t     AR_FILTER_U_MAX             = 170;
+uint8_t     AR_FILTER_V_MIN             = 150;
+uint8_t     AR_FILTER_V_MAX             = 220;
+uint8_t     AR_FILTER_GREY_THRES        = 0;
+
+
+/* Cyberzoo
 uint8_t     AR_FILTER_Y_MIN             = 50;                           ///< Minimum Y whilst searching and following contours
 uint8_t     AR_FILTER_Y_MAX             = 250;                          ///< Maximum Y whilst searching and following contours
 uint8_t     AR_FILTER_U_MIN             = 105;                          ///< Minimum U whilst searching and following contours
 uint8_t     AR_FILTER_U_MAX             = 170;                          ///< Maximum U whilst searching and following contours
 uint8_t     AR_FILTER_V_MIN             = 150;                          ///< Minimum V whilst searching and following contours
 uint8_t     AR_FILTER_V_MAX             = 210;                          ///< Maximum V whilst searching and following contours
+uint8_t     AR_FILTER_GREY_THRES        = 7;
+*/
 
 uint8_t     AR_FILTER_CDIST_YTHRES      = 0;                           ///< Y difference threshold whilst searching and following contours
 uint8_t     AR_FILTER_CDIST_UTHRES      = 0;                           ///< U difference threshold whilst searching and following contours
 uint8_t     AR_FILTER_CDIST_VTHRES      = 0;                            ///< V difference threshold whilst searching and following contours
 
-uint8_t     AR_FILTER_GREY_THRES        = 7;                           ///< V-U threshold whilst searching and following contours
+                           ///< V-U threshold whilst searching and following contours
 
 uint8_t     AR_FILTER_MAX_SEARCH_PIXEL_SKIP = 6;                        ///< Maximum nr of false pixels to skip whilst searching upwards for contours
 /** Set up Remaining parameters **/
@@ -241,6 +257,8 @@ static uint16_t         objCont_sCol    = 0;                            ///< Sta
 //static uint8_t          cmpU            = 0;                            ///< The U value to compare the colour difference thresholds against
 //static uint8_t          cmpV            = 0;                            ///< The V value to compare the colour difference thresholds against
 
+Mat frameForPlotting;
+
 void active_random_filter_init(void){
 #if AR_FILTER_MEASURE_FPS || AR_FILTER_WRITE_LOG
     clock_gettime(CLOCK_MONOTONIC, &time_prev);
@@ -278,6 +296,7 @@ void active_random_filter(char* buff, uint16_t width, uint16_t height, struct Fl
         return;
     }
     Mat sourceFrameCrop = sourceFrame(crop); 				                // Crop the frame
+    frameForPlotting = sourceFrameCrop;
 	trackObjects(sourceFrameCrop, frameGrey);                       // Track objects in sourceFrame
 	eraseMemory();
 	uint8_t r;
@@ -467,6 +486,7 @@ void body2world(trackResults* trackRes){
     return;
 }
 
+#if AR_FILTER_OBJECT == ARF_BALL
 bool addContour(vector<Point> contour, uint16_t offsetX, uint16_t offsetY, double minDist, double maxDist){
     Moments m;
     if(AR_FILTER_FLOOD_STYLE == AR_FILTER_FLOOD_CW){
@@ -525,6 +545,67 @@ bool addContour(vector<Point> contour, uint16_t offsetX, uint16_t offsetY, doubl
     }
 	return false;
 }
+#else if AR_FILTER_OBJECT == ARF_GATE
+bool addContour(vector<Point> contour, uint16_t offsetX, uint16_t offsetY, double minDist, double maxDist){
+    if(objCont_size < 150)
+        return false;
+
+    char text[200];
+    uint8_t skipSize = 10;
+    uint16_t cornerSize = 0;
+
+    PRINT("Contour has %d points\n", objCont_size);
+    Point gate[4];
+    double x1,x2,x3,y1,y2,y3, angle2, angle3, dAngle, tmpAngle = 0, tmpX = 0, tmpY = 0;
+    uint8_t corner = 0;
+    for( int i = skipSize; i < objCont_size - skipSize; i++)
+    {
+        x1      = objCont_store[i - skipSize].x;
+        y1      = objCont_store[i - skipSize].y;
+        x2      = objCont_store[i].x;
+        y2      = objCont_store[i].y;
+        x3      = objCont_store[i + skipSize].x;
+        y3      = objCont_store[i + skipSize].y;
+        angle2  = atan2(y1 - y2, x1 - x2);
+        angle3  = atan2(y2 - y3, x2 - x3);
+        dAngle  = min(fabs(angle2 - angle3), 2 * M_PI - fabs(angle2 - angle3));
+        printf("%6.2f\n", dAngle * 180 / M_PI);
+        if(dAngle > 35.f / 180.f * M_PI){
+            // Found point!
+            // Remember this point, and see if the next angle is bigger
+            cornerSize++;
+            if(dAngle > tmpAngle){
+                tmpX        = x2;
+                tmpY        = y2;
+                tmpAngle    = dAngle;
+            }
+        }
+        else if(tmpAngle > 0 && cornerSize > 0.5 * skipSize){
+            gate[corner].x = tmpX;
+            gate[corner].y = tmpY;
+            PRINT("Corner point at %0.0f %0.0f (ang1: %0.2f  ang2: %0.2f) (x1: %0.0f y1: %0.0f, x2: %0.0f y2: %0.0f, x3: %0.0f y3: %0.0f)\n", gate[corner].x, gate[corner].y, angle2 / M_PI * 180, angle3 / M_PI * 180, x1, y1, x2, y2, x3, y3);
+            circle(frameForPlotting, cvPoint(gate[corner].x,gate[corner].y), 10, cvScalar(100,255), 1);
+
+            double px1, py1, angleX, angleY;
+            pixel2point((double) gate[corner].y, (double) gate[corner].x + cropCol, &px1, &py1);
+            point2angles(px1, py1, &angleY, &angleX);
+            PRINT("pixel(%0.0f, %0.0f) point(%0.2f, %0.2f) angles(%0.2f, %0.2f)\n",gate[corner].x, gate[corner].y + cropCol, px1, py1, angleX / M_PI * 180, angleY / M_PI * 180);
+
+            sprintf(text,"x:%5.2f", angleX / M_PI * 180);
+            putText(frameForPlotting, text, Point(gate[corner].x, gate[corner].y), FONT_HERSHEY_PLAIN, 1, Scalar(0,255), 1);
+            sprintf(text,"y:%5.2f", angleY / M_PI * 180);
+            putText(frameForPlotting, text, Point(gate[corner].x, gate[corner].y + 20), FONT_HERSHEY_PLAIN, 1, Scalar(0,255), 1);
+            tmpAngle = 0.0;
+            cornerSize = 0;
+        }
+        else{
+            cornerSize = 0;
+        }
+    }
+
+    return false;
+}
+#endif
 
 /** This function is adapted from the openCV source code, please refer to their documentation **/
 static Moments objCont_moments( void ){
@@ -1119,9 +1200,13 @@ int pixFollowContour_cw(Mat& sourceFrame, Mat& destFrame, uint16_t row, uint16_t
             if(getNewPosition(nextDir[d], &newRow, &newCol, &sourceFrame.rows, &sourceFrame.cols)){
                 switch(pixFollowContour_cw(sourceFrame, destFrame, newRow, newCol, nextDir[d])){ // Catch the proper response for the tested pixel
                 case ARF_FINISHED : {
+#if AR_FILTER_OBJECT == ARF_BALL
                     if(prevDir != nextDir[d]){
                         objCont_addPoint(&row,&col);
                     }
+#else
+                    objCont_addPoint(&row,&col);
+#endif
 #if AR_FILTER_MARK_CONTOURS
                     sourceFrame.at<Vec2b>(row, col)[0] = 0;
                     sourceFrame.at<Vec2b>(row, col)[1] = 127;

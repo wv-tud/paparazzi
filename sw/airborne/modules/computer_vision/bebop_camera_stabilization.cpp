@@ -86,7 +86,7 @@ double                      default_orbDiag     =  2 * CFG_MT9F002_FISHEYE_RADIU
 float                       angleOfView         =  179.872;                         ///< Perspective angle of view ( < 180 )
 static float                near                =  0.075;                           ///< Perspective near clipping plane
 static float                far                 =  1.5;                             ///< Perspective far clipping plane
-static double               crop_fovY 	        =  30.0 * M_PI / 180.0; 		    ///< (in Radians) FOV centered around the horizon to search for contours
+static double               crop_fovY 	        =  60.0 * M_PI / 180.0; 		    ///< (in Radians) FOV centered around the horizon to search for contours
 /** Initialize parameters to be assigned during runtime **/
 uint16_t                    ispWidth            = 0;                                ///< Maximum width of ISP after applied scaling
 uint16_t                    ispHeight           = 0;                                ///< Maximum height of ISP after applied scaling
