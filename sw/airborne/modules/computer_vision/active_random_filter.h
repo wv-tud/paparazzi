@@ -26,6 +26,8 @@
 
 #define AR_FILTER_MAX_OBJECTS   30  // Maximum nr of objects
 
+/** For ball detection **/
+
 typedef struct _trackResults {
     uint16_t     x_p;
     uint16_t     y_p;
@@ -52,6 +54,28 @@ typedef struct _memBlock {
 	double y_w;
 	double z_w;
 } memoryBlock;
+
+/** For gate detection **/
+typedef struct _gatePoint {
+    uint16_t x;
+    uint16_t y;
+} gatePoint;
+
+typedef struct _gateResults {
+    uint16_t     x_p;
+    uint16_t     y_p;
+    uint32_t     area_p;
+    gatePoint    corners[4];
+} gateResults;
+
+typedef struct _memGateBlock {
+    uint32_t    lastSeen;
+    uint16_t    id;
+    uint16_t    x_p;
+    uint16_t    y_p;
+    uint32_t    area_p;
+    gatePoint   corners[4];
+} memoryGateBlock;
 
 extern uint8_t      AR_FILTER_FLOOD_STYLE;
 extern uint8_t      AR_FILTER_SAMPLE_STYLE;

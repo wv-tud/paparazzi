@@ -55,8 +55,9 @@ using namespace cv;
 #define xSign(x) ( ( x ) >= ( 0 ) ? ( 1 ) : ( -1 ) )
 
 #define AR_FILTER_MARK_CONTOURS 0   ///< Mark all contour pixels green on sourceframe
-#define AR_FILTER_DRAW_CIRCLES  1   ///< Draw circles
-#define AR_FILTER_DISTANCE_PLOT 1   ///< Plot lines with distance on frame
+#define AR_FILTER_DRAW_CIRCLES  0   ///< Draw circles
+#define AR_FILTER_PLOT_COORDS   0   ///< Plot the coordinates of balls on frame
+#define AR_FILTER_DISTANCE_PLOT 0   ///< Plot lines with distance on frame
 #define AR_FILTER_CROSSHAIR     0   ///< Plot horizon
 #define AR_FILTER_SHOW_CAM_INFO 1   ///< Show colour gains and exposure on frame
 #define AR_FILTER_SHOW_STATS    0   ///< Show statistics on the performance of the contour detection
@@ -71,7 +72,7 @@ using namespace cv;
 
 #define AR_FILTER_SHOW_REJECT   0   ///< Print why shapes are rejected
 #define AR_FILTER_MOD_VIDEO     1   ///< Modify the frame to show relevant info
-#define AR_FILTER_DRAW_BOXES 	1   ///< Draw boxes
+#define AR_FILTER_DRAW_BOXES 	0   ///< Draw boxes
 #define AR_FILTER_SHOW_MEM      0   ///< Print object locations to terminal
 #define AR_FILTER_SAVE_FRAME    0   ///< Save a frame for post-processing
 #define AR_FILTER_CALIBRATE_CAM 0   ///< Calibrate camera
@@ -86,7 +87,12 @@ static void             active_random_filter_header ( void );
 static void             active_random_filter_footer ( void );
 static Rect             setISPvars          ( uint16_t width, uint16_t height );
 static void 			trackObjects	    ( Mat& sourceFrame, Mat& greyFrame );
+#if AR_FILTER_OBJECT == ARF_BALL
 static void             identifyObject      ( trackResults* trackRes );
+#endif
+#if AR_FILTER_OBJECT == ARF_GATE
+void identifyObject(gateResults* gateRes);
+#endif
 static bool 			addContour			( vector<Point> contour, uint16_t offsetX, uint16_t offsetY, double minDist = 0.0, double maxDist = 0.0);
 static void 			cam2body 			( trackResults* trackRes );
 static void 			body2world 			( trackResults* trackRes );
@@ -232,8 +238,15 @@ static Rect 			    objCrop;                                    ///< Current reca
 static vector<Rect> 	    cropAreas;                                  ///< All the rectangles found
 static struct FloatEulers*  eulerAngles;                                ///< Euler angles the moment the image was recored (supplied externally)
 struct NedCoor_f*           pos;                                        ///< Current position of the UAV
+
+#if AR_FILTER_OBJECT == ARF_BALL
 static trackResults         trackRes[AR_FILTER_MAX_OBJECTS];            ///< Array to store the tracking results
 memoryBlock                 neighbourMem[AR_FILTER_MAX_OBJECTS];        ///< Array to store the neighbours
+#endif
+#if AR_FILTER_OBJECT == ARF_GATE
+static gateResults          trackRes[AR_FILTER_MAX_OBJECTS];            ///< Array to store the tracking results
+memoryGateBlock             neighbourMem[AR_FILTER_MAX_OBJECTS];        ///< Array to store the neighbours
+#endif
 
 #if AR_FILTER_MEASURE_FPS
     static struct timespec      time_now;                               ///< The current time
@@ -301,8 +314,10 @@ void active_random_filter(char* buff, uint16_t width, uint16_t height, struct Fl
 	eraseMemory();
 	uint8_t r;
 	for(r=0; r < trackRes_size; r++){                             // Convert angles & Write/Print output
+#if AR_FILTER_OBJECT == ARF_BALL
 		cam2body(&trackRes[r]);						                // Convert from camera angles to body angles (correct for roll)
 		body2world(&trackRes[r]); 		                            // Convert from body angles to world coordinates (correct yaw and pitch)
+#endif
 		identifyObject(&trackRes[r]);                               // Identify the spotted neighbours
 	}
 #if AR_FILTER_MOD_VIDEO
@@ -390,6 +405,7 @@ void eraseMemory(void){
     neighbourMem_size -= i - index;
 }
 
+#if AR_FILTER_OBJECT == ARF_BALL
 void identifyObject(trackResults* trackRes){
     for(unsigned int i=0; i < neighbourMem_size; i++)
     {
@@ -426,6 +442,54 @@ void identifyObject(trackResults* trackRes){
     maxId++;
     return;
 }
+#endif
+
+#if AR_FILTER_OBJECT == ARF_GATE
+void identifyObject(gateResults* gateRes){
+    for(unsigned int i=0; i < neighbourMem_size; i++)
+    {
+        double radius   = (runCount - neighbourMem[i].lastSeen) * 1.0 / AR_FILTER_FPS * AR_FILTER_VMAX;
+        double dx       = gateRes->x_p - neighbourMem[i].x_p;
+        double dy       = gateRes->y_p - neighbourMem[i].y_p;
+        if(dx <= radius && dy <= radius && sqrt(pow(dx, 2.0) + pow(dy, 2.0)) <= radius)
+        {
+            VERBOSE_PRINT("Identified object %d at (%4d, %4d)p (%5.2f, %5.2f, %5.2f)w\n", neighbourMem[i].id, gateRes->x_p, gateRes->y_p, gateRes->x_w, gateRes->y_w, gateRes->z_w);
+            neighbourMem[i].lastSeen    = runCount;
+            neighbourMem[i].x_p         = gateRes->x_p;
+            neighbourMem[i].y_p         = gateRes->y_p;
+            neighbourMem[i].area_p      = gateRes->area_p;
+            neighbourMem[i].corners[0]  = gateRes->corners[0];
+            neighbourMem[i].corners[1]  = gateRes->corners[1];
+            neighbourMem[i].corners[2]  = gateRes->corners[2];
+            neighbourMem[i].corners[3]  = gateRes->corners[3];
+            return;
+        }
+    }
+    // We haven't identified
+    VERBOSE_PRINT("New object at (%4d, %4d)p (%6.2f, %6.2f)c (%5.2f, %5.2f)b (%5.2f, %5.2f, %5.2f)w\n", gateRes->x_p, gateRes->y_p, gateRes->x_c * 180 / M_PI, gateRes->y_c * 180 / M_PI, gateRes->x_b, gateRes->y_b, gateRes->x_w, gateRes->y_w,  gateRes->z_w);
+    memoryGateBlock curN;
+    curN.lastSeen   = runCount;
+    curN.id         = maxId;
+    curN.x_p        = gateRes->x_p;
+    curN.y_p        = gateRes->y_p;
+    curN.area_p     = gateRes->area_p;
+    curN.corners[0] = gateRes->corners[0];
+    curN.corners[1] = gateRes->corners[1];
+    curN.corners[2] = gateRes->corners[2];
+    curN.corners[3] = gateRes->corners[3];
+    if(neighbourMem_size == AR_FILTER_MAX_OBJECTS){
+        neighbourMem[AR_FILTER_MAX_OBJECTS - 1] = curN;
+        neighbourMem_lastId                     = neighbourMem_maxId;
+    }
+    else{
+        neighbourMem[neighbourMem_size]         = curN;
+        neighbourMem_lastId                     = neighbourMem_size;
+        neighbourMem_size++;
+    }
+    maxId++;
+    return;
+}
+#endif
 
 void estimatePosition(uint16_t xp, uint16_t yp, uint32_t area, double position[3]){
     // This function estimates the 3D position (in camera  coordinate system) according to pixel position
@@ -545,7 +609,8 @@ bool addContour(vector<Point> contour, uint16_t offsetX, uint16_t offsetY, doubl
     }
 	return false;
 }
-#else if AR_FILTER_OBJECT == ARF_GATE
+#else
+#if AR_FILTER_OBJECT == ARF_GATE
 bool addContour(vector<Point> contour, uint16_t offsetX, uint16_t offsetY, double minDist, double maxDist){
     if(objCont_size < 150)
         return false;
@@ -608,6 +673,7 @@ bool addContour(vector<Point> contour, uint16_t offsetX, uint16_t offsetY, doubl
         }
     }
     if(corner >= 3){
+        /* Plotting */
         Point p1, p2;
         p1 = gate[corner-1];
         for(uint8_t i = 0; i < corner; i++){
@@ -615,10 +681,25 @@ bool addContour(vector<Point> contour, uint16_t offsetX, uint16_t offsetY, doubl
             line(frameForPlotting, p1, p2, Scalar(0,255), 1);
             p1 = p2;
         }
+        /* Storing */
+        Moments m = objCont_moments();
+        gateResults curGate;
+        curGate.x_p          = m.m10 / m.m00 + cropCol;
+        curGate.y_p          = m.m01 / m.m00;
+        curGate.area_p       = m.m00;
+        curGate.corners[0].x = gate[0].x;
+        curGate.corners[0].y = gate[0].y;
+        curGate.corners[1].x = gate[1].x;
+        curGate.corners[1].y = gate[1].y;
+        curGate.corners[2].x = gate[2].x;
+        curGate.corners[2].y = gate[2].y;
+        curGate.corners[3].x = gate[3].x;
+        curGate.corners[3].y = gate[3].y;
+        return true;
     }
-
     return false;
 }
+#endif
 #endif
 
 /** This function is adapted from the openCV source code, please refer to their documentation **/
@@ -792,6 +873,7 @@ bool processImage_cw(Mat& sourceFrame, Mat& destFrame, uint16_t sampleSize){
     if (sourceFrame.cols > 0 && sourceFrame.rows > 0)
     {
         if (AR_FILTER_SAMPLE_STYLE > 0){
+#if AR_FILTER_OBJECT == ARF_BALL
             const uint8_t maxLayer  = 30;
             Point searchGrid[8*maxLayer];
             for(unsigned int rnm=0; rnm < neighbourMem_size; rnm++)
@@ -836,6 +918,55 @@ bool processImage_cw(Mat& sourceFrame, Mat& destFrame, uint16_t sampleSize){
                     VERBOSE_PRINT("Object %d is not within valid bounds (%d, %d) [0-%d][0-%d]\n",neighbourMem[rnm].id, ( (int16_t) neighbourMem[rnm].x_p ) - cropCol, neighbourMem[rnm].y_p, sourceFrame.cols, sourceFrame.rows);
                 }
             }
+#else
+#if AR_FILTER_OBJECT == ARF_GATE
+            const uint8_t maxLayer  = 30;
+            Point searchGrid[8*maxLayer];
+            for(unsigned int rnm=0; rnm < neighbourMem_size; rnm++)
+            {
+                if( ( ( (int16_t) neighbourMem[rnm].x_p ) - cropCol ) >= 0 && ( ( (int16_t) neighbourMem[rnm].x_p ) - cropCol ) < sourceFrame.cols && neighbourMem[rnm].y_p < sourceFrame.rows){
+                    VERBOSE_PRINT("Looking for object %d\n",neighbourMem[rnm].id);
+                    uint8_t searchLayer     = 0;
+                    uint8_t searchPoints    = 1;
+                    uint16_t sGridSize      = 0.1 * sqrt(((float) neighbourMem[rnm].area_p) / M_PI);
+                    foundObj                = false;
+                    while(foundObj == false && searchLayer < maxLayer){
+                        VERBOSE_PRINT("Searching layer %d\n",searchLayer);
+                        for(uint8_t corner = 0; corner < 4; corner++){
+                            createSearchGrid(neighbourMem[rnm].corners[corner].x - cropCol, neighbourMem[rnm].corners[corner].y, searchGrid, searchLayer, sGridSize, &sourceFrame.rows, &sourceFrame.cols);
+                            for(uint8_t rsg = 0; rsg < searchPoints; rsg++)
+                            {
+                                //VERBOSE_PRINT("Searching (%d,%d)\n",searchGrid[rsg].x, searchGrid[rsg].y);
+                                layerDepth              = 0;
+                                //sourceFrame.at<Vec2b>(searchGrid[rsg].x, searchGrid[rsg].y)[0] = 0;
+                                //sourceFrame.at<Vec2b>(searchGrid[rsg].x, searchGrid[rsg].y)[0] = 255;
+                                if(pixFindContour_cw(sourceFrame, destFrame, searchGrid[rsg].x, searchGrid[rsg].y, ARF_SEARCH, true) == ARF_FINISHED){
+                                    if(objCont_add(0, 0)){
+                                        VERBOSE_PRINT("Found object %d from (%d, %d) at (%d, %d) after %d layers\n",neighbourMem[rnm].id, neighbourMem[rnm].x_p, neighbourMem[rnm].y_p, trackRes[trackRes_lastId].x_p, trackRes[trackRes_lastId].y_p, searchLayer);
+                                        foundObj                = true;
+                                        obj_detected            = true;
+                                        break;
+                                    }
+                                }
+                            }
+                            if(foundObj){
+                                break;
+                            }
+                        }
+                        searchLayer++;
+                        searchPoints = 8 * searchLayer;
+                    }
+                    if(!foundObj){
+                        objCont_size = 0;
+                        VERBOSE_PRINT("Could not find object %d\n",neighbourMem[rnm].id);
+                    }
+                }
+                else{
+                    VERBOSE_PRINT("Object %d is not within valid bounds (%d, %d) [0-%d][0-%d]\n",neighbourMem[rnm].id, ( (int16_t) neighbourMem[rnm].x_p ) - cropCol, neighbourMem[rnm].y_p, sourceFrame.cols, sourceFrame.rows);
+                }
+            }
+#endif
+#endif
         }
         switch(AR_FILTER_SAMPLE_STYLE){
         case AR_FILTER_STYLE_FULL : {
@@ -1618,6 +1749,7 @@ void mod_video(Mat& sourceFrame, Mat& frameGrey){
 	    putText(sourceFrame, text, Point((trackRes[r].x_p - cropCol + 0) / 2.0, (trackRes[r].y_p + sourceFrame.rows / 2.0) / 2.0), FONT_HERSHEY_PLAIN, 1, Scalar(0,255), 1);
 	}
 #endif
+#if AR_FILTER_PLOT_COORDS
 	for(unsigned int r=0; r < neighbourMem_size; r++)         // Convert angles & Write/Print output
 	{
 	    if(neighbourMem[r].lastSeen < runCount){
@@ -1640,6 +1772,7 @@ void mod_video(Mat& sourceFrame, Mat& frameGrey){
 	    sprintf(text,"z%5.2f", trackRes[r].z_w);
 	    putText(sourceFrame, text, Point(trackRes[r].x_p - cropCol + sqrt(trackRes[r].area_p / M_PI) + 10, trackRes[r].y_p + 15), FONT_HERSHEY_PLAIN, 1, Scalar(0,255,255), 1);
 	}
+#endif
 #if AR_FILTER_SHOW_STATS
 	sprintf(text,"t:%4.1f%% o:%4.1f%%", pixCount/((float) ispHeight * ispWidth) * 100, pixSucCount/((float) pixCount) * 100);
 	putText(sourceFrame, text, Point(10,sourceFrame.rows-80), FONT_HERSHEY_PLAIN, 1, Scalar(0,255,255), 1);
@@ -1744,6 +1877,7 @@ Rect enlargeRectangle(Mat& sourceFrame, Rect rectangle, double scale){
     return rectangle;
 }
 
+#if AR_FILTER_OBJECT == ARF_BALL
 bool trackRes_findMax( void ){
     trackRes_maxVal = 0.0;
     trackRes_maxId  = 0;
@@ -1786,12 +1920,14 @@ bool trackRes_add( trackResults newRes, uint8_t overwriteId){
     }
     return true;
 }
+#endif
 
 bool trackRes_clear( void ){
     trackRes_size = 0;
     return true;
 }
 
+#if AR_FILTER_OBJECT == ARF_BALL
 bool neighbourMem_findMax( void ){
     neighbourMem_maxVal = 0.0;
     neighbourMem_maxId  = 0;
@@ -1834,6 +1970,7 @@ bool neighbourMem_add( memoryBlock newRes, uint8_t overwriteId){
     }
     return true;
 }
+#endif
 
 #if AR_FILTER_CALIBRATE_CAM
 void calibrateEstimation(void){
