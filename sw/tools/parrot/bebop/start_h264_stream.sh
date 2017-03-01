@@ -7,7 +7,7 @@ function start_stream
 
 function usage
 {
-	echo "usage: start_h264_stream.sh -ac ID -t time_out -fps FPS"
+	echo "usage: start_h264_stream.sh -ac ID -t time_out -f FPS"
 }
 
 aircraft=1

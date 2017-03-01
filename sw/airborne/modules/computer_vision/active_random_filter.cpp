@@ -54,7 +54,7 @@ using namespace cv;
 
 #define xSign(x) ( ( x ) >= ( 0 ) ? ( 1 ) : ( -1 ) )
 
-#define AR_FILTER_MARK_CONTOURS 1   ///< Mark all contour pixels green on sourceframe
+#define AR_FILTER_MARK_CONTOURS 0   ///< Mark all contour pixels green on sourceframe
 #define AR_FILTER_DRAW_CIRCLES  1   ///< Draw circles
 #define AR_FILTER_DISTANCE_PLOT 1   ///< Plot lines with distance on frame
 #define AR_FILTER_CROSSHAIR     0   ///< Plot horizon
@@ -555,11 +555,14 @@ bool addContour(vector<Point> contour, uint16_t offsetX, uint16_t offsetY, doubl
     uint16_t cornerSize = 0;
 
     PRINT("Contour has %d points\n", objCont_size);
-    Point gate[4];
+    Point gate[32]; // We probably won't detect more than 32 corners per contour
     double x1,x2,x3,y1,y2,y3, angle2, angle3, dAngle, tmpAngle = 0, tmpX = 0, tmpY = 0;
     uint8_t corner = 0;
     for( int i = skipSize; i < objCont_size - skipSize; i++)
     {
+        if(corner >= 32){
+            break;
+        }
         x1      = objCont_store[i - skipSize].x;
         y1      = objCont_store[i - skipSize].y;
         x2      = objCont_store[i].x;
@@ -584,22 +587,33 @@ bool addContour(vector<Point> contour, uint16_t offsetX, uint16_t offsetY, doubl
             gate[corner].x = tmpX;
             gate[corner].y = tmpY;
             PRINT("Corner point at %0.0f %0.0f (ang1: %0.2f  ang2: %0.2f) (x1: %0.0f y1: %0.0f, x2: %0.0f y2: %0.0f, x3: %0.0f y3: %0.0f)\n", gate[corner].x, gate[corner].y, angle2 / M_PI * 180, angle3 / M_PI * 180, x1, y1, x2, y2, x3, y3);
-            circle(frameForPlotting, cvPoint(gate[corner].x,gate[corner].y), 10, cvScalar(100,255), 1);
+            circle(frameForPlotting, cvPoint(gate[corner].x,gate[corner].y), 5, cvScalar(100,255), 1);
 
             double px1, py1, angleX, angleY;
             pixel2point((double) gate[corner].y, (double) gate[corner].x + cropCol, &px1, &py1);
             point2angles(px1, py1, &angleY, &angleX);
             PRINT("pixel(%0.0f, %0.0f) point(%0.2f, %0.2f) angles(%0.2f, %0.2f)\n",gate[corner].x, gate[corner].y + cropCol, px1, py1, angleX / M_PI * 180, angleY / M_PI * 180);
-
+            /*
             sprintf(text,"x:%5.2f", angleX / M_PI * 180);
             putText(frameForPlotting, text, Point(gate[corner].x, gate[corner].y), FONT_HERSHEY_PLAIN, 1, Scalar(0,255), 1);
             sprintf(text,"y:%5.2f", angleY / M_PI * 180);
             putText(frameForPlotting, text, Point(gate[corner].x, gate[corner].y + 20), FONT_HERSHEY_PLAIN, 1, Scalar(0,255), 1);
+            */
             tmpAngle = 0.0;
             cornerSize = 0;
+            corner++;
         }
         else{
             cornerSize = 0;
+        }
+    }
+    if(corner >= 3){
+        Point p1, p2;
+        p1 = gate[corner-1];
+        for(uint8_t i = 0; i < corner; i++){
+            p2 = gate[i];
+            line(frameForPlotting, p1, p2, Scalar(0,255), 1);
+            p1 = p2;
         }
     }
 
