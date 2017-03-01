@@ -23,6 +23,7 @@
  * Autonomous bebop swarming module based on vision
  */
 
+#include <std.h>
 #include <stdbool.h>
 #include <stdio.h>
 #include <time.h>
@@ -43,7 +44,7 @@
 struct image_t* autoswarm_func(struct image_t* img);
 struct image_t* autoswarm_func(struct image_t* img)
 {
-  autoswarm_opencv_run();
+  autoswarm_opencv_run(img);
   return NULL;
 }
 

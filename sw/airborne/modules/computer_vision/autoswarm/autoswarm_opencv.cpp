@@ -23,101 +23,33 @@
  * Autonomous bebop swarming module based on vision
  */
 
+/// Header Files ///
 using namespace std;
-#include "autoswarm_opencv.h"                       // Include own header file
-#include <computer_vision/active_random_filter.h>   // Include active random filter header file
-#include <cmath>                                    // Used for sin/cos/tan/M_PI/abs
-#include <ctime>                                    // Used to write time to results.txt
-#include <algorithm>                                // Used for min() and max()
-#include <string>                                   // Used for strlen
-#include <vector>                                   // Used for active random filter
-#include <stdio.h>                                  // Used for printing
+#include "autoswarm_opencv.h"                       ///< Include own header file
+#include <computer_vision/active_random_filter.h>   ///< Include active random filter header file
+#include <cmath>                                    ///< Used for sin/cos/tan/M_PI/abs
+#include <ctime>                                    ///< Used to write time to results.txt
+#include <algorithm>                                ///< Used for min() and max()
+#include <string>                                   ///< Used for strlen
+#include <vector>                                   ///< Used for active random filter
+#include <stdio.h>                                  ///< Used for printing
 
 #define BOARD_CONFIG "boards/bebop.h"
 #define RADIO_CONTROL_TYPE_H "radio_control/rc_datalink.h"
 
 extern "C" {
-    #include "state.h"                              // Used for accessing state variables
-    #include "navigation.h"                         // Used for navigation functions
-    #include <errno.h>                              // Used for error handling
+    #include "state.h"                              ///< Used for accessing state variables
+    #include "navigation.h"                         ///< Used for navigation functions
+    #include <errno.h>                              ///< Used for error handling
     #include "subsystems/gps/gps_datalink.h"
-    #include "generated/flight_plan.h"              // C header used for WP definitions (causes problems) TODO: fix this
+    #include "generated/flight_plan.h"              ///< Used for WP definitions
 }
 
-#ifndef AUTOSWARM_GLOBAL_ATTRACTOR
-#define AUTOSWARM_GLOBAL_ATTRACTOR AUTOSWARM_CIRCLE_CW
-#endif
-
-static void calcCamPosition(struct NedCoor_f *pos, double totV[3], double cPos[3], double gi[3]);
-static void updateWaypoints(struct NedCoor_f *pos, double totV[3], double cPos[3]);
-static void calcVelocityResponse(struct NedCoor_f *pos, double totV[3], double gi[3]);
-static void calcGlobalVelocity(struct NedCoor_f *pos, double gi[3]);
-static void calcLocalVelocity(struct NedCoor_f *pos, double li[3]);
-static void limitYaw(struct NedCoor_f *pos, double cPos[3]);
-static void limitNorm(double totV[3], double maxNorm);
-static void calcDiffVelocity(double totV[3], double di[3]);
-static void limitVelocityYaw(double totV[3]);
-static void autoswarm_opencv_run_header(void);
-static void autoswarm_opencv_run_trailer(void);
-static void calcGlobalCoeff(struct NedCoor_f *pos, double gi[3], double* g_coeff);
-
-// Debug options
-#define AUTOSWARM_SHOW_WAYPOINT 0                   // Show the updated positions of the waypoints
-#define AUTOSWARM_SHOW_MEM      0                   // Show the neighbours identified and their location
-#define AUTOSWARM_WRITE_RESULTS 0                   // Write measurements to text file
-#define AUTOSWARM_BENCHMARK     0                   // Print benchmark table
-
-// Set up swarm parameters
-int     AUTOSWARM_MODE          = 2;                // 0: follow (deprecated), 1: look in direction of flight, 2: look in direction of global component
-double  AUTOSWARM_SEPERATION    = 1.3;              // m
-double  AUTOSWARM_LATTICE_RATIO = 2.5;
-
-double  AUTOSWARM_E             = 0.025;           // Was 0.01x - 0.0005 at 12m/s OK (but close)
-double  AUTOSWARM_EPS           = 0.03;             //
-double  AUTOSWARM_LOGLO         = 1.75;
-
-double  AUTOSWARM_GLOBAL        = 1.0;              // % of V_MAX
-int     AUTOSWARM_FPS           = 18;               // Frames per second
-double  AUTOSWARM_VMAX          = 2.5;              // m/s
-double  AUTOSWARM_YAWRATEMAX    = 180;              // deg/s
-double  AUTOSWARM_HOME          = 0.4;              // m
-
-// Set up global attractor parameters
-int     AUTOSWARM_ATTRACTOR     = AUTOSWARM_GLOBAL_ATTRACTOR;
-double  AUTOSWARM_CIRCLE_R      = 1.75;
-double  AUTOSWARM_DEADZONE      = 0.2;
-
-// Initialize parameters to be assigned during runtime
-extern uint8_t              nav_block;
-extern memoryBlock          neighbourMem[AR_FILTER_MAX_OBJECTS];
-extern uint8_t              neighbourMem_size;
-static struct FloatEulers * eulerAngles;
-static struct NedCoor_f *   pos;
-static uint32_t             runCount        = 0;
-static const char *         flight_blocks[] = FP_BLOCKS;
-static double               prev_v_d[3]     = {0.0, 0.0, 0.0};
-
-//Optional function declarations
-#if AUTOSWARM_BENCHMARK
-    static void initBenchmark(void);
-    static void addBenchmark(const char * title);
-    static void showBenchmark(void);
-    vector<double>              benchmark_time;
-    vector<double>              benchmark_avg_time;
-    vector<const char*>         benchmark_title;
-    clock_t                     bench_start, bench_end;
-#endif
-
-#if AUTOSWARM_WRITE_RESULTS
-    static time_t               startTime;
-    static time_t               currentTime;
-    static int                  curT;
-    FILE *                      pFile;
-    char                        resultFile [50];
-#endif
-
 #define PRINT(string,...) fprintf(stderr, "[autoswarm->%s()] " string,__FUNCTION__ , ##__VA_ARGS__)
+
+#ifndef AUTOSWARM_VERBOSE
 #define AUTOSWARM_VERBOSE FALSE
+#endif
 
 #if AUTOSWARM_VERBOSE
 #define VERBOSE_PRINT PRINT
@@ -125,240 +57,70 @@ static double               prev_v_d[3]     = {0.0, 0.0, 0.0};
 #define VERBOSE_PRINT(...)
 #endif
 
-void autoswarm_opencv_run(){
-    // Computer vision compatibility function used to call trackObjects and (optionally) parse modified data back to rtp stream as YUV
-    if (strcmp("Swarm",flight_blocks[nav_block]) && strcmp("Swarm Home",flight_blocks[nav_block])){
-        VERBOSE_PRINT("Not swarming yet.\n");
-        return;
-    }    // We aren't swarming yet, lets save some battery life and skip processing for now
-    autoswarm_opencv_run_header();                  // Mainly code for printing and debugging
-    runCount++;                                     // Update global run-counter
-    eulerAngles = stateGetNedToBodyEulers_f();      // Get Euler angles
-    pos         = stateGetPositionNed_f();          // Get your current position
-    double totV[3]  = {0.0, 0.0, 0.0};
-    double cPos[3]  = {0.0, 0.0, 0.0};
-    double gi[3]    = {0.0, 0.0, 0.0};
-    calcVelocityResponse(pos, totV, gi);            // Calculate the velocity response of the agent and store result in totV and gi
-    calcCamPosition(pos, totV, cPos, gi);           // Calculate WP_CAM/heading based on pos,totV and gi and store in cPos
-    updateWaypoints(pos, totV, cPos);               // Update waypoints based on velocity contribution
-    autoswarm_opencv_run_trailer();                  // Mainly code for printing and debugging
-    return;
-}
+/// Debug options ///
+#define AUTOSWARM_SHOW_WAYPOINT 0                           ///< Show the updated positions of the waypoints
+#define AUTOSWARM_SHOW_MEM      0                           ///< Show the neighbours identified and their location
+#define AUTOSWARM_WRITE_RESULTS 0                           ///< Write measurements to text file
+#define AUTOSWARM_BENCHMARK     0                           ///< Print benchmark table
 
-void calcVelocityResponse(struct NedCoor_f *pos, double totV[3], double gi[3]){
-    double li[3]    = {0.0, 0.0, 0.0};              // Initialize local contribution
-    double di[3]    = {0.0, 0.0, 0.0};              // Initialize differential contribution
-    calcLocalVelocity(pos, li);                     // Get the contribution due to the neighbours we see and have memorized
-    calcGlobalVelocity(pos, gi);                    // Get the contribution due to the "attraction" towards global origin
-    double g_coeff;
-    calcGlobalCoeff(pos, gi, &g_coeff);
-    totV[0]         = li[0] + g_coeff * gi[0];      // Average the X local contribution (#neighbours independent) and add the X global contribution
-    totV[1]         = li[1] + g_coeff * gi[1];      // Do the same for Y
-    limitNorm(totV, AUTOSWARM_VMAX);                // Check if ideal velocity exceeds AUTOSWARM_VMAX
-    calcDiffVelocity(totV, di);                     // Calculate the differential component based on change in totV
-    totV[0]         = totV[0] + di[0];              // Add differential x component
-    totV[1]         = totV[1] + di[1];              // Add differential y component
-    if (AUTOSWARM_MODE!=2){
-        limitVelocityYaw(totV);   // Limit the velocity when relative angle gets larger
-    }
-    return;
-}
+/// Function definitions ///
+static void calculateCamPosition(struct NedCoor_f *pos, double totV[3], double cPos[3], double gi[3]);
+static void updateWaypoints(struct NedCoor_f *pos, double totV[3], double cPos[3]);
+static void calculateVelocityResponse(struct NedCoor_f *pos, double totV[3], double gi[3]);
+static void calcGlobalVelocity(struct NedCoor_f *pos, double gi[3]);
+static void calcLocalVelocity(struct NedCoor_f *pos, double li[3]);
+static void limitNorm(double totV[3], double maxNorm);
+static void calcDiffVelocity(double totV[3], double di[3]);
+static void limitVelocityYaw(double totV[3]);
+static void autoswarm_opencv_write_log(void);
+static double calcGlobalCoeff(struct NedCoor_f *pos, double gi[3]);
 
-void calcLocalVelocity(struct NedCoor_f *pos, double li[3]){
-    double range, li_fac=0;                         // Initialize variables
-    unsigned int r;                                 // Initialize r
+/// Set up swarm parameters ///
+int     AUTOSWARM_MODE          = AUTOSWARM_CAM_GLOBAL;     ///< Heading/Camera control modus
+double  AUTOSWARM_SEPERATION    = 1.3;                      ///< Seperation between neighbours
+double  AUTOSWARM_LATTICE_RATIO = 2.5;                      ///< Camera range is defined as lattice_ratio * seperation
 
-    for (r=0; r < neighbourMem_size; r++){         // For all neighbours found
-        range   = sqrt(pow((pos->x - neighbourMem[r].x_w), 2.0) + pow((pos->y - neighbourMem[r].y_w), 2.0));
-        li_fac  = 12 * AUTOSWARM_E / range * (pow(AUTOSWARM_SEPERATION / range, 12.0) - pow(AUTOSWARM_SEPERATION / range, 6.0)); // Local contribution scaling factor
-        li[0]   += li_fac * (pos->x - neighbourMem[r].x_w) / range; // Local contribution in x
-        li[1]   += li_fac * (pos->y - neighbourMem[r].y_w) / range; // Local contribution in y
-    }
-    if (r > 0){                                     // Only if we found anyone
-        li[0] = li[0] / r;                          // Average the X local contribution (#neighbours independent) and add the X global contribution
-        li[1] = li[1] / r;                          // Do the same for Y
-    }
-    else{
-                                                    // TODO: What if I don't see anyone?
-    }
-    return;
-}
+double  AUTOSWARM_E             = 0.025;                    ///< Pinciroli E coefficient
+double  AUTOSWARM_EPS           = 0.03;                     ///< Differential component
+double  AUTOSWARM_LOGLO         = 1.75;                     ///< Local-Global interaction exponent
 
-void calcGlobalCoeff(struct NedCoor_f *pos, double gi[3], double* g_coeff){
-    if (neighbourMem_size > 0){
-        double nDir[2], rel_dist, range, c_gi_coef, c_gi[2];
-        double w_neighbours[2]  = {0.0, 0.0};
-        double gi_n             = sqrt(pow(gi[0], 2.0) + pow(gi[1], 2.0));
+double  AUTOSWARM_GLOBAL        = 1.0;                      ///< Global field strength (% of V_MAX)
+double  AUTOSWARM_VMAX          = 2.5;                      ///< Maximum goal waypoint translation
+double  AUTOSWARM_HOME          = 0.4;                      ///< What defines close enough to home for landing
 
-        for (unsigned int r = 0; r < neighbourMem_size; r++){
-            range            = sqrt(pow((pos->x - neighbourMem[r].x_w), 2.0) + pow((pos->y - neighbourMem[r].y_w), 2.0));
-            if(range > AUTOSWARM_SEPERATION * AUTOSWARM_LATTICE_RATIO){
-                continue;
-            }
-            nDir[0]          = (pos->x - neighbourMem[r].x_w) / range;
-            nDir[1]          = (pos->y - neighbourMem[r].y_w) / range;
-            rel_dist         = min(1.0, ( AUTOSWARM_LATTICE_RATIO * AUTOSWARM_SEPERATION - range) / (AUTOSWARM_SEPERATION * (AUTOSWARM_LATTICE_RATIO - 1)));
-            w_neighbours[0] += pow(rel_dist, 2.0) * nDir[0];
-            w_neighbours[1] += pow(rel_dist, 2.0) * nDir[1];
-        }
-        w_neighbours[0] *= gi_n;
-        w_neighbours[1] *= gi_n;
-        c_gi_coef   = (w_neighbours[0] * gi[0] + w_neighbours[1] * gi[1]) / pow(gi_n, 2.0); // dot(w_neighbours, gi) / dot(gi, gi);
-        c_gi[0]     = c_gi_coef * gi[0];
-        c_gi[1]     = c_gi_coef * gi[1];
-        *g_coeff    = pow(min(1.0, max(0.0, 2.0 - sqrt(pow(gi[0] - c_gi[0], 2.0) + pow(gi[1] - c_gi[1], 2.0)) / gi_n )), AUTOSWARM_LOGLO);
-    }else{
-        *g_coeff = 1.0;
-    }
-}
+/// Set up global attractor parameters ///
+int     AUTOSWARM_ATTRACTOR     = AUTOSWARM_CIRCLE_CW;      ///< The type of global attractor/field
+double  AUTOSWARM_CIRCLE_R      = 1.75;                     ///< Radius of the circle field
+double  AUTOSWARM_DEADZONE      = 0.2;                      ///< Deadzone near the centre of the global field to prevent spinning around the centre
 
-void calcGlobalVelocity(struct NedCoor_f *pos, double gi[3]){
-    switch (AUTOSWARM_ATTRACTOR){
-    case AUTOSWARM_POINT :{
-       double cr     = sqrt(pow(globalOrigin.cx - pos->x, 2.0) + pow(globalOrigin.cy - pos->y, 2.0));
-        if (cr > AUTOSWARM_DEADZONE){
-            gi[0]               = AUTOSWARM_GLOBAL * AUTOSWARM_VMAX * (globalOrigin.cx - pos->x) / cr;
-            gi[1]               = AUTOSWARM_GLOBAL * AUTOSWARM_VMAX * (globalOrigin.cy - pos->y) / cr;
-        }
-        break;
-    }
-    case AUTOSWARM_BUCKET :{
-        double cr     = sqrt(pow(globalOrigin.cx - pos->x, 2.0) + pow(globalOrigin.cy - pos->y, 2.0));
-        if (cr > AUTOSWARM_DEADZONE){
-            double gScalar      = 0.5 * AUTOSWARM_GLOBAL * (1 - 1 / (1 + exp(4 / AUTOSWARM_SEPERATION * (cr - AUTOSWARM_SEPERATION))));
-            gi[0]               = gScalar * AUTOSWARM_VMAX * (globalOrigin.cx - pos->x) / cr;
-            gi[1]               = gScalar * AUTOSWARM_VMAX * (globalOrigin.cy - pos->y) / cr;
-        }
-        break;
-    }
-    case AUTOSWARM_CIRCLE_CW :
-    case AUTOSWARM_CIRCLE_CC :{
-        double cr     = sqrt(pow(globalOrigin.cx - pos->x, 2.0) + pow(globalOrigin.cy - pos->y, 2.0));
-        if (cr > AUTOSWARM_DEADZONE){
-            double angle;
-            if (cr >= AUTOSWARM_CIRCLE_R){
-                angle   = 90 * AUTOSWARM_CIRCLE_R / cr;
-            }
-            else{
-                angle   = 90 + 90 * (AUTOSWARM_CIRCLE_R - cr) / AUTOSWARM_CIRCLE_R;     // From 90 to 180 over the length of AUTOSWARM_CIRCLE_R
-            }
-            if (AUTOSWARM_ATTRACTOR != AUTOSWARM_CIRCLE_CC)     angle = -angle;         // Switch between cc (+) and cw (-)
-            double xContrib     = AUTOSWARM_GLOBAL * AUTOSWARM_VMAX * (globalOrigin.cx - pos->x) / cr;
-            double yContrib     = AUTOSWARM_GLOBAL * AUTOSWARM_VMAX * (globalOrigin.cy - pos->y) / cr;
-            gi[0]               = cos(angle / 180 * M_PI) * xContrib - sin(angle / 180 * M_PI) * yContrib;
-            gi[1]               = sin(angle / 180 * M_PI) * xContrib + cos(angle / 180 * M_PI) * yContrib;
-        }
-        break;
-    }
-    default : break;
-    }
-    return;
-}
+/// Initialize parameters to be assigned during runtime ///
+extern uint8_t              nav_block;                              ///< The current navigation block
+extern memoryBlock          neighbourMem[AR_FILTER_MAX_OBJECTS];    ///< The array of neighbours from active_random_filter
+extern uint8_t              neighbourMem_size;                      ///< The size of the neighbour array
+static struct FloatEulers * eulerAngles;                            ///< The current euler angles
+static struct NedCoor_f *   pos;                                    ///< The current position
+static uint32_t             runCount        = 0;                    ///< The current frame number
+static const char *         flight_blocks[] = FP_BLOCKS;            ///< Array of flight blocks
+static double               prev_v_d[3]     = {0.0, 0.0, 0.0};      ///< Previous totV used for differential component
 
-void calcDiffVelocity(double totV[3], double di[3]){
-    di[0]       = - AUTOSWARM_EPS * (totV[0] - prev_v_d[0]);
-    di[1]       = - AUTOSWARM_EPS * (totV[1] - prev_v_d[1]);
-    prev_v_d[0] = totV[0];
-    prev_v_d[1] = totV[1];
-    prev_v_d[2] = totV[2];
-    return;
-}
+/// Optional variables declarations ///
+#if AUTOSWARM_WRITE_RESULTS
+static time_t               startTime;                          ///< Start time of the program
+static time_t               currentTime;                        ///< Current time
+static int                  curT;                               ///< Current difference between start time and current time aka runtime
+FILE*                       pFile;                              ///< File handle to write to
+char                        resultFile [50];                    ///< File name to write to
+#endif // AUTOSWARM_WRITE_RESULTS
 
-void calcCamPosition(struct NedCoor_f *pos, double totV[3], double cPos[3], double gi[3]){
-    if (AUTOSWARM_MODE == 1){                        // Watch where you're going mode. Point WP_CAM on unity circle towards totV
-        double velR = sqrt(pow(totV[0], 2.0) + pow(totV[1], 2.0));
-        if (velR > 0){
-            cPos[0] = pos->x + totV[0] / velR;
-            cPos[1] = pos->y + totV[1] / velR;
-            cPos[2] = pos->z;
-        }
-        else{
-            cPos[0] = pos->x + cos(eulerAngles->psi) * 1;
-            cPos[1] = pos->y + sin(eulerAngles->psi) * 1;
-            cPos[2] = pos->z;
-        }
-    }
-    if (AUTOSWARM_MODE == 2){                        // Watch the global objective mode. Point WP_CAM on unity circle towards global component
-        double velR = sqrt(pow(gi[0], 2.0) + pow(gi[1], 2.0));
-        if (velR > 0){
-            cPos[0]     = pos->x + gi[0] / velR;
-            cPos[1]     = pos->y + gi[1] / velR;
-            cPos[2]     = pos->z;
-        }
-        else{
-            cPos[0]     = pos->x + cos(eulerAngles->psi) * 1;
-            cPos[1]     = pos->y + sin(eulerAngles->psi) * 1;
-            cPos[2]     = pos->z;
-        }
-    }
-    limitYaw(pos, cPos);                            // Limit yaw
-    return;
-}
+/// Function definitions ///
 
-void limitYaw(struct NedCoor_f *pos, double cPos[3]){
-    double cameraHeading    = atan2(cPos[1] - pos->y, cPos[0] - pos->x);
-    double relHeading       = cameraHeading - eulerAngles->psi; // Z axis is defined downwards for psi so * -1 for the atan2
-
-    if (relHeading > M_PI)       relHeading -= 2 * M_PI;
-    if (relHeading < -M_PI)      relHeading += 2 * M_PI;
-
-    if (abs(relHeading) > AUTOSWARM_YAWRATEMAX  / ((double) AUTOSWARM_FPS) / 180 * M_PI){
-        double newHeading   = relHeading/abs(relHeading) * (AUTOSWARM_YAWRATEMAX / ((double) AUTOSWARM_FPS) / 180 * M_PI) + eulerAngles->psi;
-        cPos[0]             = pos->x + cos(newHeading) * 1;
-        cPos[1]             = pos->y + sin(newHeading) * 1;
-        cPos[2]             = pos->z;
-    }
-    return;
-}
-
-void limitVelocityYaw(double totV[3]){
-    double vTurn;
-    double totVHeading  = atan2(totV[1], totV[0]);
-    double relHeading   = totVHeading - eulerAngles->psi; // Z axis is defined downwards for psi so * -1 for the atan2
-
-    if (abs(relHeading) > acos(0.01))    vTurn = 0.01            * sqrt(pow(totV[0], 2.0) + pow(totV[1], 2.0));
-    else                                vTurn = cos(relHeading) * sqrt(pow(totV[0], 2.0) + pow(totV[1], 2.0));
-
-    totV[0] = cos(totVHeading) * vTurn;
-    totV[1] = sin(totVHeading) * vTurn;
-    return;
-}
-
-void limitNorm(double totV[3], double maxNorm){
-    double vR = sqrt(pow(totV[0],2.0) + pow(totV[1],2.0));      // Find the distance to our new desired position
-    if (vR > maxNorm){                                          // Is the new desired position unachievable due to velocity constraint?
-        totV[0] = maxNorm * totV[0] / vR;                       // Scale the totV X component so that ||totV|| = maxNorm
-        totV[1] = maxNorm * totV[1] / vR;                       // Do the same for Y
-        totV[2] = 0.0;
-    }
-    return;
-}
-
-void updateWaypoints(struct NedCoor_f *pos, double totV[3], double cPos[3]){
-    /*
-     *  BE CAREFUL! waypoint_set_xy_i is in ENU so N(x) and E(y) axis are changed compared to x_w and y_w
-     */
-    waypoint_set_xy_i((unsigned char) WP__GOAL, POS_BFP_OF_REAL(pos->y + totV[1]),  POS_BFP_OF_REAL(pos->x + totV[0]));     // Update WP_GOAL waypoint to add totV relative to our position
-    waypoint_set_xy_i((unsigned char) WP__CAM,  POS_BFP_OF_REAL(cPos[1]),           POS_BFP_OF_REAL(cPos[0]));              // Update WP_GOAL waypoint to add totV relative to our position
-    setGlobalOrigin(waypoint_get_y((unsigned char) WP_GLOBAL), waypoint_get_x((unsigned char) WP_GLOBAL), 1);
-
-    if (!strcmp("Swarm",flight_blocks[nav_block]) || !strcmp("Swarm Home",flight_blocks[nav_block])){
-        nav_set_heading_towards_waypoint(WP__CAM);      // Currently in block "Swarm" or "Swarm Home" so update heading
-    }
-    if (AUTOSWARM_SHOW_WAYPOINT) printf("WP_CAM (%0.2f m, %0.2f m) \tWP_GOAL (%0.2f m, %0.2f m) \tWP_GLOBAL (%0.2f m, %0.2f m)\n", cPos[0], cPos[1], pos->x + totV[0], pos->y + totV[1], globalOrigin.cx, globalOrigin.cy);    //, pos->z + totV[2]);    // Print to terminal
-}
-
-bool amIhome(void){
-    struct EnuCoor_f *pos = stateGetPositionEnu_f();  // Get current position
-    if (sqrt(pow(pos->x - waypoint_get_x((unsigned char) WP__TD), 2.0) + pow(pos->y - waypoint_get_y((unsigned char) WP__TD), 2.0)) < AUTOSWARM_HOME){
-        return true;
-    }
-    else{
-        return false;
-    }
-}
-
-void autoswarm_opencv_init(int globalMode){
+/** initialize autoswarm
+ *
+ * @param[in] initial global mode (uint8_t)
+ *
+ * This function sets the default global mode, cam_range and log-file
+ */
+void autoswarm_opencv_init(uint8_t globalMode){
 #if AUTOSWARM_WRITE_RESULTS
     startTime = time(0);
     tm * startTM    = localtime(&startTime);
@@ -379,14 +141,301 @@ void autoswarm_opencv_init(int globalMode){
     return;
 }
 
-void autoswarm_opencv_run_header(void){
+/** main function of autoswarm
+ *
+ * This function calculates the desired waypoints and sets the correct heading
+ */
+void autoswarm_opencv_run(struct image_t* img){
+    if (strcmp("Swarm",flight_blocks[nav_block]) && strcmp("Swarm Home",flight_blocks[nav_block])){
+        ///< Don't run if we are not in flight block "Swarm" or "Swarm Home"
+        return;
+    }
 #if AUTOSWARM_WRITE_RESULTS
-    currentTime = time(0);                                                  // Get the current time
-    curT        = difftime(currentTime,startTime);                          // Calculate time-difference between startTime and currentTime
+    currentTime     = time(0);                                              ///< Get the current time
+    curT            = difftime(currentTime,startTime);                      ///< Calculate time-difference between startTime and currentTime
 #endif
+    eulerAngles     = stateGetNedToBodyEulers_f();                          ///< Get vehicle body attitude euler angles (float).
+    pos             = stateGetPositionNed_f();                              ///< Get position in local NED coordinates (float).
+    double totV[3]  = {0.0, 0.0, 0.0};                                      ///< Desired velocity
+    double cPos[3]  = {0.0, 0.0, 0.0};                                      ///< Desired camera position in unit distance world coordinates
+    double gi[3]    = {0.0, 0.0, 0.0};                                      ///< Global interaction vector
+    calculateVelocityResponse(pos, totV, gi);                                    ///< Calculate the velocity response of the agent and store result in totV and gi
+    calculateCamPosition(pos, totV, cPos, gi);                                   ///< Calculate WP_CAM/heading based on pos,totV and gi and store in cPos
+    updateWaypoints(pos, totV, cPos);                                       ///< Update waypoints based on velocity contribution
+    autoswarm_opencv_write_log();                                           ///< Write to log file
+    runCount++;                                                             ///< Update global run-counter
+    return;
 }
 
-void autoswarm_opencv_run_trailer(){
+/** Calulates the velocity response
+ *
+ * @param[in] Current position (struct NedCoor_f*)
+ * @param[in] Array to store desired velocity (double[3])
+ * @param[in] Array to store the global components (double[3])
+ *
+ * This function calculates velocity response based on the local, global, and differential components
+ */
+void calculateVelocityResponse(struct NedCoor_f *pos, double totV[3], double gi[3]){
+    double li[3]    = {0.0, 0.0, 0.0};              ///< Local contribution
+    double di[3]    = {0.0, 0.0, 0.0};              ///< Differential contribution
+    calcLocalVelocity(pos, li);                     ///< Get the local contribution based on our neighbours
+    calcGlobalVelocity(pos, gi);                    ///< Get the contribution due to the global attractor/field
+    double g_coeff  = calcGlobalCoeff(pos, gi);     ///< Calculate the local-global interaction coefficient
+    totV[0]         = li[0] + g_coeff * gi[0];      ///< Scale the global component with the local-global interaction coefficient and add them
+    totV[1]         = li[1] + g_coeff * gi[1];
+    limitNorm(totV, AUTOSWARM_VMAX);                ///< Check if the desired velocity exceeds AUTOSWARM_VMAX
+    calcDiffVelocity(totV, di);                     ///< Calculate the differential component based on change in desired velocity
+    totV[0]         = totV[0] + di[0];              ///< Add differential component
+    totV[1]         = totV[1] + di[1];
+    if (AUTOSWARM_MODE!=AUTOSWARM_CAM_GLOBAL){
+        limitVelocityYaw(totV);                     ///< Limit the velocity when heading change gets larger
+    }
+    return;
+}
+
+/** Calulates the local velocity response
+ *
+ * @param[in] Current position (struct NedCoor_f*)
+ * @param[in] Array to store local interaction velocity (double[3])
+ *
+ * This function calculates local velocity response based on our neighbours
+ */
+void calcLocalVelocity(struct NedCoor_f *pos, double li[3]){
+    for (uint8_t i=0; i < neighbourMem_size; i++){
+        double r    = sqrt( pow( ( pos->x - neighbourMem[i].x_w ), 2.0 ) + pow( ( pos->y - neighbourMem[i].y_w ), 2.0 ) );                  ///< The range to this neighbour
+        double li_n = 12 * AUTOSWARM_E / r * ( pow( AUTOSWARM_SEPERATION / r, 12.0 ) - pow( AUTOSWARM_SEPERATION / r, 6.0 ) );              ///< Local contribution scaling factor
+        li[0]      += li_n * (pos->x - neighbourMem[i].x_w) / r;                                                                            ///< Local contribution in x
+        li[1]      += li_n * (pos->y - neighbourMem[i].y_w) / r;                                                                            ///< Local contribution in y
+    }
+    if (neighbourMem_size > 0){
+        li[0] = li[0] / neighbourMem_size;                                                                                                  ///< Average the local contribution (nr. neighbours independent)
+        li[1] = li[1] / neighbourMem_size;
+    }
+    else{
+        li[0] = 0.0;
+        li[1] = 0.0;
+        li[3] = 0.0;
+    }
+    return;
+}
+
+/** Calulates the local-global interaction coefficient
+ *
+ * @param[in] Current position (struct NedCoor_f*)
+ * @param[in] Array containing global interaction velocity (double[3])
+ * @param[out] Local-global interaction coefficient (double)
+ *
+ * This function calculates the local-global interaction coefficient
+ */
+double calcGlobalCoeff(struct NedCoor_f *pos, double gi[3]){
+    if (neighbourMem_size > 0){
+        double w_neighbours[2]  = {0.0, 0.0};                                                                                               ///< weighed neighbours vector
+        for (unsigned int r = 0; r < neighbourMem_size; r++){
+            double range            = sqrt( pow( ( pos->x - neighbourMem[r].x_w ), 2.0 ) + pow( ( pos->y - neighbourMem[r].y_w ), 2.0 ) );  ///< Range of neighbour
+            if(range > AUTOSWARM_SEPERATION * AUTOSWARM_LATTICE_RATIO){
+                continue;                                                                                                                   ///< Ignore everything outside the lattice
+            }
+            double rel_dist         = fmin( 1.0, ( AUTOSWARM_LATTICE_RATIO * AUTOSWARM_SEPERATION - range )
+                                        / ( AUTOSWARM_SEPERATION * ( AUTOSWARM_LATTICE_RATIO - 1 ) ) );                                     ///< Relative distance coefficient
+            w_neighbours[0]        += pow( rel_dist, 2.0 ) * ( pos->x - neighbourMem[r].x_w ) / range;                                      ///< Calculate neighbour contribution to weighed neighbours
+            w_neighbours[1]        += pow( rel_dist, 2.0 ) * ( pos->y - neighbourMem[r].y_w ) / range;
+        }
+        double gi_n             = sqrt( pow( gi[0], 2.0 ) + pow( gi[1], 2.0 ) );                                                            ///< Norm of global interaction
+        w_neighbours[0] *= gi_n;                                                                                                            ///< Scale weighed neighbours vector by global contribution
+        w_neighbours[1] *= gi_n;
+        double c_gi_coef   = ( w_neighbours[0] * gi[0] + w_neighbours[1] * gi[1] ) / pow( gi_n, 2.0 );                                      ///< dot product between weighed neighbours and global interaction, divided by dot produgt of global interaction and global interaction;
+        return pow( fmin( 1.0, fmax( 0.0,
+                2.0 - sqrt( pow( gi[0] * ( 1 - c_gi_coef), 2.0 ) + pow( gi[1] * (1 - c_gi_coef), 2.0 ) ) / gi_n ) ), AUTOSWARM_LOGLO );     ///< Return local-global interaction coefficient
+    }else{
+        return 1.0;
+    }
+}
+
+/** Calulates the global velocity component
+ *
+ * @param[in] Current position (struct NedCoor_f*)
+ * @param[in] Array to store global interaction velocity (double[3])
+ *
+ * This function calculates the global velocity component
+ */
+void calcGlobalVelocity(struct NedCoor_f *pos, double gi[3]){
+    switch (AUTOSWARM_ATTRACTOR){
+    case AUTOSWARM_POINT :{
+       double cr     = sqrt( pow( globalOrigin.cx - pos->x, 2.0 ) + pow( globalOrigin.cy - pos->y, 2.0 ) );
+        if (cr > AUTOSWARM_DEADZONE){
+            gi[0]               = AUTOSWARM_GLOBAL * AUTOSWARM_VMAX * ( globalOrigin.cx - pos->x ) / cr;
+            gi[1]               = AUTOSWARM_GLOBAL * AUTOSWARM_VMAX * ( globalOrigin.cy - pos->y ) / cr;
+        }
+        break;
+    }
+    case AUTOSWARM_BUCKET :{
+        double cr     = sqrt( pow( globalOrigin.cx - pos->x, 2.0 ) + pow( globalOrigin.cy - pos->y, 2.0 ) );
+        if (cr > AUTOSWARM_DEADZONE){
+            double gScalar      = 0.5 * AUTOSWARM_GLOBAL * ( 1 - 1 / ( 1 + exp( 4 / AUTOSWARM_SEPERATION * (cr - AUTOSWARM_SEPERATION ) ) ) );
+            gi[0]               = gScalar * AUTOSWARM_VMAX * ( globalOrigin.cx - pos->x ) / cr;
+            gi[1]               = gScalar * AUTOSWARM_VMAX * ( globalOrigin.cy - pos->y ) / cr;
+        }
+        break;
+    }
+    case AUTOSWARM_CIRCLE_CW :
+    case AUTOSWARM_CIRCLE_CC :{
+        double cr     = sqrt( pow( globalOrigin.cx - pos->x, 2.0 ) + pow( globalOrigin.cy - pos->y, 2.0 ) );
+        if (cr > AUTOSWARM_DEADZONE){
+            double angle;
+            if (cr >= AUTOSWARM_CIRCLE_R){
+                angle   = 90 * AUTOSWARM_CIRCLE_R / cr;
+            }
+            else{
+                angle   = 90 + 90 * (AUTOSWARM_CIRCLE_R - cr) / AUTOSWARM_CIRCLE_R;     // From 90 to 180 over the length of AUTOSWARM_CIRCLE_R
+            }
+            if (AUTOSWARM_ATTRACTOR != AUTOSWARM_CIRCLE_CC)     angle = -angle;         // Switch between cc (+) and cw (-)
+            double xContrib     = AUTOSWARM_GLOBAL * AUTOSWARM_VMAX * ( globalOrigin.cx - pos->x ) / cr;
+            double yContrib     = AUTOSWARM_GLOBAL * AUTOSWARM_VMAX * ( globalOrigin.cy - pos->y ) / cr;
+            gi[0]               = cos( angle / 180 * M_PI ) * xContrib - sin( angle / 180 * M_PI ) * yContrib;
+            gi[1]               = sin( angle / 180 * M_PI ) * xContrib + cos( angle / 180 * M_PI ) * yContrib;
+        }
+        break;
+    }
+    default : break;
+    }
+    return;
+}
+
+/** Calulates the differential velocity component
+ *
+ * @param[in] Current position (struct NedCoor_f*)
+ * @param[in] Array to store differential interaction velocity (double[3])
+ *
+ * This function calculates the differential velocity component
+ */
+void calcDiffVelocity(double totV[3], double di[3]){
+    di[0]       = - AUTOSWARM_EPS * ( totV[0] - prev_v_d[0] );
+    di[1]       = - AUTOSWARM_EPS * ( totV[1] - prev_v_d[1] );
+    prev_v_d[0] = totV[0];
+    prev_v_d[1] = totV[1];
+    prev_v_d[2] = totV[2];
+    return;
+}
+
+/** Calulates the desired camera position / heading
+ *
+ * @param[in] Current position (struct NedCoor_f*)
+ * @param[in] Array containing desired velocity (double[3])
+ * @param[in] Array to store desired camera position as a unit vector from the current position (double[3])
+ * @param[in] Array containing global velocity component (double[3])
+ *
+ * This function calculates the differential velocity component
+ */
+void calculateCamPosition(struct NedCoor_f *pos, double totV[3], double cPos[3], double gi[3]){
+    if (AUTOSWARM_MODE == AUTOSWARM_CAM_FORWARD){                     ///< Point WP_CAM on unity circle towards totV
+        double velR = sqrt(pow(totV[0], 2.0) + pow(totV[1], 2.0));
+        if (velR > 0){
+            cPos[0] = pos->x + totV[0] / velR;
+            cPos[1] = pos->y + totV[1] / velR;
+            cPos[2] = pos->z;
+        }
+        else{
+            cPos[0] = pos->x + cos(eulerAngles->psi) * 1;
+            cPos[1] = pos->y + sin(eulerAngles->psi) * 1;
+            cPos[2] = pos->z;
+        }
+    }
+    if (AUTOSWARM_MODE == AUTOSWARM_CAM_GLOBAL){                        ///< Point WP_CAM on unity circle towards global component
+        double velR = sqrt(pow(gi[0], 2.0) + pow(gi[1], 2.0));
+        if (velR > 0){
+            cPos[0]     = pos->x + gi[0] / velR;
+            cPos[1]     = pos->y + gi[1] / velR;
+            cPos[2]     = pos->z;
+        }
+        else{
+            cPos[0]     = pos->x + cos(eulerAngles->psi) * 1;
+            cPos[1]     = pos->y + sin(eulerAngles->psi) * 1;
+            cPos[2]     = pos->z;
+        }
+    }
+    return;
+}
+
+/** Limits the norm of the desired velocity based on relative heading change
+ *
+ * @param[in] Array containing desired velocity (double[3])
+ *
+ * This function limits the velocity when increasing yaw changes are made
+ */
+void limitVelocityYaw(double totV[3]){
+    double totVHeading  = atan2(totV[1], totV[0]);              ///< Heading of totV
+    double relHeading   = totVHeading - eulerAngles->psi;       ///< Relative angle between totV and heading
+    double vTurn;
+    if (abs(relHeading) > acos(0.01)){
+        vTurn = 0.01            * sqrt(pow(totV[0], 2.0) + pow(totV[1], 2.0));
+    }
+    else{
+        vTurn = cos(relHeading) * sqrt(pow(totV[0], 2.0) + pow(totV[1], 2.0));
+    }
+    totV[0] = cos(totVHeading) * vTurn;
+    totV[1] = sin(totVHeading) * vTurn;
+    return;
+}
+
+/** Limits the norm the input vector based on the maximum given
+ *
+ * @param[in] Vector (double[3])
+ * @param[in] maximum norm (double)
+ *
+ * This function limits the input vector to a maximum given
+ */
+void limitNorm(double vec[3], double maxNorm){
+    double vR = sqrt(pow(vec[0],2.0) + pow(vec[1],2.0));      ///< Find the norm
+    if (vR > maxNorm){
+        vec[0] = maxNorm * vec[0] / vR;                       ///< vector so that ||vector|| = maxNorm
+        vec[1] = maxNorm * vec[1] / vR;
+        vec[2] = 0.0;
+    }
+    return;
+}
+
+/** Updates the waypoints and heading based on desired velocity and camera position
+ *
+ * @param[in] Current position (struct NedCoor_f*)
+ * @param[in] Array containing desired velocity (double[3])
+ * @param[in] Array containing desired camera position (double[3])
+ *
+ * This function updates waypoints and heading according to the given desired velocity and camera position
+ */
+void updateWaypoints(struct NedCoor_f *pos, double totV[3], double cPos[3]){
+    /*
+     *  BE CAREFUL! waypoint_set_xy_i is in ENU so N(x) and E(y) axis are changed compared to x_w and y_w
+     */
+    waypoint_set_xy_i((unsigned char) WP__GOAL, POS_BFP_OF_REAL(pos->y + totV[1]),  POS_BFP_OF_REAL(pos->x + totV[0]));     ///< Update WP_GOAL waypoint to add desired velocity to our position
+    waypoint_set_xy_i((unsigned char) WP__CAM,  POS_BFP_OF_REAL(cPos[1]),           POS_BFP_OF_REAL(cPos[0]));              ///< Update WP_GOAL waypoint to add camera position to our position
+    setGlobalOrigin(waypoint_get_y((unsigned char) WP_GLOBAL), waypoint_get_x((unsigned char) WP_GLOBAL), 1);               ///< Update global origin based on WP_GLOBAL location
+    if (!strcmp("Swarm",flight_blocks[nav_block]) || !strcmp("Swarm Home",flight_blocks[nav_block])){
+        nav_set_heading_towards_waypoint(WP__CAM);                                                                          ///< Currently in block "Swarm" or "Swarm Home" so update heading
+    }
+    if (AUTOSWARM_SHOW_WAYPOINT) PRINT("WP_CAM (%0.2f m, %0.2f m) \tWP_GOAL (%0.2f m, %0.2f m) \tWP_GLOBAL (%0.2f m, %0.2f m)\n", cPos[0], cPos[1], pos->x + totV[0], pos->y + totV[1], globalOrigin.cx, globalOrigin.cy);
+}
+
+/** Checks if position is close enough to waypoint _TD
+ *
+ * @param[in] Is our position close enough to waypoint _TD (bool)
+ *
+ * This function checks is our current position is close enough to waypoint _TD based on the AUTOSWARM_HOME distance
+ */
+bool amIhome(void){
+    struct EnuCoor_f *pos = stateGetPositionEnu_f();  // Get current position
+    if (sqrt(pow(pos->x - waypoint_get_x((unsigned char) WP__TD), 2.0) + pow(pos->y - waypoint_get_y((unsigned char) WP__TD), 2.0)) < AUTOSWARM_HOME){
+        return true;
+    }
+    else{
+        return false;
+    }
+}
+
+/** Writes a log to the disk
+ *
+ * This function writes a log to the disk //TODO: fix
+ */
+void autoswarm_opencv_write_log(){
 #if AUTOSWARM_WRITE_RESULTS                                                 // See if we want to write results
     pFile         = fopen("/data/ftp/internal_000/results.txt","a");        // Open file for appending
     if (pFile == NULL){
@@ -412,53 +461,3 @@ void autoswarm_opencv_run_trailer(){
 #endif
     if ((AUTOSWARM_SHOW_MEM==1 && neighbourMem_size > 0) || AUTOSWARM_SHOW_WAYPOINT || AUTOSWARM_BENCHMARK) printf("\n"); // Separate terminal output by newline
 }
-
-#if AUTOSWARM_BENCHMARK
-void initBenchmark(){
-    bench_start     = clock();
-    benchmark_time.clear();
-    benchmark_title.clear();
-}
-
-void addBenchmark(const char * title){
-    bench_end       = clock();
-    double time     = ((double) (bench_end - bench_start)) / 1000000;
-    bench_start     = bench_end;
-    benchmark_time.push_back(time);
-    benchmark_title.push_back(title);
-}
-
-void showBenchmark(){
-    double totalTime        = 0;
-    unsigned int maxlength  = 0;
-    for (unsigned int i=0; i < benchmark_time.size(); i++){
-        totalTime += benchmark_time[i];                                     // Sum the total time elapsed
-        if (runCount==1){
-            benchmark_avg_time.push_back(0);                                // Prevent benchmark average time from being empty when t=0
-        }
-        if (strlen(benchmark_title[i]) > maxlength){
-            maxlength = strlen(benchmark_title[i]);                         // This is the length of the longest title
-        }
-    }
-    for (unsigned int i=0; i < benchmark_time.size(); i++){
-        benchmark_avg_time[i]   = (benchmark_avg_time[i] * (runCount - 1) + benchmark_time[i]/totalTime*100) / runCount;    // Elapsed time in percentage
-        if (strlen(benchmark_title[i]) < maxlength - 18){
-            printf("%s\t\t\t\t%2.2f percent\n", benchmark_title[i], benchmark_avg_time[i]);     // 4 tabs
-        }
-        else{
-            if (strlen(benchmark_title[i]) < maxlength - 12){
-                printf("%s\t\t\t%2.2f percent\n", benchmark_title[i], benchmark_avg_time[i]);   // 3 tabs
-            }
-            else{
-                if (strlen(benchmark_title[i]) < maxlength - 5){
-                    printf("%s\t\t%2.2f percent\n", benchmark_title[i], benchmark_avg_time[i]); // 2 tabs
-                }
-                else{
-                    printf("%s\t%2.2f percent\n", benchmark_title[i], benchmark_avg_time[i]);   // 1 tab
-                }
-            }
-        }
-
-    }
-}
-#endif

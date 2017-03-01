@@ -29,12 +29,16 @@
 #ifdef __cplusplus
 extern "C" {
 #endif
+#include "std.h"
 
 // Global options definitions
 #define AUTOSWARM_POINT 			0
 #define AUTOSWARM_BUCKET 			1
 #define AUTOSWARM_CIRCLE_CW 		2
 #define AUTOSWARM_CIRCLE_CC 		3
+/// Camera options definitions
+#define AUTOSWARM_CAM_FORWARD       1
+#define AUTOSWARM_CAM_GLOBAL        2
 
 extern double 	AUTOSWARM_CIRCLE_R;
 extern double 	AUTOSWARM_SEPERATION;
@@ -54,8 +58,8 @@ static inline void setGlobalOrigin  (double x, double y, double z){ globalOrigin
 static inline bool setGlobalMode    (int mode){ AUTOSWARM_ATTRACTOR = mode; return false; };
 static inline bool setSwarmMode     (int mode){ 	AUTOSWARM_MODE = mode; return false; };
 
-void autoswarm_opencv_init          (int globalMode);
-void autoswarm_opencv_run           (void);
+void autoswarm_opencv_init          ( uint8_t globalMode );
+void autoswarm_opencv_run           ( struct image_t* img );
 bool amIhome                        (void);
 
 #ifdef __cplusplus

@@ -79,7 +79,7 @@ using namespace cv;
 
 #define ARF_BALL                0
 #define ARF_GATE                1
-#define AR_FILTER_OBJECT        ARF_GATE
+#define AR_FILTER_OBJECT        ARF_BALL
 
 extern void             plotHorizon         ( Mat& sourceFrameCrop );
 

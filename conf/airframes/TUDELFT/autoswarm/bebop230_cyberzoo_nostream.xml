@@ -174,7 +174,7 @@
 		<define name="MAX_R" value="180.0" unit="deg/s" />
 
 		<define name="ESTIMATION_FILT_CUTOFF" value="4.0" />
-		<define name="FILT_CUTOFF" value="3.0" />
+		<define name="FILT_CUTOFF" value="1.0" />
 		<define name="ACT_DYN" value="{0.05, 0.05, 0.05, 0.05}"/>
 
 		<!-- Adaptive Learning Rate -->
@@ -183,8 +183,8 @@
 	</section>
 	
 	<section name="GUIDANCE_INDI" prefix="GUIDANCE_INDI_">
-		<define name="FILTER_CUTOFF" value="3.0"/>
-		<define name="THRUST_FILTER_CUTOFF" value="3.0"/>
+		<define name="FILTER_CUTOFF" value="1.0"/>
+		<define name="THRUST_FILTER_CUTOFF" value="1.0"/>
 		<define name="SPECIFIC_FORCE_GAIN" value="-600.0"/>
 		<define name="THRUST_DYNAMICS" value="0.05"/>
 	</section>
