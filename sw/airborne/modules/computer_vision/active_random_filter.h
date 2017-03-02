@@ -128,6 +128,12 @@ extern "C" {
 void active_random_filter_init(void);
 void active_random_filter(char* buff, uint16_t width, uint16_t height, struct FloatEulers* curEulerAngles);
 
+extern memoryBlock          neighbourMem[ARF_MAX_OBJECTS];      ///< The array of neighbours from active_random_filter
+extern uint8_t              neighbourMem_size;                  ///< The size of the neighbour array
+#ifdef __linux__
+extern pthread_mutex_t      neighbourMem_mutex;
+#endif
+
 #ifdef __cplusplus
 }
 #endif

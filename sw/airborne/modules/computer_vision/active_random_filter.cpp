@@ -54,8 +54,8 @@ using namespace cv;
 
 #define xSign(x) ( ( x ) >= ( 0 ) ? ( 1 ) : ( -1 ) )
 
-#define ARF_MARK_CONTOURS   0                       ///< Mark all contour pixels green on sourceframe
-#define ARF_BALL_CIRCLES    0                       ///< Draw circles around balls
+#define ARF_MARK_CONTOURS   1                       ///< Mark all contour pixels green on sourceframe
+#define ARF_BALL_CIRCLES    1                       ///< Draw circles around balls
 #define ARF_GATE_CORNERS    1                       ///< Plot corner points of Gates
 #define ARF_PLOT_COORDS     0                       ///< Plot the coordinates of balls on frame
 #define ARF_DISTANCE_PLOT   0                       ///< Plot lines with distance on frame
@@ -64,7 +64,7 @@ using namespace cv;
 #define ARF_SHOW_STATS      0                       ///< Show statistics on the performance of the contour detection
 
 #define ARF_MEASURE_FPS     1                       ///< Measure average FPS
-#define ARF_TIMEOUT         150                     ///< Frames from start
+#define ARF_TIMEOUT         50                      ///< Frames from start
 #define ARF_WRITE_LOG       0                       ///< Write tracking results to logfile
 
 #define ARF_WORLDPOS        0                       ///< Use world coordinates
@@ -74,7 +74,7 @@ using namespace cv;
 #define ARF_SHOW_REJECT     0                       ///< Print why shapes are rejected
 #define ARF_MOD_VIDEO       1                       ///< Modify the frame to show relevant info
 #define ARF_DRAW_BOXES 	    0                       ///< Draw boxes
-#define ARF_SHOW_MEM        0                       ///< Print object locations to terminal
+#define ARF_SHOW_MEM        1                       ///< Print object locations to terminal
 
 #define ARF_BALL            0
 #define ARF_GATE            1
@@ -154,6 +154,25 @@ uint16_t    ARF_LARGE_LAYERS;                                           ///< Mim
 uint16_t    ARF_MIN_CROP_AREA                   = 100;                  ///< Minimal area of a crop rectangle
 
 /** Set up colour filter **/
+#if ARF_OBJECT == ARF_GATE
+/* GATE CYBERZOO */
+uint8_t     ARF_Y_MIN                           = 10;
+uint8_t     ARF_Y_MAX                           = 250;
+uint8_t     ARF_U_MIN                           = 100;
+uint8_t     ARF_U_MAX                           = 170;
+uint8_t     ARF_V_MIN                           = 150;
+uint8_t     ARF_V_MAX                           = 220;
+uint8_t     ARF_GREY_THRES                      = 0;
+#endif
+#if ARF_OBJECT == ARF_BALL
+/* Cyberzoo */
+uint8_t     ARF_Y_MIN                           = 50;                   ///< Minimum Y whilst searching and following contours
+uint8_t     ARF_Y_MAX                           = 250;                  ///< Maximum Y whilst searching and following contours
+uint8_t     ARF_U_MIN                           = 105;                  ///< Minimum U whilst searching and following contours
+uint8_t     ARF_U_MAX                           = 170;                  ///< Maximum U whilst searching and following contours
+uint8_t     ARF_V_MIN                           = 150;                  ///< Minimum V whilst searching and following contours
+uint8_t     ARF_V_MAX                           = 210;                  ///< Maximum V whilst searching and following contours
+uint8_t     ARF_GREY_THRES                      = 7;
 /* FAKE LIGHT
 uint8_t     ARF_Y_MIN             = 0;
 uint8_t     ARF_Y_MAX             = 255;
@@ -164,33 +183,14 @@ uint8_t     ARF_V_MAX             = 255;
 */
 
 /* DAYLIGHT
-uint8_t 	ARF_Y_MIN 			= 130;
-uint8_t 	ARF_Y_MAX 			= 255;
-uint8_t 	ARF_U_MIN 			= 95;
-uint8_t 	ARF_U_MAX 			= 131;
-uint8_t 	ARF_V_MIN 			= 145;
-uint8_t 	ARF_V_MAX 			= 188;
+uint8_t     ARF_Y_MIN           = 130;
+uint8_t     ARF_Y_MAX           = 255;
+uint8_t     ARF_U_MIN           = 95;
+uint8_t     ARF_U_MAX           = 131;
+uint8_t     ARF_V_MIN           = 145;
+uint8_t     ARF_V_MAX           = 188;
 */
-
-/* GATE CYBERZOO */
-uint8_t     ARF_Y_MIN                           = 10;
-uint8_t     ARF_Y_MAX                           = 250;
-uint8_t     ARF_U_MIN                           = 100;
-uint8_t     ARF_U_MAX                           = 170;
-uint8_t     ARF_V_MIN                           = 150;
-uint8_t     ARF_V_MAX                           = 220;
-uint8_t     ARF_GREY_THRES                      = 0;
-
-
-/* Cyberzoo
-uint8_t     ARF_Y_MIN                           = 50;                   ///< Minimum Y whilst searching and following contours
-uint8_t     ARF_Y_MAX                           = 250;                  ///< Maximum Y whilst searching and following contours
-uint8_t     ARF_U_MIN                           = 105;                  ///< Minimum U whilst searching and following contours
-uint8_t     ARF_U_MAX                           = 170;                  ///< Maximum U whilst searching and following contours
-uint8_t     ARF_V_MIN                           = 150;                  ///< Minimum V whilst searching and following contours
-uint8_t     ARF_V_MAX                           = 210;                  ///< Maximum V whilst searching and following contours
-uint8_t     ARF_GREY_THRES                      = 7;
-*/
+#endif
 
 uint8_t     ARF_MAX_SEARCH_PIXEL_SKIP = 6;                              ///< Maximum nr of false pixels to skip whilst searching upwards for contours
 /** Set up Remaining parameters **/
@@ -229,6 +229,10 @@ extern double               ispScalar;                                  ///< App
 static Rect 			    objCrop;                                    ///< Current recangle being processed when using omni search
 static vector<Rect> 	    cropAreas;                                  ///< All the rectangles found
 struct NedCoor_f*           pos;                                        ///< Current position of the UAV
+
+#ifdef __linux__
+pthread_mutex_t neighbourMem_mutex;
+#endif
 
 #if ARF_OBJECT == ARF_BALL
 static trackResults         trackRes[ARF_MAX_OBJECTS];                  ///< Array to store the tracking results
@@ -369,6 +373,9 @@ void processCrops(Mat& frameGrey){
 }
 
 void eraseMemory(void){
+#ifdef __linux__
+  pthread_mutex_lock(&neighbourMem_mutex);
+#endif
     uint8_t index   = 0;
     uint8_t i       = 0;
     for(i=0; i < neighbourMem_size; i++){
@@ -380,49 +387,74 @@ void eraseMemory(void){
         }
     }
     neighbourMem_size -= i - index;
+#ifdef __linux__
+  pthread_mutex_unlock(&neighbourMem_mutex);
+#endif
 }
 
 #if ARF_OBJECT == ARF_BALL
 void identifyObject(trackResults* trackRes){
+    bool identified = FALSE;
+    uint8_t neighbourID;
+    uint8_t closestNeighbour = ARF_CAM_RANGE;
     for(unsigned int i=0; i < neighbourMem_size; i++)
     {
         double radius	= (runCount - neighbourMem[i].lastSeen) * 1.0 / ARF_FPS * ARF_VMAX;
         double dx 		= trackRes->x_w - neighbourMem[i].x_w;
         double dy       = trackRes->y_w - neighbourMem[i].y_w;
-        if(dx <= radius && dy <= radius && sqrt(pow(dx, 2.0) + pow(dy, 2.0)) <= radius)
+        double nRadius  = sqrt(pow(dx, 2.0) + pow(dy, 2.0));
+        if(nRadius <= radius)
         {
-            VERBOSE_PRINT("Identified object %d at (%4d, %4d)p (%5.2f, %5.2f, %5.2f)w\n", neighbourMem[i].id, trackRes->x_p, trackRes->y_p, trackRes->x_w, trackRes->y_w, trackRes->z_w);
-            neighbourMem[i].lastSeen 	= runCount;
-            neighbourMem[i].x_w 		= trackRes->x_w;
-            neighbourMem[i].y_w 		= trackRes->y_w;
-            neighbourMem[i].z_w 		= trackRes->z_w;
-            neighbourMem[i].x_p 		= trackRes->x_p;
-            neighbourMem[i].y_p 		= trackRes->y_p;
-            neighbourMem[i].area_p      = trackRes->area_p;
-            neighbourMem[i].r_c         = trackRes->r_c;
-            return;
+            if(nRadius < closestNeighbour){
+                neighbourID         = i;
+                closestNeighbour    = nRadius;
+                identified          = TRUE;
+            }
         }
     }
-    // We haven't identified
-    VERBOSE_PRINT("New object at (%4d, %4d)p (%6.2f, %6.2f)c (%5.2f, %5.2f)b (%5.2f, %5.2f, %5.2f)w\n", trackRes->x_p, trackRes->y_p, trackRes->x_c * 180 / M_PI, trackRes->y_c * 180 / M_PI, trackRes->x_b, trackRes->y_b, trackRes->x_w, trackRes->y_w,  trackRes->z_w);
-    memoryBlock curN;
-    curN.lastSeen 	= runCount;
-    curN.id 		= maxId;
-    curN.x_w 		= trackRes->x_w;
-    curN.y_w 		= trackRes->y_w;
-    curN.z_w 		= trackRes->z_w;
-    curN.x_p 		= trackRes->x_p;
-    curN.y_p 		= trackRes->y_p;
-    curN.area_p     = trackRes->area_p;
-    curN.r_c        = trackRes->r_c;
-    neighbourMem_add(curN);
-    maxId++;
+    if(identified){
+#ifdef __linux__
+  pthread_mutex_lock(&neighbourMem_mutex);
+#endif
+        VERBOSE_PRINT("Identified object %d at (%4d, %4d)p (%5.2f, %5.2f, %5.2f)w\n", neighbourMem[neighbourID].id, trackRes->x_p, trackRes->y_p, trackRes->x_w, trackRes->y_w, trackRes->z_w);
+        neighbourMem[neighbourID].lastSeen    = runCount;
+        neighbourMem[neighbourID].x_w         = trackRes->x_w;
+        neighbourMem[neighbourID].y_w         = trackRes->y_w;
+        neighbourMem[neighbourID].z_w         = trackRes->z_w;
+        neighbourMem[neighbourID].x_p         = trackRes->x_p;
+        neighbourMem[neighbourID].y_p         = trackRes->y_p;
+        neighbourMem[neighbourID].area_p      = trackRes->area_p;
+        neighbourMem[neighbourID].r_c         = trackRes->r_c;
+#ifdef __linux__
+  pthread_mutex_unlock(&neighbourMem_mutex);
+#endif
+    }
+    else{
+        // We haven't identified
+        VERBOSE_PRINT("New object at (%4d, %4d)p (%6.2f, %6.2f)c (%5.2f, %5.2f)b (%5.2f, %5.2f, %5.2f)w\n", trackRes->x_p, trackRes->y_p, trackRes->x_c * 180 / M_PI, trackRes->y_c * 180 / M_PI, trackRes->x_b, trackRes->y_b, trackRes->x_w, trackRes->y_w,  trackRes->z_w);
+        memoryBlock curN;
+        curN.lastSeen 	= runCount;
+        curN.id 		= maxId;
+        curN.x_w 		= trackRes->x_w;
+        curN.y_w 		= trackRes->y_w;
+        curN.z_w 		= trackRes->z_w;
+        curN.x_p 		= trackRes->x_p;
+        curN.y_p 		= trackRes->y_p;
+        curN.area_p     = trackRes->area_p;
+        curN.r_c        = trackRes->r_c;
+        neighbourMem_add(curN);
+        maxId++;
+    }
     return;
 }
 #endif
 
 #if ARF_OBJECT == ARF_GATE
 void identifyObject(gateResults* gateRes){
+#ifdef __linux__
+  pthread_mutex_lock(&neighbourMem_mutex);
+#endif
+    bool identified = FALSE;
     for(unsigned int i=0; i < neighbourMem_size; i++)
     {
         double radius   = (runCount - neighbourMem[i].lastSeen) * 1.0 / ARF_FPS * ARF_VMAX;
@@ -439,31 +471,36 @@ void identifyObject(gateResults* gateRes){
             neighbourMem[i].corners[1]  = gateRes->corners[1];
             neighbourMem[i].corners[2]  = gateRes->corners[2];
             neighbourMem[i].corners[3]  = gateRes->corners[3];
-            return;
+            identified                  = TRUE;
         }
     }
-    // We haven't identified
-    VERBOSE_PRINT("New object at (%4d, %4d)p (%6.2f, %6.2f)c (%5.2f, %5.2f)b (%5.2f, %5.2f, %5.2f)w\n", gateRes->x_p, gateRes->y_p, gateRes->x_c * 180 / M_PI, gateRes->y_c * 180 / M_PI, gateRes->x_b, gateRes->y_b, gateRes->x_w, gateRes->y_w,  gateRes->z_w);
-    memoryGateBlock curN;
-    curN.lastSeen   = runCount;
-    curN.id         = maxId;
-    curN.x_p        = gateRes->x_p;
-    curN.y_p        = gateRes->y_p;
-    curN.area_p     = gateRes->area_p;
-    curN.corners[0] = gateRes->corners[0];
-    curN.corners[1] = gateRes->corners[1];
-    curN.corners[2] = gateRes->corners[2];
-    curN.corners[3] = gateRes->corners[3];
-    if(neighbourMem_size == ARF_MAX_OBJECTS){
-        neighbourMem[ARF_MAX_OBJECTS - 1] = curN;
-        neighbourMem_lastId                     = neighbourMem_maxId;
+    if(!identified){
+        // We haven't identified
+        VERBOSE_PRINT("New object at (%4d, %4d)p (%6.2f, %6.2f)c (%5.2f, %5.2f)b (%5.2f, %5.2f, %5.2f)w\n", gateRes->x_p, gateRes->y_p, gateRes->x_c * 180 / M_PI, gateRes->y_c * 180 / M_PI, gateRes->x_b, gateRes->y_b, gateRes->x_w, gateRes->y_w,  gateRes->z_w);
+        memoryGateBlock curN;
+        curN.lastSeen   = runCount;
+        curN.id         = maxId;
+        curN.x_p        = gateRes->x_p;
+        curN.y_p        = gateRes->y_p;
+        curN.area_p     = gateRes->area_p;
+        curN.corners[0] = gateRes->corners[0];
+        curN.corners[1] = gateRes->corners[1];
+        curN.corners[2] = gateRes->corners[2];
+        curN.corners[3] = gateRes->corners[3];
+        if(neighbourMem_size == ARF_MAX_OBJECTS){
+            neighbourMem[ARF_MAX_OBJECTS - 1] = curN;
+            neighbourMem_lastId                     = neighbourMem_maxId;
+        }
+        else{
+            neighbourMem[neighbourMem_size]         = curN;
+            neighbourMem_lastId                     = neighbourMem_size;
+            neighbourMem_size++;
+        }
+        maxId++;
     }
-    else{
-        neighbourMem[neighbourMem_size]         = curN;
-        neighbourMem_lastId                     = neighbourMem_size;
-        neighbourMem_size++;
-    }
-    maxId++;
+#ifdef __linux__
+  pthread_mutex_unlock(&neighbourMem_mutex);
+#endif
     return;
 }
 #endif
@@ -1915,6 +1952,9 @@ bool trackRes_clear( void ){
 
 #if ARF_OBJECT == ARF_BALL
 bool neighbourMem_findMax( void ){
+#ifdef __linux__
+  pthread_mutex_lock(&neighbourMem_mutex);
+#endif
     neighbourMem_maxVal = 0.0;
     neighbourMem_maxId  = 0;
     for(uint8_t i=0; i<neighbourMem_size; i++){
@@ -1923,37 +1963,41 @@ bool neighbourMem_findMax( void ){
             neighbourMem_maxId  = i;
         }
     }
+#ifdef __linux__
+  pthread_mutex_unlock(&neighbourMem_mutex);
+#endif
     return true;
 }
 
 bool neighbourMem_add( memoryBlock newRes, uint8_t overwriteId){
+#ifdef __linux__
+  pthread_mutex_lock(&neighbourMem_mutex);
+#endif
+    bool result = TRUE;
     if(overwriteId < neighbourMem_size){
         neighbourMem[overwriteId]           = newRes;
         neighbourMem_lastId                 = overwriteId;
-        if(overwriteId == neighbourMem_maxId){
-            if(neighbourMem_size == ARF_MAX_OBJECTS){
-                neighbourMem_findMax();
-            }
-        }
     }
     else if(neighbourMem_size == ARF_MAX_OBJECTS){
         if(newRes.r_c < neighbourMem_maxVal){
             neighbourMem[neighbourMem_maxId]    = newRes;
             neighbourMem_lastId                 = neighbourMem_maxId;
-            neighbourMem_findMax();
         }
         else{
-            return false;
+            result = FALSE;
         }
     }
     else{
         neighbourMem[neighbourMem_size]         = newRes;
         neighbourMem_lastId                     = neighbourMem_size;
         neighbourMem_size++;
-        if(neighbourMem_size == ARF_MAX_OBJECTS){
-            neighbourMem_findMax();
-        }
     }
-    return true;
+#ifdef __linux__
+  pthread_mutex_unlock(&neighbourMem_mutex);
+#endif
+    if(result && neighbourMem_size == ARF_MAX_OBJECTS){
+        neighbourMem_findMax();
+    }
+    return result;
 }
 #endif

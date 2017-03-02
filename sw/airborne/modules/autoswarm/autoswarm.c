@@ -24,29 +24,18 @@
  */
 
 /// Header Files ///
-#define BOARD_CONFIG "boards/bebop.h"
-
-#include "autoswarm/autoswarm.h"                            ///< Include own header file
-#include <computer_vision/active_random_filter.h>           ///< Include active random filter header file
-#include "state.h"                                          ///< Used for accessing state variables
-#include "navigation.h"                                     ///< Used for navigation functions
-#include "subsystems/gps/gps_datalink.h"
-#include "generated/flight_plan.h"                          ///< Used for WP definitions
-
+#include "state.h"                                              ///< Used for accessing state variables
+#include "navigation.h"                                         ///< Used for navigation functions
+#include "generated/flight_plan.h"                              ///< Used for WP definitions
+#include "autoswarm/autoswarm.h"                                ///< Include own header file
+#include "computer_vision/active_random_filter.h"               ///< Include active random filter header file
 
 #define PRINT(string,...) fprintf(stderr, "[autoswarm->%s()] " string,__FUNCTION__ , ##__VA_ARGS__)
 
 #ifndef AS_VERBOSE
 #define AS_VERBOSE FALSE
 #endif
-
-#ifndef AS_CAMERA
-#define AS_CAMERA front_camera
-#endif
-
-#ifndef AS_GLOBAL_ATTRACTOR
-#define AS_GLOBAL_ATTRACTOR AS_CIRCLE_CW
-#endif
+PRINT_CONFIG_VAR(AS_VERBOSE)
 
 #if AS_VERBOSE
 #define VERBOSE_PRINT PRINT
@@ -54,11 +43,76 @@
 #define VERBOSE_PRINT(...)
 #endif
 
+#ifndef AS_GLOBAL_ATTRACTOR
+#define AS_GLOBAL_ATTRACTOR AS_CIRCLE_CW
+#endif
+PRINT_CONFIG_VAR(AS_GLOBAL_ATTRACTOR)
+
+#ifndef AS_GLOBAL_STR
+#define AS_GLOBAL_STR 1.0
+#endif
+PRINT_CONFIG_VAR(AS_GLOBAL_STR)
+
+#ifndef AS_SEPARATION
+#define AS_SEPARATION 1.3
+#endif
+PRINT_CONFIG_VAR(AS_SEPARATION)
+
+#ifndef AS_CIRCLE_RADIUS
+#define AS_CIRCLE_RADIUS 1.5
+#endif
+PRINT_CONFIG_VAR(AS_CIRCLE_RADIUS)
+
+#ifndef AS_VMAX
+#define AS_VMAX 2.5
+#endif
+PRINT_CONFIG_VAR(AS_VMAX)
+
+#ifndef AS_HEADING_MODE
+#define AS_HEADING_MODE AS_CAM_GLOBAL
+#endif
+PRINT_CONFIG_VAR(AS_CAM_GLOBAL)
+
+#ifndef AS_E
+#define AS_E 0.0025
+#endif
+PRINT_CONFIG_VAR(AS_E)
+
+#ifndef AS_EPS
+#define AS_EPS 0.03
+#endif
+PRINT_CONFIG_VAR(AS_EPS)
+
+#ifndef AS_HOME
+#define AS_HOME 0.4
+#endif
+PRINT_CONFIG_VAR(AS_HOME)
+
+#ifndef AS_LOGLO
+#define AS_LOGLO 1.75
+#endif
+PRINT_CONFIG_VAR(AS_LOGLO)
+
+#ifndef AS_LATTICE_RATIO
+#define AS_LATTICE_RATIO 2.0
+#endif
+PRINT_CONFIG_VAR(AS_LATTICE_RATIO)
+
+#ifndef AS_DEADZONE
+#define AS_DEADZONE 0.25
+#endif
+PRINT_CONFIG_VAR(AS_DEADZONE)
+
 /// Debug options ///
-#define AS_SHOW_WAYPOINT 0                                      ///< Show the updated positions of the waypoints
-#define AS_SHOW_MEM      0                                      ///< Show the neighbours identified and their location
+#ifndef AS_PRINT_WAYPOINT
+#define AS_PRINT_WAYPOINT 0                                     ///< Show the updated positions of the waypoints
+#endif
+PRINT_CONFIG_VAR(AS_PRINT_WAYPOINT)
+
+#ifndef AS_WRITE_RESULTS
 #define AS_WRITE_RESULTS 0                                      ///< Write measurements to text file
-#define AS_BENCHMARK     0                                      ///< Print benchmark table
+#endif
+PRINT_CONFIG_VAR(AS_WRITE_RESULTS)
 
 /// Static function declarations ///
 static void calculateVelocityResponse(struct NedCoor_f *pos, struct FloatEulers* eulerAngles, double totV[3], double gi[3]);
@@ -69,30 +123,27 @@ static void calculateCamPosition(struct NedCoor_f *pos, struct FloatEulers* eule
 static void updateWaypoints(struct NedCoor_f *pos, double totV[3], double cPos[3]);
 static void limitNorm(double totV[3], double maxNorm);
 static void limitVelocityYaw(struct FloatEulers* eulerAngles, double totV[3]);
-static void autoswarm_opencv_write_log(void);
+static void autoswarm_write_log(void);
 static double calculateLocalGlobalCoeff(struct NedCoor_f *pos, double gi[3]);
 
 /// Set up swarm parameters ///
-int     AS_MODE          = AS_CAM_GLOBAL;                       ///< Heading/Camera control modus
-double  AS_SEPARATION    = 1.3;                                 ///< Seperation between neighbours
-double  AS_LATTICE_RATIO = 2.5;                                 ///< Camera range is defined as lattice_ratio * seperation
+int     settings_as_heading_mode    = AS_HEADING_MODE;          ///< Heading/Camera control modus
+double  settings_as_separation      = AS_SEPARATION;            ///< Separation between neighbours
+double  settings_as_lattice_ratio   = AS_LATTICE_RATIO;         ///< Local interactions are bounded within lattice_ratio * separation
 
-double  AS_E             = 0.025;                               ///< Pinciroli E coefficient
-double  AS_EPS           = 0.03;                                ///< Differential component
-double  AS_LOGLO         = 1.75;                                ///< Local-Global interaction exponent
+double  settings_as_e               = AS_E;                     ///< Pinciroli E coefficient
+double  settings_as_eps             = AS_EPS;                   ///< Differential component
+double  settings_as_loglo           = AS_LOGLO;                 ///< Local-Global interaction exponent
 
-double  AS_GLOBAL        = 1.0;                                 ///< Global field strength (% of V_MAX)
-double  AS_VMAX          = 2.5;                                 ///< Maximum goal waypoint translation
-double  AS_HOME          = 0.4;                                 ///< What defines close enough to home for landing
+double  settings_as_global_strength = AS_GLOBAL_STR;            ///< Global field strength (% of V_MAX)
+double  settings_as_vmax            = AS_VMAX;                  ///< Maximum goal waypoint translation
 
 /// Set up global attractor parameters ///
-int     AS_ATTRACTOR     = AS_CIRCLE_CW;                        ///< The type of global attractor/field
-double  AS_CIRCLE_R      = 1.75;                                ///< Radius of the circle field
-double  AS_DEADZONE      = 0.2;                                 ///< Deadzone near the centre of the global field to prevent spinning around the centre
+int     settings_as_attractor       = AS_GLOBAL_ATTRACTOR;      ///< The type of global attractor/field
+double  settings_as_circle_radius   = AS_CIRCLE_RADIUS;         ///< Radius of the circle field
+double  settings_as_deadzone        = AS_DEADZONE;              ///< Deadzone near the centre of the global field to prevent spinning around the centre
 
 /// Initialize parameters to be assigned during runtime ///
-extern memoryBlock          neighbourMem[ARF_MAX_OBJECTS];      ///< The array of neighbours from active_random_filter
-extern uint8_t              neighbourMem_size;                  ///< The size of the neighbour array
 static uint32_t             runCount        = 0;                ///< The current frame number
 static const char *         flight_blocks[] = FP_BLOCKS;        ///< Array of flight blocks
 static double               prev_v_d[3]     = {0.0, 0.0, 0.0};  ///< Previous totV used for differential component
@@ -129,8 +180,6 @@ void autoswarm_init( void ){
         printf("[AS] Writing tracking results to: %s\n", resultFile);
     }
 #endif
-    ARF_CAM_RANGE = AS_SEPARATION * AS_LATTICE_RATIO;
-    cv_add_to_device(&AS_CAMERA, autoswarm_run);
     printf("[AS] initialized, set ar_filter cam_range to %0.2f\n",ARF_CAM_RANGE);
     return;
 }
@@ -139,11 +188,13 @@ void autoswarm_init( void ){
  *
  * This function calculates the desired waypoints and sets the correct heading
  */
-struct image_t* autoswarm_run(struct image_t* img){
+void autoswarm_run( void ){
+    /*
     if (strcmp("Swarm",flight_blocks[nav_block]) && strcmp("Swarm Home",flight_blocks[nav_block])){
         ///< Don't run if we are not in flight block "Swarm" or "Swarm Home"
-        return NULL;
+        return;
     }
+    */
 #if AS_WRITE_RESULTS
     currentTime     = time(0);                                              ///< Get the current time
     curT            = difftime(currentTime,startTime);                      ///< Calculate time-difference between startTime and currentTime
@@ -156,9 +207,9 @@ struct image_t* autoswarm_run(struct image_t* img){
     calculateVelocityResponse(pos, eulerAngles, totV, gi);                  ///< Calculate the velocity response of the agent and store result in totV and gi
     calculateCamPosition(pos, eulerAngles, totV, gi, cPos);                 ///< Calculate WP_CAM/heading based on pos,totV and gi and store in cPos
     updateWaypoints(pos, totV, cPos);                                       ///< Update waypoints based on velocity contribution
-    autoswarm_opencv_write_log();                                           ///< Write to log file
+    autoswarm_write_log();                                           ///< Write to log file
     runCount++;                                                             ///< Update global run-counter
-    return NULL;
+    return;
 }
 
 /** Calulates the velocity response
@@ -177,11 +228,11 @@ void calculateVelocityResponse(struct NedCoor_f *pos, struct FloatEulers* eulerA
     double g_coeff  = calculateLocalGlobalCoeff(pos, gi);   ///< Calculate the local-global interaction coefficient
     totV[0]         = li[0] + g_coeff * gi[0];              ///< Scale the global component with the local-global interaction coefficient and add them
     totV[1]         = li[1] + g_coeff * gi[1];
-    limitNorm(totV, AS_VMAX);                        ///< Check if the desired velocity exceeds AS_VMAX
+    limitNorm(totV, settings_as_vmax);                      ///< Check if the desired velocity exceeds settings_as_vmax
     calculateDiffVelocity(totV, di);                        ///< Calculate the differential component based on change in desired velocity
     totV[0]         = totV[0] + di[0];                      ///< Add differential component
     totV[1]         = totV[1] + di[1];
-    if (AS_MODE!=AS_CAM_GLOBAL){
+    if (settings_as_heading_mode!=AS_CAM_GLOBAL){
         limitVelocityYaw(eulerAngles, totV);                ///< Limit the velocity when heading change gets larger
     }
     return;
@@ -195,11 +246,16 @@ void calculateVelocityResponse(struct NedCoor_f *pos, struct FloatEulers* eulerA
  * This function calculates local velocity response based on our neighbours
  */
 void calculateLocalVelocity(struct NedCoor_f *pos, double li[3]){
+#ifdef __linux__
+  pthread_mutex_lock(&neighbourMem_mutex);
+#endif
     for (uint8_t i=0; i < neighbourMem_size; i++){
         double r    = sqrt( pow( ( pos->x - neighbourMem[i].x_w ), 2.0 ) + pow( ( pos->y - neighbourMem[i].y_w ), 2.0 ) );                  ///< The range to this neighbour
-        double li_n = 12 * AS_E / r * ( pow( AS_SEPARATION / r, 12.0 ) - pow( AS_SEPARATION / r, 6.0 ) );              ///< Local contribution scaling factor
-        li[0]      += li_n * (pos->x - neighbourMem[i].x_w) / r;                                                                            ///< Local contribution in x
-        li[1]      += li_n * (pos->y - neighbourMem[i].y_w) / r;                                                                            ///< Local contribution in y
+        if(r < settings_as_lattice_ratio * settings_as_separation){
+            double li_n = 12 * settings_as_e / r * ( pow( settings_as_separation / r, 12.0 ) - pow( settings_as_separation / r, 6.0 ) );    ///< Local contribution scaling factor
+            li[0]      += li_n * (pos->x - neighbourMem[i].x_w) / r;                                                                        ///< Local contribution in x
+            li[1]      += li_n * (pos->y - neighbourMem[i].y_w) / r;                                                                        ///< Local contribution in y
+        }
     }
     if (neighbourMem_size > 0){
         li[0] = li[0] / neighbourMem_size;                                                                                                  ///< Average the local contribution (nr. neighbours independent)
@@ -211,6 +267,9 @@ void calculateLocalVelocity(struct NedCoor_f *pos, double li[3]){
         li[1] = 0.0;
         li[2] = 0.0;
     }
+#ifdef __linux__
+  pthread_mutex_unlock(&neighbourMem_mutex);
+#endif
     return;
 }
 
@@ -223,27 +282,32 @@ void calculateLocalVelocity(struct NedCoor_f *pos, double li[3]){
  * This function calculates the local-global interaction coefficient
  */
 double calculateLocalGlobalCoeff(struct NedCoor_f *pos, double gi[3]){
+#ifdef __linux__
+    pthread_mutex_lock(&neighbourMem_mutex);
+#endif
+    double result = 0.0;
     if (neighbourMem_size > 0){
         double w_neighbours[2]  = {0.0, 0.0};                                                                                               ///< weighed neighbours vector
         for (unsigned int r = 0; r < neighbourMem_size; r++){
             double range            = sqrt( pow( ( pos->x - neighbourMem[r].x_w ), 2.0 ) + pow( ( pos->y - neighbourMem[r].y_w ), 2.0 ) );  ///< Range of neighbour
-            if(range > AS_SEPARATION * AS_LATTICE_RATIO){
-                continue;                                                                                                                   ///< Ignore everything outside the lattice
+            if(range < settings_as_separation * settings_as_lattice_ratio){
+                double rel_dist         = fmin( 1.0, ( settings_as_lattice_ratio * settings_as_separation - range )
+                        / ( settings_as_separation * ( settings_as_lattice_ratio - 1 ) ) );                             ///< Relative distance coefficient
+                w_neighbours[0]        += pow( rel_dist, 2.0 ) * ( pos->x - neighbourMem[r].x_w ) / range;                                  ///< Calculate neighbour contribution to weighed neighbours
+                w_neighbours[1]        += pow( rel_dist, 2.0 ) * ( pos->y - neighbourMem[r].y_w ) / range;
             }
-            double rel_dist         = fmin( 1.0, ( AS_LATTICE_RATIO * AS_SEPARATION - range )
-                                        / ( AS_SEPARATION * ( AS_LATTICE_RATIO - 1 ) ) );                                     ///< Relative distance coefficient
-            w_neighbours[0]        += pow( rel_dist, 2.0 ) * ( pos->x - neighbourMem[r].x_w ) / range;                                      ///< Calculate neighbour contribution to weighed neighbours
-            w_neighbours[1]        += pow( rel_dist, 2.0 ) * ( pos->y - neighbourMem[r].y_w ) / range;
         }
         double gi_n             = sqrt( pow( gi[0], 2.0 ) + pow( gi[1], 2.0 ) );                                                            ///< Norm of global interaction
         w_neighbours[0] *= gi_n;                                                                                                            ///< Scale weighed neighbours vector by global contribution
         w_neighbours[1] *= gi_n;
         double c_gi_coef   = ( w_neighbours[0] * gi[0] + w_neighbours[1] * gi[1] ) / pow( gi_n, 2.0 );                                      ///< dot product between weighed neighbours and global interaction, divided by dot produgt of global interaction and global interaction;
-        return pow( fmin( 1.0, fmax( 0.0,
-                2.0 - sqrt( pow( gi[0] * ( 1 - c_gi_coef), 2.0 ) + pow( gi[1] * (1 - c_gi_coef), 2.0 ) ) / gi_n ) ), AS_LOGLO );     ///< Return local-global interaction coefficient
-    }else{
-        return 1.0;
+        result = pow( fmin( 1.0, fmax( 0.0,
+                2.0 - sqrt( pow( gi[0] * ( 1 - c_gi_coef), 2.0 ) + pow( gi[1] * (1 - c_gi_coef), 2.0 ) ) / gi_n ) ), settings_as_loglo );   ///< Return local-global interaction coefficient
     }
+#ifdef __linux__
+    pthread_mutex_unlock(&neighbourMem_mutex);
+#endif
+    return result;
 }
 
 /** Calulates the global velocity component
@@ -254,38 +318,38 @@ double calculateLocalGlobalCoeff(struct NedCoor_f *pos, double gi[3]){
  * This function calculates the global velocity component
  */
 void calculateGlobalVelocity(struct NedCoor_f *pos, double gi[3]){
-    switch (AS_ATTRACTOR){
+    switch (settings_as_attractor){
     case AS_POINT :{
        double cr     = sqrt( pow( globalOrigin.cx - pos->x, 2.0 ) + pow( globalOrigin.cy - pos->y, 2.0 ) );
-        if (cr > AS_DEADZONE){
-            gi[0]               = AS_GLOBAL * AS_VMAX * ( globalOrigin.cx - pos->x ) / cr;
-            gi[1]               = AS_GLOBAL * AS_VMAX * ( globalOrigin.cy - pos->y ) / cr;
+        if (cr > settings_as_deadzone){
+            gi[0]               = settings_as_global_strength * settings_as_vmax * ( globalOrigin.cx - pos->x ) / cr;
+            gi[1]               = settings_as_global_strength * settings_as_vmax * ( globalOrigin.cy - pos->y ) / cr;
         }
         break;
     }
     case AS_BUCKET :{
         double cr     = sqrt( pow( globalOrigin.cx - pos->x, 2.0 ) + pow( globalOrigin.cy - pos->y, 2.0 ) );
-        if (cr > AS_DEADZONE){
-            double gScalar      = 0.5 * AS_GLOBAL * ( 1 - 1 / ( 1 + exp( 4 / AS_SEPARATION * (cr - AS_SEPARATION ) ) ) );
-            gi[0]               = gScalar * AS_VMAX * ( globalOrigin.cx - pos->x ) / cr;
-            gi[1]               = gScalar * AS_VMAX * ( globalOrigin.cy - pos->y ) / cr;
+        if (cr > settings_as_deadzone){
+            double gScalar      = 0.5 * settings_as_global_strength * ( 1 - 1 / ( 1 + exp( 4 / settings_as_separation * (cr - settings_as_separation ) ) ) );
+            gi[0]               = gScalar * settings_as_vmax * ( globalOrigin.cx - pos->x ) / cr;
+            gi[1]               = gScalar * settings_as_vmax * ( globalOrigin.cy - pos->y ) / cr;
         }
         break;
     }
     case AS_CIRCLE_CW :
     case AS_CIRCLE_CC :{
         double cr     = sqrt( pow( globalOrigin.cx - pos->x, 2.0 ) + pow( globalOrigin.cy - pos->y, 2.0 ) );
-        if (cr > AS_DEADZONE){
+        if (cr > settings_as_deadzone){
             double angle;
-            if (cr >= AS_CIRCLE_R){
-                angle   = 90 * AS_CIRCLE_R / cr;
+            if (cr >= settings_as_circle_radius){
+                angle   = 90 * settings_as_circle_radius / cr;
             }
             else{
-                angle   = 90 + 90 * (AS_CIRCLE_R - cr) / AS_CIRCLE_R;     // From 90 to 180 over the length of AS_CIRCLE_R
+                angle   = 90 + 90 * (settings_as_circle_radius - cr) / settings_as_circle_radius;     // From 90 to 180 over the length of settings_as_circle_radius
             }
-            if (AS_ATTRACTOR != AS_CIRCLE_CC)     angle = -angle;         // Switch between cc (+) and cw (-)
-            double xContrib     = AS_GLOBAL * AS_VMAX * ( globalOrigin.cx - pos->x ) / cr;
-            double yContrib     = AS_GLOBAL * AS_VMAX * ( globalOrigin.cy - pos->y ) / cr;
+            if (settings_as_attractor != AS_CIRCLE_CC)     angle = -angle;         // Switch between cc (+) and cw (-)
+            double xContrib     = settings_as_global_strength * settings_as_vmax * ( globalOrigin.cx - pos->x ) / cr;
+            double yContrib     = settings_as_global_strength * settings_as_vmax * ( globalOrigin.cy - pos->y ) / cr;
             gi[0]               = cos( angle / 180 * M_PI ) * xContrib - sin( angle / 180 * M_PI ) * yContrib;
             gi[1]               = sin( angle / 180 * M_PI ) * xContrib + cos( angle / 180 * M_PI ) * yContrib;
         }
@@ -304,8 +368,8 @@ void calculateGlobalVelocity(struct NedCoor_f *pos, double gi[3]){
  * This function calculates the differential velocity component
  */
 void calculateDiffVelocity(double totV[3], double di[3]){
-    di[0]       = - AS_EPS * ( totV[0] - prev_v_d[0] );
-    di[1]       = - AS_EPS * ( totV[1] - prev_v_d[1] );
+    di[0]       = - settings_as_eps * ( totV[0] - prev_v_d[0] );
+    di[1]       = - settings_as_eps * ( totV[1] - prev_v_d[1] );
     prev_v_d[0] = totV[0];
     prev_v_d[1] = totV[1];
     prev_v_d[2] = totV[2];
@@ -322,7 +386,7 @@ void calculateDiffVelocity(double totV[3], double di[3]){
  * This function calculates the differential velocity component
  */
 void calculateCamPosition(struct NedCoor_f *pos, struct FloatEulers* eulerAngles, double totV[3], double gi[3], double cPos[3]){
-    if (AS_MODE == AS_CAM_FORWARD){                     ///< Point WP_CAM on unity circle towards totV
+    if (settings_as_heading_mode == AS_CAM_FORWARD){                     ///< Point WP_CAM on unity circle towards totV
         double velR = sqrt(pow(totV[0], 2.0) + pow(totV[1], 2.0));
         if (velR > 0){
             cPos[0] = pos->x + totV[0] / velR;
@@ -335,7 +399,7 @@ void calculateCamPosition(struct NedCoor_f *pos, struct FloatEulers* eulerAngles
             cPos[2] = pos->z;
         }
     }
-    if (AS_MODE == AS_CAM_GLOBAL){                        ///< Point WP_CAM on unity circle towards global component
+    if (settings_as_heading_mode == AS_CAM_GLOBAL){                        ///< Point WP_CAM on unity circle towards global component
         double velR = sqrt(pow(gi[0], 2.0) + pow(gi[1], 2.0));
         if (velR > 0){
             cPos[0]     = pos->x + gi[0] / velR;
@@ -407,7 +471,7 @@ void updateWaypoints(struct NedCoor_f *pos, double totV[3], double cPos[3]){
     if (!strcmp("Swarm",flight_blocks[nav_block]) || !strcmp("Swarm Home",flight_blocks[nav_block])){
         nav_set_heading_towards_waypoint(WP__CAM);                                                                          ///< Currently in block "Swarm" or "Swarm Home" so update heading
     }
-    if (AS_SHOW_WAYPOINT) PRINT("WP_CAM (%0.2f m, %0.2f m) \tWP_GOAL (%0.2f m, %0.2f m) \tWP_GLOBAL (%0.2f m, %0.2f m)\n", cPos[0], cPos[1], pos->x + totV[0], pos->y + totV[1], globalOrigin.cx, globalOrigin.cy);
+    if (AS_PRINT_WAYPOINT) PRINT("WP_CAM (%0.2f m, %0.2f m) \tWP_GOAL (%0.2f m, %0.2f m) \tWP_GLOBAL (%0.2f m, %0.2f m)\n", cPos[0], cPos[1], pos->x + totV[0], pos->y + totV[1], globalOrigin.cx, globalOrigin.cy);
 }
 
 /** Checks if position is close enough to waypoint _TD
@@ -430,8 +494,11 @@ bool amIhome(void){
  *
  * This function writes a log to the disk //TODO: fix
  */
-void autoswarm_opencv_write_log(){
+void autoswarm_write_log(){
 #if AS_WRITE_RESULTS                                                 // See if we want to write results
+#ifdef __linux__
+  pthread_mutex_lock(&neighbourMem_mutex);
+#endif
     pFile         = fopen("/data/ftp/internal_000/results.txt","a");        // Open file for appending
     if (pFile == NULL){
         perror("[AS-ERROR] File error");
@@ -442,6 +509,9 @@ void autoswarm_opencv_write_log(){
         if (pFile != NULL) fprintf(pFile, "%i\t%i\t%i\t%i\t%0.2f\t%0.2f\t%0.2f\t%0.2f\t%0.2f\t%0.2f\n", neighbourMem[r].id, memInt, runCount, curT, pos->x, pos->y, pos->z, neighbourMem[r].x_w, neighbourMem[r].y_w, neighbourMem[r].z_w); // if file writing is enabled, write to file
     }
     if (pFile != NULL) fclose(pFile);    // Close file
+#ifdef __linux__
+  pthread_mutex_unlock(&neighbourMem_mutex);
 #endif
-    if ((AS_SHOW_MEM==1 && neighbourMem_size > 0) || AS_SHOW_WAYPOINT || AS_BENCHMARK) printf("\n"); // Separate terminal output by newline
+#endif
+    if (AS_PRINT_WAYPOINT) printf("\n"); // Separate terminal output by newline
 }

@@ -23,14 +23,17 @@
  * Active random sampling colour filter
  */
 
-#ifndef CAM_STAB_CAMERA
-#define CAM_STAB_CAMERA front_camera
-#endif
-
 #include "modules/computer_vision/cv.h"
 #include "modules/computer_vision/cv_bebop_camera_stabilization.h"
 #include "modules/computer_vision/bebop_camera_stabilization.h"
 #include "modules/computer_vision/cv_image_pose.h"
+
+#include BOARD_CONFIG
+
+#ifndef CAM_STAB_CAMERA
+#define CAM_STAB_CAMERA front_camera
+#endif
+PRINT_CONFIG_VAR(CAM_STAB_CAMERA);
 
 struct image_t* cv_cam_stab_func(struct image_t* img);
 struct image_t* cv_cam_stab_func(struct image_t* img)

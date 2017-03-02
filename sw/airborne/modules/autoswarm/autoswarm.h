@@ -42,26 +42,24 @@
 #define AS_CAM_FORWARD       1
 #define AS_CAM_GLOBAL        2
 
-extern double   AS_CIRCLE_R;
-extern double   AS_SEPARATION;
-extern int      AS_ATTRACTOR;
-extern double   AS_AMAX;
-extern double   AS_VMAX;
-extern double   AS_YAWRATEMAX;
-extern double   AS_GLOBAL;
-extern int      AS_MODE;
-extern double   AS_E;
-extern double   AS_EPS;
+extern double   settings_as_circle_radius;
+extern double   settings_as_separation;
+extern int      settings_as_attractor;
+extern double   settings_as_vmax;
+extern double   settings_as_global_strength;
+extern int      settings_as_heading_mode;
+extern double   settings_as_e;
+extern double   settings_as_eps;
 
 // Initialize global attractor
 struct originPoint { double cx; double cy; double cz;};
 struct originPoint globalOrigin;
 static inline void setGlobalOrigin  (double x, double y, double z){ globalOrigin.cx = x; globalOrigin.cy = y; globalOrigin.cz = z;};
-static inline bool setGlobalMode    (int mode){ AS_ATTRACTOR = mode; return false; };
-static inline bool setSwarmMode     (int mode){ AS_MODE = mode; return false; };
+static inline bool setGlobalMode    (int mode){ settings_as_attractor = mode; return false; };
+static inline bool setSwarmMode     (int mode){ settings_as_heading_mode = mode; return false; };
 
 void autoswarm_init                 ( void );
-struct image_t* autoswarm_run       ( struct image_t* img );
+void autoswarm_run                  ( void );
 bool amIhome                        ( void );
 
 #endif

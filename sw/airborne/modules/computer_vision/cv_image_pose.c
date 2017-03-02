@@ -23,13 +23,16 @@
  * Gets euler angles and rates at time of image capture
  */
 
-#ifndef IMAGE_POSE_CAMERA
-#define IMAGE_POSE_CAMERA front_camera
-#endif
-
 #include "modules/computer_vision/cv.h"
 #include "modules/pose_history/pose_history.h"
 #include "modules/computer_vision/cv_image_pose.h"
+
+#include BOARD_CONFIG
+
+#ifndef IMAGE_POSE_CAMERA
+#define IMAGE_POSE_CAMERA front_camera
+#endif
+PRINT_CONFIG_VAR(IMAGE_POSE_CAMERA)
 
 struct pose_t cv_image_pose;
 
