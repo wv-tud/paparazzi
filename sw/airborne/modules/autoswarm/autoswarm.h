@@ -23,47 +23,45 @@
  * Autonomous bebop swarming module based on vision
  */
 
-#ifndef AUTOSWARM_OPENCV_H
-#define AUTOSWARM_OPENCV_H
+#ifndef AS_H
+#define AS_H
 
-#ifdef __cplusplus
-extern "C" {
-#endif
 #include "std.h"
+#include "stdbool.h"
+#include <math.h>                                           ///< Used for sin/cos/tan/M_PI/abs
+#include <time.h>                                           ///< Used to write time to results.txt
+#include <stdio.h>                                          ///< Used for printing
+#include <errno.h>                                          ///< Used for error handling
 
 // Global options definitions
-#define AUTOSWARM_POINT 			0
-#define AUTOSWARM_BUCKET 			1
-#define AUTOSWARM_CIRCLE_CW 		2
-#define AUTOSWARM_CIRCLE_CC 		3
+#define AS_POINT             0
+#define AS_BUCKET            1
+#define AS_CIRCLE_CW         2
+#define AS_CIRCLE_CC         3
 /// Camera options definitions
-#define AUTOSWARM_CAM_FORWARD       1
-#define AUTOSWARM_CAM_GLOBAL        2
+#define AS_CAM_FORWARD       1
+#define AS_CAM_GLOBAL        2
 
-extern double 	AUTOSWARM_CIRCLE_R;
-extern double 	AUTOSWARM_SEPERATION;
-extern int 		AUTOSWARM_ATTRACTOR;
-extern double 	AUTOSWARM_AMAX;
-extern double 	AUTOSWARM_VMAX;
-extern double	AUTOSWARM_YAWRATEMAX;
-extern double 	AUTOSWARM_GLOBAL;
-extern int 		AUTOSWARM_MODE;
-extern double 	AUTOSWARM_E;
-extern double 	AUTOSWARM_EPS;
+extern double   AS_CIRCLE_R;
+extern double   AS_SEPARATION;
+extern int      AS_ATTRACTOR;
+extern double   AS_AMAX;
+extern double   AS_VMAX;
+extern double   AS_YAWRATEMAX;
+extern double   AS_GLOBAL;
+extern int      AS_MODE;
+extern double   AS_E;
+extern double   AS_EPS;
 
 // Initialize global attractor
 struct originPoint { double cx; double cy; double cz;};
 struct originPoint globalOrigin;
 static inline void setGlobalOrigin  (double x, double y, double z){ globalOrigin.cx = x; globalOrigin.cy = y; globalOrigin.cz = z;};
-static inline bool setGlobalMode    (int mode){ AUTOSWARM_ATTRACTOR = mode; return false; };
-static inline bool setSwarmMode     (int mode){ 	AUTOSWARM_MODE = mode; return false; };
+static inline bool setGlobalMode    (int mode){ AS_ATTRACTOR = mode; return false; };
+static inline bool setSwarmMode     (int mode){ AS_MODE = mode; return false; };
 
-void autoswarm_opencv_init          ( uint8_t globalMode );
-void autoswarm_opencv_run           ( struct image_t* img );
-bool amIhome                        (void);
-
-#ifdef __cplusplus
-}
-#endif
+void autoswarm_init                 ( void );
+struct image_t* autoswarm_run       ( struct image_t* img );
+bool amIhome                        ( void );
 
 #endif

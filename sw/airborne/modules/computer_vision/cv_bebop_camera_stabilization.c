@@ -30,13 +30,12 @@
 #include "modules/computer_vision/cv.h"
 #include "modules/computer_vision/cv_bebop_camera_stabilization.h"
 #include "modules/computer_vision/bebop_camera_stabilization.h"
-#include "modules/pose_history/pose_history.h"
+#include "modules/computer_vision/cv_image_pose.h"
 
 struct image_t* cv_cam_stab_func(struct image_t* img);
 struct image_t* cv_cam_stab_func(struct image_t* img)
 {
-    struct pose_t imagePose = get_rotation_at_timestamp(img->pprz_ts);
-	bebop_camera_stabilization((char*) img->buf, (uint16_t) img->w, (uint16_t) img->h, &imagePose.eulers);
+	bebop_camera_stabilization((char*) img->buf, (uint16_t) img->w, (uint16_t) img->h, &cv_image_pose.eulers);
 	return NULL;
 }
 

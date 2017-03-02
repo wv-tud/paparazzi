@@ -1,0 +1,18 @@
+<!DOCTYPE module SYSTEM "module.dtd">
+
+<module name="cv_image_pose" dir="computer_vision">
+  <doc>
+    <description>Get euler angles and rates at time of image capture</description>
+  </doc>
+  <header>
+  	<file name="../pose_history/pose_history.h"/>
+    <file name="cv_image_pose.h"/>
+  </header>
+  <init fun="cv_image_pose_init()"/>
+  <makefile>
+  	<define name="POSE_HISTORY_SIZE" value="100"/>
+  	<file name="../pose_history/pose_history.c"/>
+    <file name="cv_image_pose.c"/>
+  </makefile>
+</module>
+

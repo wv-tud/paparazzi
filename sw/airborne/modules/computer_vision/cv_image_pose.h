@@ -1,5 +1,5 @@
 /*
- * Copyright (C) Wilco Vlenterie
+ * Copyright (C) w.vlenterie
  *
  * This file is part of paparazzi
  *
@@ -18,16 +18,20 @@
  * <http://www.gnu.org/licenses/>.
  */
 /**
- * @file "modules/computer_vision/wv_swarm/cv_swarm.h"
- * @author Wilco Vlenterie
- * @brief Swarming module for bebop
- *
- * Swarming with bebop for thesis
+ * @file "modules/computer_vision/cv_image_pose.h"
+ * @author w.vlenterie
+ * Gets euler angles and rates at time of image capture
  */
 
-#ifndef SW_AIRBORNE_MODULES_COMPUTER_VISION_WV_SWARM_CV_SWARM_H_
-#define SW_AIRBORNE_MODULES_COMPUTER_VISION_WV_SWARM_CV_SWARM_H_
+#ifndef CV_IMAGE_POSE_H
+#define CV_IMAGE_POSE_H
 
-extern void cv_swarm_init(void);
+#include "pose_history/pose_history.h"
 
-#endif /* SW_AIRBORNE_MODULES_COMPUTER_VISION_WV_SWARM_CV_SWARM_H_ */
+extern struct pose_t cv_image_pose;
+
+void cv_image_pose_init( void );
+struct image_t* cv_image_pose_func(struct image_t* img);
+
+#endif
+

@@ -1,5 +1,5 @@
 /*
- * Copyright (C) Wilco Vlenterie
+ * Copyright (C) w.vlenterie
  *
  * This file is part of paparazzi
  *
@@ -18,14 +18,26 @@
  * <http://www.gnu.org/licenses/>.
  */
 /**
- * @file "modules/computer_vision/autoswarm//autoswarm.h"
- * @author Wilco Vlenterie
- * Autonomous bebop swarming module based on vision
+ * @file "modules/computer_vision/cv_image_pose.c"
+ * @author w.vlenterie
+ * Gets euler angles and rates at time of image capture
  */
 
-#ifndef AUTOSWARM_H
-#define AUTOSWARM_H
-
-extern void autoswarm_init(void);
-
+#ifndef IMAGE_POSE_CAMERA
+#define IMAGE_POSE_CAMERA front_camera
 #endif
+
+#include "modules/computer_vision/cv.h"
+#include "modules/pose_history/pose_history.h"
+#include "modules/computer_vision/cv_image_pose.h"
+
+struct pose_t cv_image_pose;
+
+void cv_image_pose_init( void ) {
+    cv_add_to_device(&IMAGE_POSE_CAMERA, cv_image_pose_func);
+}
+
+struct image_t* cv_image_pose_func(struct image_t* img){
+    cv_image_pose = get_rotation_at_timestamp(img->pprz_ts);
+    return NULL;
+}
