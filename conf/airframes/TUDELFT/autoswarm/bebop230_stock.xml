@@ -43,7 +43,7 @@
 			<define name="FILE_LOGGER_PATH" value="/data/ftp/internal_000" />
 		</module>
 		<module name="pose_history">
-			<define name="POSE_HISTORY_SIZE" value="100" />
+			<define name="POSE_HISTORY_SIZE" value="50" />
 		</module>
 		<module name="autoswarm">
 			<define name="AUTOSWARM_GLOBAL_ATTRACTOR" value="2" />

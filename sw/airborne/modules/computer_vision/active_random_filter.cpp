@@ -54,22 +54,32 @@ using namespace cv;
 
 #define xSign(x) ( ( x ) >= ( 0 ) ? ( 1 ) : ( -1 ) )
 
-#define ARF_MARK_CONTOURS   1                       ///< Mark all contour pixels green on sourceframe
+#define ARF_MARK_CONTOURS   0                       ///< Mark all contour pixels green on sourceframe
 #define ARF_BALL_CIRCLES    1                       ///< Draw circles around balls
 #define ARF_GATE_CORNERS    1                       ///< Plot corner points of Gates
 #define ARF_PLOT_COORDS     0                       ///< Plot the coordinates of balls on frame
-#define ARF_DISTANCE_PLOT   0                       ///< Plot lines with distance on frame
+#define ARF_DISTANCE_PLOT   1                       ///< Plot lines with distance on frame
 #define ARF_CROSSHAIR       0                       ///< Plot horizon
-#define ARF_SHOW_CAM_INFO   1                       ///< Show colour gains and exposure on frame
+#define ARF_SHOW_CAM_INFO   0                       ///< Show colour gains and exposure on frame
 #define ARF_SHOW_STATS      0                       ///< Show statistics on the performance of the contour detection
 
 #define ARF_MEASURE_FPS     1                       ///< Measure average FPS
 #define ARF_TIMEOUT         50                      ///< Frames from start
 #define ARF_WRITE_LOG       0                       ///< Write tracking results to logfile
 
-#define ARF_WORLDPOS        0                       ///< Use world coordinates
-#define ARF_NOYAW           1                       ///< Output in body horizontal XY
-#define ARF_USE_ALTITUDE    0                       ///< Use own altitude for world pos
+#define ARF_USE_WORLDPOS    1                       ///< Use world coordinates
+#define ARF_USE_YAW         1                       ///< Output in body horizontal XY
+#define ARF_USE_ALTITUDE    1                       ///< Use own altitude for world pos
+
+#if ARF_USE_WORLDPOS == 0
+#warning [AR_FILTER] Not using world coordinates
+#endif
+#if ARF_USE_YAW == 0
+#warning [AR_FILTER] Not using yaw angle
+#endif
+#if ARF_USE_ALTITUDE == 0
+#warning [AR_FILTER] Not using altitude
+#endif
 
 #define ARF_SHOW_REJECT     0                       ///< Print why shapes are rejected
 #define ARF_MOD_VIDEO       1                       ///< Modify the frame to show relevant info
@@ -534,7 +544,7 @@ void cam2body(trackResults* trackRes){
 }
 
 void body2world( struct FloatEulers*  eulerAngles, trackResults* trackRes){
-#if ARF_WORLDPOS
+#if ARF_USE_WORLDPOS
     pos     = stateGetPositionNed_f();      // Get your current position
 #else
     struct NedCoor_f fakePos;
@@ -543,7 +553,7 @@ void body2world( struct FloatEulers*  eulerAngles, trackResults* trackRes){
     fakePos.z       = 0.0;
     pos             = &fakePos;
 #endif
-#if ARF_NOYAW
+#if !ARF_USE_YAW
     double psi      = 0.0;
 #else
     double psi      = eulerAngles->psi;

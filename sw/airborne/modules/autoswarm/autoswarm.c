@@ -189,12 +189,10 @@ void autoswarm_init( void ){
  * This function calculates the desired waypoints and sets the correct heading
  */
 void autoswarm_run( void ){
-    /*
     if (strcmp("Swarm",flight_blocks[nav_block]) && strcmp("Swarm Home",flight_blocks[nav_block])){
         ///< Don't run if we are not in flight block "Swarm" or "Swarm Home"
         return;
     }
-    */
 #if AS_WRITE_RESULTS
     currentTime     = time(0);                                              ///< Get the current time
     curT            = difftime(currentTime,startTime);                      ///< Calculate time-difference between startTime and currentTime
