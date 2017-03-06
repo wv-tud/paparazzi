@@ -24,7 +24,9 @@
  */
 
 #include "modules/computer_vision/cv_bebop_stabilization.h"
+#include "modules/computer_vision/cv_image_pose.h"
 #include "modules/computer_vision/lib/opengl/opengl.h"
+
 #include "modules/computer_vision/cv.h"
 #include <state.h>
 #include <stdio.h>
@@ -59,6 +61,8 @@ static const GLfloat textureVertices[] = {
 		1.0f, 1.0f,
 };
 
+GLeglImageOES image;
+
 // Lens correction parameter k
 int   noroll 		= 0;
 int   nopitch 		= 0;
@@ -78,7 +82,11 @@ GLuint ULMVPMat, ULscalar, ULlensCentre, ULaspectRatio, ULfocalLength, ULk;
 struct image_t* cv_bebop_stabilization_func (struct image_t *img)
 {
 	glUseProgram(opengl.programObject);
-		glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, mt9f002.output_width/2, mt9f002.output_height, GL_RGBA, GL_UNSIGNED_BYTE, img->buf);
+		//glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, mt9f002.output_width/2, mt9f002.output_height, GL_RGBA, GL_UNSIGNED_BYTE, img->buf);
+
+	glEGLImageTargetTexture2DOES(GL_TEXTURE_2D, image);
+
+
 	// Set the vertices
 	glVertexAttribPointer((GLuint) 0, 2, GL_FLOAT, GL_FALSE, 0, vVertices);
 	glEnableVertexAttribArray(0);
@@ -93,7 +101,7 @@ struct image_t* cv_bebop_stabilization_func (struct image_t *img)
 	mat4 sensorRotation, eyeTranslationF, headingRotation, eyeTranslationR;
 	setRotationMat(M_PI, 0.0, - 0.5 * M_PI, sensorRotation); // The ISP is 90 degrees rotated wrt the camera and the pinhole camera model flips the image
 	setTranslationMat(-eye[0], -eye[1], -eye[2], eyeTranslationF);
-	setRotationMat(0.0, img->eulerAngles->psi, 0.0, headingRotation);
+	setRotationMat(0.0, cv_image_pose.eulers.psi, 0.0, headingRotation);
 	setTranslationMat( eye[0],  eye[1],  eye[2], eyeTranslationR);
 	mat4 modelMat_tmp1, modelMat_tmp2;
 	matrixMultiply(eyeTranslationF, sensorRotation, modelMat_tmp1);
@@ -102,8 +110,8 @@ struct image_t* cv_bebop_stabilization_func (struct image_t *img)
 	// Create the view matrix
 	//rotateVector(, 0.0, 0.0, forward);
 	//rotateVector(MT9F002_THETA_OFFSET, 0.0, 0.0, up);
-	rotateVector(MT9F002_THETA_OFFSET + img->eulerAngles->theta, img->eulerAngles->psi, img->eulerAngles->phi, forward);
-	rotateVector(MT9F002_THETA_OFFSET + img->eulerAngles->theta, img->eulerAngles->psi, img->eulerAngles->phi, up);
+	rotateVector(MT9F002_THETA_OFFSET + cv_image_pose.eulers.theta, cv_image_pose.eulers.psi, cv_image_pose.eulers.phi, forward);
+	rotateVector(MT9F002_THETA_OFFSET + cv_image_pose.eulers.theta, cv_image_pose.eulers.psi, cv_image_pose.eulers.phi, up);
 	vec4 center;
 	center[0] = eye[0] + forward[0];
 	center[1] = eye[1] + forward[1];
@@ -192,9 +200,9 @@ struct image_t* cv_bebop_stabilization_func (struct image_t *img)
 	//glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
 	glDrawElements(GL_TRIANGLE_STRIP, 6, GL_UNSIGNED_SHORT,  &indices[0]);
 	// Read the image back
-	glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
-	glReadPixels(0, 0, mt9f002.output_width/2, mt9f002.output_height, GL_RGBA, GL_UNSIGNED_BYTE, img->buf);
-	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+	//glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
+	//glReadPixels(0, 0, mt9f002.output_width/2, mt9f002.output_height, GL_RGBA, GL_UNSIGNED_BYTE, img->buf);
+	//glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 	glFinish();
 	return img;
 }
@@ -203,6 +211,9 @@ void cv_bebop_stabilization_init ()
 {
 	printf("Initializing front camera stabilization\n");
 	opengl_init();
+	eglSwapBuffers(opengl.display, opengl.surface);
+
+	image= eglCreateImageKHR(opengl.display, opengl.context, GL_TEXTURE_2D);
 
 	char vShaderStr[] = STRINGIFY(
 	uniform   mat4 modelviewProjection;
@@ -309,8 +320,11 @@ void cv_bebop_stabilization_init ()
 		printf("[opengl] Uniform locations: %i %i %i %i %i %i\n", ULMVPMat, ULscalar, ULlensCentre, ULaspectRatio, ULfocalLength, ULk);
 		glUseProgram(opengl.programObject);
 
+		glEGLImageTargetTexture2DOES(GL_TEXTURE_2D, image);
+		/*
 		char fake_buf[mt9f002.output_width * mt9f002.output_height * 2];
 		glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, mt9f002.output_width/2, mt9f002.output_height, 0, GL_RGBA, GL_UNSIGNED_BYTE, &fake_buf);
+		*/
 		cv_add_to_device(&BS_CAMERA, cv_bebop_stabilization_func);
 	}
 	return;

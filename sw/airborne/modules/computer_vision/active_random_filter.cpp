@@ -24,6 +24,7 @@
  */
 
 #include "active_random_filter.h"
+#include "modules/autoswarm/autoswarm.h"
 #include "bebop_camera_stabilization.h"
 #include <vector>
 #include <ctime>
@@ -54,6 +55,7 @@ using namespace cv;
 
 #define xSign(x) ( ( x ) >= ( 0 ) ? ( 1 ) : ( -1 ) )
 
+#define ARF_SHOW_TOTV       1                       ///< Show the desired velocity vector from the autoswarm module
 #define ARF_MARK_CONTOURS   0                       ///< Mark all contour pixels green on sourceframe
 #define ARF_BALL_CIRCLES    1                       ///< Draw circles around balls
 #define ARF_GATE_CORNERS    1                       ///< Plot corner points of Gates
@@ -149,7 +151,7 @@ static void             mod_video           (Mat& sourceFrame, Mat& frameGrey);
 uint16_t    default_calArea                     = 7650;                 ///< Area of a ball at 1m resolution on full sensor resolution
 uint8_t     ARF_FLOOD_STYLE                     = ARF_FLOOD_CW;         ///< Flood style to search for contours
 uint8_t     ARF_SAMPLE_STYLE                    = ARF_STYLE_RANDOM;     ///< Sample style to search for contours
-double      ARF_CAM_RANGE                       = 10.0;                 ///< Maximum camera range of newly added objects
+double      ARF_CAM_RANGE                       = 3.0;                  ///< Maximum camera range of newly added objects
 uint16_t    ARF_RND_PIX_SAMPLE                  = 2500;                 ///< Random pixel sample size
 uint16_t    ARF_MAX_LAYERS                      = 5000;                 ///< Maximum recursive depth of CW flood
 double 	    ARF_MAX_CIRCLE_DEF 	                = 0.15;                 ///< Maximum contour eccentricity
@@ -660,7 +662,7 @@ bool addContour(vector<Point> contour, uint16_t offsetX, uint16_t offsetY, doubl
         y3      = objCont_store[i + skipSize].y;
         angle2  = atan2(y1 - y2, x1 - x2);
         angle3  = atan2(y2 - y3, x2 - x3);
-        dAngle  = min(fabs(angle2 - angle3), 2 * M_PI - fabs(angle2 - angle3));
+        dAngle  = fmin(fabs(angle2 - angle3), 2 * M_PI - fabs(angle2 - angle3));
         printf("%6.2f\n", dAngle * 180 / M_PI);
         if(dAngle > 35.f / 180.f * M_PI){
             // Found point!
@@ -1748,13 +1750,13 @@ void mod_video(Mat& sourceFrame, Mat& frameGrey){
 #if ARF_BALL_CIRCLES && ARF_OBJECT == ARF_BALL
 	for(unsigned int r=0; r < trackRes_size; r++)         // Convert angles & Write/Print output
 	{
-		circle(sourceFrame,cvPoint(trackRes[r].x_p - cropCol, trackRes[r].y_p), sqrt(trackRes[r].area_p / M_PI), cvScalar(100,255), 1);
+		circle(sourceFrame,cvPoint(trackRes[r].x_p - cropCol, trackRes[r].y_p), sqrt(trackRes[r].area_p / M_PI), cvScalar(100,255), 1, 4);
 	}
 #endif //ARF_BALL_CIRCLES
 #if ARF_DISTANCE_PLOT
 	for(unsigned int r=0; r < trackRes_size; r++)         // Convert angles & Write/Print output
 	{
-	    line(sourceFrame, Point(0,sourceFrame.rows / 2.0), Point(trackRes[r].x_p - cropCol, trackRes[r].y_p), Scalar(0,255), 1);
+	    line(sourceFrame, Point(0,sourceFrame.rows / 2.0), Point(trackRes[r].x_p - cropCol, trackRes[r].y_p), Scalar(0,255), 1, 4);
 	    sprintf(text,"%4.2f", trackRes[r].r_c);
 	    putText(sourceFrame, text, Point((trackRes[r].x_p - cropCol + 0) / 2.0, (trackRes[r].y_p + sourceFrame.rows / 2.0) / 2.0), FONT_HERSHEY_PLAIN, 1, Scalar(0,255), 1);
 	}
@@ -1777,7 +1779,7 @@ void mod_video(Mat& sourceFrame, Mat& frameGrey){
 #if ARF_DISTANCE_PLOT
     for(unsigned int r=0; r < trackRes_size; r++)         // Convert angles & Write/Print output
     {
-        line(sourceFrame, Point(0,sourceFrame.rows / 2.0), Point(trackRes[r].x_p - cropCol, trackRes[r].y_p), Scalar(0,255), 1);
+        line(sourceFrame, Point(0,sourceFrame.rows / 2.0), Point(trackRes[r].x_p - cropCol, trackRes[r].y_p), Scalar(0,255), 1, 4);
         sprintf(text,"%4.2f", trackRes[r].r_c);
         putText(sourceFrame, text, Point((trackRes[r].x_p - cropCol + 0) / 2.0, (trackRes[r].y_p + sourceFrame.rows / 2.0) / 2.0), FONT_HERSHEY_PLAIN, 1, Scalar(0,255), 1);
     }
@@ -1815,6 +1817,17 @@ void mod_video(Mat& sourceFrame, Mat& frameGrey){
 #if ARF_SHOW_CAM_INFO
 	sprintf(text,"R:%4.1f B:%4.1f G1:%4.1f G2:%4.1f Exp: %4.1f / %4.1f", mt9f002.gain_red, mt9f002.gain_blue, mt9f002.gain_green1, mt9f002.gain_green2, mt9f002.real_exposure, mt9f002.target_exposure);
 	putText(sourceFrame, text, Point(10 , 40), FONT_HERSHEY_PLAIN, 1, Scalar(0,255,255), 1);
+#endif
+#if ARF_SHOW_TOTV
+#ifdef __linux__
+  pthread_mutex_lock(&totV_mutex);
+#endif
+    PRINT("lastTotV: %4.2f  %4.2f\n", lastTotV[0], lastTotV[1]);
+    circle(sourceFrame, Point(sourceFrame.cols / 2.0, sourceFrame.rows / 2.0), 3, cvScalar(100,255), 1, 4);
+	arrowedLine(sourceFrame, Point(sourceFrame.cols / 2.0, sourceFrame.rows / 2.0), Point(sourceFrame.cols / 2.0 + 240.0 / settings_as_vmax * lastTotV[0], sourceFrame.rows / 2.0  + 240.0 / settings_as_vmax * lastTotV[1]), Scalar(100,255), 1, 4);
+#ifdef __linux__
+  pthread_mutex_unlock(&totV_mutex);
+#endif
 #endif
 	return;
 }

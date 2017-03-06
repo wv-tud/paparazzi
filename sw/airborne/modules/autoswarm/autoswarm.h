@@ -62,4 +62,7 @@ void autoswarm_init                 ( void );
 void autoswarm_run                  ( void );
 bool amIhome                        ( void );
 
+extern double lastTotV[3];              ///< Used for plotting totV on frame
+extern pthread_mutex_t totV_mutex;
+
 #endif

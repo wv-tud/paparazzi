@@ -34,3 +34,5 @@ void eglTerminate(void) { return; }
 void eglWaitClient(void) { return; }
 void eglWaitGL(void) { return; }
 void eglWaitNative(void) { return; }
+
+void glEGLImageTargetTexture2DOES(void) { return; }

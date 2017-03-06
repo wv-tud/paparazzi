@@ -100,18 +100,23 @@ bool opengl_init(void)
     return FALSE;
   }
 
-  /* Create a window surface */
-  opengl.surface = eglCreatePbufferSurface(opengl.display, opengl.config, opengl_pbuffer_att);
-  if (opengl.surface == EGL_NO_SURFACE) {
-    printf("[opengl] Could not create a pixel buffer surface.\n");
-    eglTerminate(opengl.display);
-    return FALSE;
-  }
-
   /* Create a new context */
   opengl.context = eglCreateContext(opengl.display, opengl.config, EGL_NO_CONTEXT, opengl_context_att);
   if (opengl.context == EGL_NO_CONTEXT) {
     printf("[opengl] Could not create context.\n");
+    eglTerminate(opengl.display);
+    return FALSE;
+  }
+
+  /* Create a window surface */
+  NativeWindowType native_window;
+  //native_window = createNativeWindow();
+  opengl.surface = eglCreateWindowSurface(opengl.display, opengl.config, native_window, NULL);
+  /*
+  opengl.surface = eglCreatePbufferSurface(opengl.display, opengl.config, opengl_pbuffer_att);
+  */
+  if (opengl.surface == EGL_NO_SURFACE) {
+    printf("[opengl] Could not create a pixel buffer surface.\n");
     eglTerminate(opengl.display);
     return FALSE;
   }

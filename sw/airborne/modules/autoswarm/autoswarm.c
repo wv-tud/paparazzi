@@ -44,7 +44,7 @@ PRINT_CONFIG_VAR(AS_VERBOSE)
 #endif
 
 #ifndef AS_GLOBAL_ATTRACTOR
-#define AS_GLOBAL_ATTRACTOR AS_CIRCLE_CW
+#define AS_GLOBAL_ATTRACTOR AS_POINT
 #endif
 PRINT_CONFIG_VAR(AS_GLOBAL_ATTRACTOR)
 
@@ -54,7 +54,7 @@ PRINT_CONFIG_VAR(AS_GLOBAL_ATTRACTOR)
 PRINT_CONFIG_VAR(AS_GLOBAL_STR)
 
 #ifndef AS_SEPARATION
-#define AS_SEPARATION 1.3
+#define AS_SEPARATION 0.5
 #endif
 PRINT_CONFIG_VAR(AS_SEPARATION)
 
@@ -114,6 +114,17 @@ PRINT_CONFIG_VAR(AS_PRINT_WAYPOINT)
 #endif
 PRINT_CONFIG_VAR(AS_WRITE_RESULTS)
 
+#define AS_ADHERE_TO_FP 0
+
+#ifndef AS_ADHERE_TO_FP
+#define AS_ADHERE_TO_FP 1                                       ///< Don't start autoswarm until in block "Swarm" or "Swarm Home"
+#endif
+#if AS_ADHERE_TO_FP
+PRINT_CONFIG_VAR(AS_WRITE_RESULTS)
+#else
+#warning [AS] Not adhering to flightplan
+#endif
+
 /// Static function declarations ///
 static void calculateVelocityResponse(struct NedCoor_f *pos, struct FloatEulers* eulerAngles, double totV[3], double gi[3]);
 static void calculateGlobalVelocity(struct NedCoor_f *pos, double gi[3]);
@@ -147,6 +158,11 @@ double  settings_as_deadzone        = AS_DEADZONE;              ///< Deadzone ne
 static uint32_t             runCount        = 0;                ///< The current frame number
 static const char *         flight_blocks[] = FP_BLOCKS;        ///< Array of flight blocks
 static double               prev_v_d[3]     = {0.0, 0.0, 0.0};  ///< Previous totV used for differential component
+
+#ifdef __linux__
+double                      lastTotV[3]     = {0.0, 0.0, 0.0};  ///< Used for plotting totV on frame
+pthread_mutex_t             totV_mutex;
+#endif
 
 /// Optional variables declarations ///
 #if AS_WRITE_RESULTS
@@ -189,10 +205,12 @@ void autoswarm_init( void ){
  * This function calculates the desired waypoints and sets the correct heading
  */
 void autoswarm_run( void ){
+#if AS_ADHERE_TO_FP
     if (strcmp("Swarm",flight_blocks[nav_block]) && strcmp("Swarm Home",flight_blocks[nav_block])){
         ///< Don't run if we are not in flight block "Swarm" or "Swarm Home"
         return;
     }
+#endif
 #if AS_WRITE_RESULTS
     currentTime     = time(0);                                              ///< Get the current time
     curT            = difftime(currentTime,startTime);                      ///< Calculate time-difference between startTime and currentTime
@@ -205,7 +223,16 @@ void autoswarm_run( void ){
     calculateVelocityResponse(pos, eulerAngles, totV, gi);                  ///< Calculate the velocity response of the agent and store result in totV and gi
     calculateCamPosition(pos, eulerAngles, totV, gi, cPos);                 ///< Calculate WP_CAM/heading based on pos,totV and gi and store in cPos
     updateWaypoints(pos, totV, cPos);                                       ///< Update waypoints based on velocity contribution
-    autoswarm_write_log();                                           ///< Write to log file
+    autoswarm_write_log();                                                  ///< Write to log file
+#ifdef __linux__
+  pthread_mutex_lock(&totV_mutex);
+#endif
+    lastTotV[0] = totV[0];
+    lastTotV[1] = totV[1];
+    lastTotV[2] = totV[2];
+#ifdef __linux__
+  pthread_mutex_unlock(&totV_mutex);
+#endif
     runCount++;                                                             ///< Update global run-counter
     return;
 }
@@ -316,6 +343,7 @@ double calculateLocalGlobalCoeff(struct NedCoor_f *pos, double gi[3]){
  * This function calculates the global velocity component
  */
 void calculateGlobalVelocity(struct NedCoor_f *pos, double gi[3]){
+    setGlobalOrigin(1.0, 0.0, 0.0);
     switch (settings_as_attractor){
     case AS_POINT :{
        double cr     = sqrt( pow( globalOrigin.cx - pos->x, 2.0 ) + pow( globalOrigin.cy - pos->y, 2.0 ) );
@@ -355,6 +383,30 @@ void calculateGlobalVelocity(struct NedCoor_f *pos, double gi[3]){
     }
     default : break;
     }
+    // Add doublets for all neighbours to enhance conflict resolution
+#ifdef __linux__
+  pthread_mutex_lock(&neighbourMem_mutex);
+#endif
+    for (uint8_t i=0; i < neighbourMem_size; i++){
+        double r    = sqrt( pow( ( pos->x - neighbourMem[i].x_w ), 2.0 ) + pow( ( pos->y - neighbourMem[i].y_w ), 2.0 ) );                  ///< The range to this neighbour
+        if(r < settings_as_lattice_ratio * settings_as_separation && r > 0){
+            double gi_n     = sqrt( pow( gi[0], 2.0) + pow( gi[1], 2.0) );
+            r               = fmax(r, settings_as_separation);
+            double angle_gi = atan2(gi[1], gi[0]);
+            double dAngle   = angle_gi - atan2(neighbourMem[i].y_w - pos->y, neighbourMem[i].x_w - pos->x);
+
+            if      (fabs(dAngle) >  2 * M_PI - fabs(dAngle))   dAngle =  2 * M_PI - dAngle;
+            else if (fabs(dAngle) < -2 * M_PI + fabs(dAngle))   dAngle = -2 * M_PI + dAngle;
+
+            double u        = gi_n * (pow(settings_as_separation, 2.0) * (pow(r * sin(dAngle), 2.0) - pow(r * cos(dAngle), 2.0)) + pow( r, 4.0)) / pow( r, 4.0);
+            double v        = (-2) * gi_n * pow(settings_as_separation, 2.0) * cos(dAngle) * sin(dAngle) / pow( r, 2.0);
+            gi[0]           = u * cos(angle_gi) - v * sin(angle_gi);
+            gi[1]           = u * sin(angle_gi) - v * cos(angle_gi);;
+        }
+    }
+#ifdef __linux__
+    pthread_mutex_unlock(&neighbourMem_mutex);
+#endif
     return;
 }
 
