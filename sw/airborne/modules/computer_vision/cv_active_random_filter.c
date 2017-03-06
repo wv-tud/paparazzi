@@ -40,7 +40,7 @@ PRINT_CONFIG_VAR(AR_FILTER_CAMERA)
 struct image_t* cv_ar_filter_func(struct image_t* img);
 struct image_t* cv_ar_filter_func(struct image_t* img)
 {
-	active_random_filter((char*) img->buf, (uint16_t) img->w, (uint16_t) img->h, &cv_image_pose.eulers);
+	active_random_filter((char*) img->buf, (uint16_t) img->w, (uint16_t) img->h);
 	return NULL;
 }
 

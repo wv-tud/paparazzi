@@ -38,6 +38,7 @@ typedef struct _trackResults {
     double  x_b;
     double  y_b;
     double  z_b;
+    double  r_b;
     double  x_w;
     double  y_w;
     double  z_w;
@@ -50,6 +51,7 @@ typedef struct _memBlock {
 	uint16_t y_p;
 	uint32_t area_p;
 	double r_c;
+	double r_b;
 	double x_w;
 	double y_w;
 	double z_w;
@@ -126,7 +128,7 @@ extern "C" {
 #endif
 #include <state.h>                              // C header used for state functions and data
 void active_random_filter_init(void);
-void active_random_filter(char* buff, uint16_t width, uint16_t height, struct FloatEulers* curEulerAngles);
+void active_random_filter(char* buff, uint16_t width, uint16_t height);
 
 extern memoryBlock          neighbourMem[ARF_MAX_OBJECTS];      ///< The array of neighbours from active_random_filter
 extern uint8_t              neighbourMem_size;                  ///< The size of the neighbour array

@@ -26,7 +26,7 @@
 #ifndef CV_IMAGE_POSE_H
 #define CV_IMAGE_POSE_H
 
-#include "pose_history/pose_history.h"
+#include "modules/pose_history/pose_history.h"
 
 extern struct pose_t cv_image_pose;
 

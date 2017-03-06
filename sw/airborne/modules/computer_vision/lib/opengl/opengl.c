@@ -61,6 +61,7 @@ static EGLint opengl_context_att[] = {
 };
 
 /* OpenGL Pixel Buffer attributes */
+
 static EGLint opengl_pbuffer_att[] = {
   EGL_WIDTH, MT9F002_OUTPUT_WIDTH/2,
   EGL_HEIGHT, MT9F002_OUTPUT_HEIGHT,
@@ -109,12 +110,10 @@ bool opengl_init(void)
   }
 
   /* Create a window surface */
-  NativeWindowType native_window;
+  //NativeWindowType native_window;
   //native_window = createNativeWindow();
-  opengl.surface = eglCreateWindowSurface(opengl.display, opengl.config, native_window, NULL);
-  /*
+  //opengl.surface = eglCreateWindowSurface(opengl.display, opengl.config, native_window, opengl_pbuffer_att);
   opengl.surface = eglCreatePbufferSurface(opengl.display, opengl.config, opengl_pbuffer_att);
-  */
   if (opengl.surface == EGL_NO_SURFACE) {
     printf("[opengl] Could not create a pixel buffer surface.\n");
     eglTerminate(opengl.display);

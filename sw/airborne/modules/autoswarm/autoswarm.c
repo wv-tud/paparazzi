@@ -114,8 +114,6 @@ PRINT_CONFIG_VAR(AS_PRINT_WAYPOINT)
 #endif
 PRINT_CONFIG_VAR(AS_WRITE_RESULTS)
 
-#define AS_ADHERE_TO_FP 0
-
 #ifndef AS_ADHERE_TO_FP
 #define AS_ADHERE_TO_FP 1                                       ///< Don't start autoswarm until in block "Swarm" or "Swarm Home"
 #endif
@@ -227,9 +225,7 @@ void autoswarm_run( void ){
 #ifdef __linux__
   pthread_mutex_lock(&totV_mutex);
 #endif
-    lastTotV[0] = totV[0];
-    lastTotV[1] = totV[1];
-    lastTotV[2] = totV[2];
+    lastTotV[0] = totV[0]; lastTotV[1] = totV[1]; lastTotV[2] = totV[2];
 #ifdef __linux__
   pthread_mutex_unlock(&totV_mutex);
 #endif

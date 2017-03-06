@@ -24,6 +24,7 @@
  */
 
 #include "active_random_filter.h"
+#include "modules/computer_vision/cv_image_pose.h"
 #include "modules/autoswarm/autoswarm.h"
 #include "bebop_camera_stabilization.h"
 #include <vector>
@@ -36,6 +37,7 @@ extern "C" {
     #include <state.h>                              ///< C header used for state functions and data
     #include <sys/time.h>                           ///< C header used for system time functions and data
     #include "mcu_periph/sys_time.h"                ///< C header used for PPRZ time functions and data
+    #include <stdio.h>
 }
 
 using namespace std;
@@ -85,7 +87,7 @@ using namespace cv;
 
 #define ARF_SHOW_REJECT     0                       ///< Print why shapes are rejected
 #define ARF_MOD_VIDEO       1                       ///< Modify the frame to show relevant info
-#define ARF_DRAW_BOXES 	    0                       ///< Draw boxes
+#define ARF_DRAW_BOXES 	    1                       ///< Draw boxes
 #define ARF_SHOW_MEM        1                       ///< Print object locations to terminal
 
 #define ARF_BALL            0
@@ -100,7 +102,7 @@ using namespace cv;
 extern void             plotHorizon         ( Mat& sourceFrameCrop, struct FloatEulers*  eulerAngles );
 
 static void             active_random_filter_header ( void );
-static void             active_random_filter_footer ( struct FloatEulers*  eulerAngles );
+static void             active_random_filter_footer ( void );
 static Rect             setISPvars          ( uint16_t width, uint16_t height );
 static void 			trackObjects	    ( Mat& sourceFrame, Mat& greyFrame );
 #if ARF_OBJECT == ARF_BALL
@@ -111,12 +113,13 @@ void identifyObject(gateResults* gateRes);
 #endif
 static bool 			addContour			( vector<Point> contour, uint16_t offsetX, uint16_t offsetY, double minDist = 0.0, double maxDist = 0.0);
 static void 			cam2body 			( trackResults* trackRes );
-static void 			body2world 			( struct FloatEulers*  eulerAngles, trackResults* trackRes );
+static void 			body2world 			( trackResults* trackRes );
 static void             estimatePosition    ( uint16_t xp, uint16_t yp, uint32_t area, double position[3]);
 static bool             getNewPosition      ( uint8_t nextDir, uint16_t* newRow, uint16_t* newCol, int* maxRow, int* maxCol );
 static void             eraseMemory         ( void );
 static void             getYUVColours       ( Mat& sourceFrame, uint16_t row, uint16_t col, uint8_t* Y, uint8_t* U, uint8_t* V );
 static void             createSearchGrid    ( uint16_t x_p, uint16_t y_p, Point searchGrid[], uint8_t searchLayer, uint16_t sGridSize, int* maxRow, int* maxCol);
+static bool             pixTest             (uint8_t *Y, uint8_t *U, uint8_t *V);
 /** Flood CW declarations **/
 static bool             processImage_cw     ( Mat& sourceFrame, Mat& destFrame, uint16_t sampleSize );
 static int              pixFindContour_cw   ( Mat& sourceFrame, Mat& destFrame, uint16_t row, uint16_t col, uint8_t prevDir, bool cascade );
@@ -287,7 +290,7 @@ void active_random_filter_init(void){
 #endif
 }
 
-void active_random_filter(char* buff, uint16_t width, uint16_t height, struct FloatEulers* curEulerAngles){
+void active_random_filter(char* buff, uint16_t width, uint16_t height){
     Mat sourceFrame (height, width, CV_8UC2, buff);                 // Initialize current frame in openCV (UYVY) 2 channel
     Mat frameGrey   (height, width, CV_8UC1, cvScalar(0.0));        // Initialize an empty 1 channel frame
 #if ARF_SAVE_FRAME
@@ -309,7 +312,7 @@ void active_random_filter(char* buff, uint16_t width, uint16_t height, struct Fl
 	for(r=0; r < trackRes_size; r++){                             // Convert angles & Write/Print output
 #if ARF_OBJECT == ARF_BALL
 		cam2body(&trackRes[r]);						                // Convert from camera angles to body angles (correct for roll)
-		body2world(curEulerAngles, &trackRes[r]); 		                            // Convert from body angles to world coordinates (correct yaw and pitch)
+		body2world(&trackRes[r]); 		                            // Convert from body angles to world coordinates (correct yaw and pitch)
 #endif
 		identifyObject(&trackRes[r]);                               // Identify the spotted neighbours
 	}
@@ -318,12 +321,12 @@ void active_random_filter(char* buff, uint16_t width, uint16_t height, struct Fl
 #endif // ARF_MOD_VIDEO
 #if ARF_CROSSHAIR
 	//circle(sourceFrame,Point(ispHeight/2 - cropCol + crop.x, ispWidth/2), CFG_MT9F002_FISHEYE_RADIUS * ispScalar, cvScalar(0,255), 1);
-	plotHorizon(sourceFrameCrop, curEulerAngles);
+	plotHorizon(sourceFrameCrop, &cv_image_pose.eulers);
 #endif
 	frameGrey.release(); 			                                // Release Mat
 	sourceFrameCrop.release();
 	sourceFrame.release();                                          // Release Mat
-	active_random_filter_footer( curEulerAngles );
+	active_random_filter_footer();
 	return;
 }
 
@@ -437,6 +440,7 @@ void identifyObject(trackResults* trackRes){
         neighbourMem[neighbourID].y_p         = trackRes->y_p;
         neighbourMem[neighbourID].area_p      = trackRes->area_p;
         neighbourMem[neighbourID].r_c         = trackRes->r_c;
+        neighbourMem[neighbourID].r_b         = trackRes->r_b;
 #ifdef __linux__
   pthread_mutex_unlock(&neighbourMem_mutex);
 #endif
@@ -454,6 +458,7 @@ void identifyObject(trackResults* trackRes){
         curN.y_p 		= trackRes->y_p;
         curN.area_p     = trackRes->area_p;
         curN.r_c        = trackRes->r_c;
+        curN.r_b        = trackRes->r_b;
         neighbourMem_add(curN);
         maxId++;
     }
@@ -541,11 +546,12 @@ void cam2body(trackResults* trackRes){
     trackRes->x_b = trackRes->r_c * cos( -trackRes->y_c) * cos( trackRes->x_c ) + MT9F002_X_OFFSET;
     trackRes->y_b = trackRes->r_c * cos( -trackRes->y_c) * sin( trackRes->x_c ) + MT9F002_Y_OFFSET;
     trackRes->z_b = trackRes->r_c * sin( -trackRes->y_c) + MT9F002_Z_OFFSET;
+    trackRes->r_b = sqrt(pow(trackRes->x_b, 2.0) + pow(trackRes->y_b, 2.0));
     VERBOSE_PRINT("camera (%0.2f deg, %0.2f deg, %0.2f m) -> body (%0.2f m, %0.2f m, %0.2f m)\n", trackRes->x_c * 180/M_PI, trackRes->y_c * 180/M_PI, trackRes->r_c, trackRes->x_b, trackRes->y_b, trackRes->z_b);
     return;
 }
 
-void body2world( struct FloatEulers*  eulerAngles, trackResults* trackRes){
+void body2world(trackResults* trackRes){
 #if ARF_USE_WORLDPOS
     pos     = stateGetPositionNed_f();      // Get your current position
 #else
@@ -558,7 +564,7 @@ void body2world( struct FloatEulers*  eulerAngles, trackResults* trackRes){
 #if !ARF_USE_YAW
     double psi      = 0.0;
 #else
-    double psi      = eulerAngles->psi;
+    double psi      = cv_image_pose.eulers.psi;
 #endif
     Matx33f rotZ(    cos(psi),                 -sin(psi),               0,
                      sin(psi),                  cos(psi),               0,
@@ -572,7 +578,7 @@ void body2world( struct FloatEulers*  eulerAngles, trackResults* trackRes){
 #else
     trackRes->z_w   = wPos(2,0) + ARF_OBJ_Z_OFFSET;
 #endif
-    VERBOSE_PRINT("body (%0.2f m, %0.2f m, %0.2f m) + pos(%0.2f m, %0.2f m, %0.2f m) + euler (%0.2f deg, %0.2f deg, %0.2f deg) -> world (%0.2f m, %0.2f m, %0.2f m)\n", trackRes->x_b, trackRes->y_b, trackRes->z_b, pos->x, pos->y, pos->z, eulerAngles->phi, eulerAngles->theta, psi, trackRes->x_w, trackRes->y_w, trackRes->z_w);
+    VERBOSE_PRINT("body (%0.2f m, %0.2f m, %0.2f m) + pos(%0.2f m, %0.2f m, %0.2f m) + euler (%0.2f deg, %0.2f deg, %0.2f deg) -> world (%0.2f m, %0.2f m, %0.2f m)\n", trackRes->x_b, trackRes->y_b, trackRes->z_b, pos->x, pos->y, pos->z, cv_image_pose.eulers.phi, cv_image_pose.eulers.theta, psi, trackRes->x_w, trackRes->y_w, trackRes->z_w);
     return;
 }
 
@@ -588,7 +594,7 @@ bool addContour(vector<Point> contour, uint16_t offsetX, uint16_t offsetY, doubl
         m = moments(contour);
     }
     double semi_major   = sqrt( 2 * ( m.mu20 + m.mu02 + sqrt( pow(m.mu20 - m.mu02, 2.0) + 4 * pow( m.mu11, 2.0 ) ) ) / m.m00 );
-    double semi_minor   = sqrt( 2 * ( m.mu20 + m.mu02 - sqrt( pow(m.mu20 - m.mu02, 2.0) + 4 * pow( m.mu11, 2.0 ) ) ) / m.m00 );
+    //double semi_minor   = sqrt( 2 * ( m.mu20 + m.mu02 - sqrt( pow(m.mu20 - m.mu02, 2.0) + 4 * pow( m.mu11, 2.0 ) ) ) / m.m00 );
     //double e            = sqrt( 1 - pow( semi_minor, 2.0 ) / pow( semi_major, 2.0 ));
     double e          = (pow(m.mu20 - m.mu02,2.0) - 4 * pow(m.mu11,2.0)) / pow(m.mu20 + m.mu02,2.0);
     double corArea      = M_PI * pow( semi_major, 2.0 );
@@ -1062,7 +1068,7 @@ bool processImage_omni(Mat& sourceFrame, Mat& destFrame, uint16_t sampleSize){
     if (sourceFrame.cols > 0 && sourceFrame.rows > 0)
     {
         if(ARF_SAMPLE_STYLE > 0){
-            const uint8_t maxLayer  = 5;
+            const uint8_t maxLayer  = 10;
             Point searchGrid[8*maxLayer];
             for(unsigned int rnm=0; rnm < neighbourMem_size; rnm++)
             {
@@ -1072,7 +1078,7 @@ bool processImage_omni(Mat& sourceFrame, Mat& destFrame, uint16_t sampleSize){
                 objCrop.height          = 0;
                 uint8_t searchLayer     = 0;
                 uint8_t searchPoints    = 1;
-                uint16_t sGridSize      =  0.5 * sqrt(((float) neighbourMem[rnm].area_p) / M_PI);
+                uint16_t sGridSize      =  0.25 * sqrt(((float) neighbourMem[rnm].area_p) / M_PI);
                 foundObj                = false; // We're pessimistic that we can find the same object
                 while(!foundObj && searchLayer < maxLayer){
                     createSearchGrid(neighbourMem[rnm].x_p - cropCol, neighbourMem[rnm].y_p, searchGrid, searchLayer, sGridSize, &sourceFrame.rows, &sourceFrame.cols);
@@ -1197,24 +1203,13 @@ void objCont_addPoint(uint16_t* row, uint16_t* col){
     objCont_size++;
 }
 
-bool pixTest(uint8_t *Y, uint8_t *U, uint8_t *V, uint8_t *prevDir){
+bool pixTest(uint8_t *Y, uint8_t *U, uint8_t *V){
     if(*V > (*U + ARF_GREY_THRES) && *Y >= ARF_Y_MIN && *Y <= ARF_Y_MAX && *U >= ARF_U_MIN && *U <= ARF_U_MAX && *V >= ARF_V_MIN && *V <= ARF_V_MAX){
         return true;
     }
     else{
-        //if(*prevDir != ARF_SEARCH){
-            //if(abs(cmpY - *Y) <= ARF_CDIST_YTHRES && abs(cmpU - *U) <= ARF_CDIST_UTHRES && abs(cmpV - *V) <= ARF_CDIST_VTHRES){
-                //PRINT("(cmpY: %d cmpU: %d cmpV: %d) (Y: %d U: %d V: %d) (dY: %d  dU: %d  dV: %d)\n", cmpY, cmpU, cmpV, *Y, *U, *V,(cmpY - *Y),(cmpU - *U),(cmpV - *V));
-            //    return true;
-            //}
-            //else{
-                return false;
-            //}
-        //}
-        //else{
-        //    return false;
-        //}
-    }//
+        return false;
+    }
 }
 
 int pixFindContour_cw(Mat& sourceFrame, Mat& destFrame, uint16_t row, uint16_t col, uint8_t prevDir, bool cascade){
@@ -1226,7 +1221,7 @@ int pixFindContour_cw(Mat& sourceFrame, Mat& destFrame, uint16_t row, uint16_t c
     }
     uint8_t U, Y, V;
     getYUVColours(sourceFrame, row, col, &Y, &U, &V);
-    if(pixTest(&Y, &U, &V, &prevDir)){
+    if(pixTest(&Y, &U, &V)){
         destFrame.at<uint8_t>(row, col) = 75;
         if(cascade){
             uint8_t nextDirCnt, nextDir[6];
@@ -1339,7 +1334,7 @@ int pixFollowContour_cw(Mat& sourceFrame, Mat& destFrame, uint16_t row, uint16_t
     }
     uint8_t U, Y, V;
     getYUVColours(sourceFrame, row, col, &Y, &U, &V);
-    if(pixTest(&Y, &U, &V, &prevDir)){
+    if(pixTest(&Y, &U, &V)){
         if(layerDepth < 4 * ARF_MIN_LAYERS){
             destFrame.at<uint8_t>(row, col) = 250;
         }
@@ -1425,7 +1420,7 @@ int pixFindContour_omni(Mat& sourceFrame, Mat& destFrame, uint16_t row, uint16_t
     }
     uint8_t U, Y, V;
     getYUVColours(sourceFrame, row, col, &Y, &U, &V);
-    if(pixTest(&Y, &U, &V, &prevDir))
+    if(pixTest(&Y, &U, &V))
     {
         if(prevDir != ARF_SEARCH)
         {
@@ -1753,14 +1748,6 @@ void mod_video(Mat& sourceFrame, Mat& frameGrey){
 		circle(sourceFrame,cvPoint(trackRes[r].x_p - cropCol, trackRes[r].y_p), sqrt(trackRes[r].area_p / M_PI), cvScalar(100,255), 1, 4);
 	}
 #endif //ARF_BALL_CIRCLES
-#if ARF_DISTANCE_PLOT
-	for(unsigned int r=0; r < trackRes_size; r++)         // Convert angles & Write/Print output
-	{
-	    line(sourceFrame, Point(0,sourceFrame.rows / 2.0), Point(trackRes[r].x_p - cropCol, trackRes[r].y_p), Scalar(0,255), 1, 4);
-	    sprintf(text,"%4.2f", trackRes[r].r_c);
-	    putText(sourceFrame, text, Point((trackRes[r].x_p - cropCol + 0) / 2.0, (trackRes[r].y_p + sourceFrame.rows / 2.0) / 2.0), FONT_HERSHEY_PLAIN, 1, Scalar(0,255), 1);
-	}
-#endif
 #if ARF_GATE_CORNERS && ARF_OBJECT == ARF_GATE
     for(unsigned int r=0; r < trackRes_size; r++)         // Convert angles & Write/Print output
     {
@@ -1780,7 +1767,7 @@ void mod_video(Mat& sourceFrame, Mat& frameGrey){
     for(unsigned int r=0; r < trackRes_size; r++)         // Convert angles & Write/Print output
     {
         line(sourceFrame, Point(0,sourceFrame.rows / 2.0), Point(trackRes[r].x_p - cropCol, trackRes[r].y_p), Scalar(0,255), 1, 4);
-        sprintf(text,"%4.2f", trackRes[r].r_c);
+        sprintf(text,"%4.2f", trackRes[r].r_b);
         putText(sourceFrame, text, Point((trackRes[r].x_p - cropCol + 0) / 2.0, (trackRes[r].y_p + sourceFrame.rows / 2.0) / 2.0), FONT_HERSHEY_PLAIN, 1, Scalar(0,255), 1);
     }
 #endif
@@ -1845,7 +1832,7 @@ void active_random_filter_header( void ){
     trackRes_clear();
 }
 
-void active_random_filter_footer( struct FloatEulers*  eulerAngles ){
+void active_random_filter_footer( void ){
 #if ARF_SHOW_MEM
     for(unsigned int r=0; r < neighbourMem_size; r++)        // Print to file & terminal
     {
@@ -1853,7 +1840,7 @@ void active_random_filter_footer( struct FloatEulers*  eulerAngles ){
 #if ARF_WRITE_LOG
         clock_gettime(CLOCK_MONOTONIC, &time_now);
         curT            = sys_time_elapsed_us(&time_init, &time_now);
-        fprintf(arf_File,"%d\t%0.6f\t%d\t%d\t%0.3f\t%0.3f\t%0.3f\t%0.3f\t%0.3f\t%0.3f\t%0.3f\n", runCount, curT / 1000000.f, neighbourMem[r].id, neighbourMem[r].lastSeen != runCount, pos->x, pos->y, pos->z, eulerAngles->psi, neighbourMem[r].x_w, neighbourMem[r].y_w, neighbourMem[r].z_w);
+        fprintf(arf_File,"%d\t%0.6f\t%d\t%d\t%0.3f\t%0.3f\t%0.3f\t%0.3f\t%0.3f\t%0.3f\t%0.3f\n", runCount, curT / 1000000.f, neighbourMem[r].id, neighbourMem[r].lastSeen != runCount, pos->x, pos->y, pos->z, cv_image_pose.eulers.psi, neighbourMem[r].x_w, neighbourMem[r].y_w, neighbourMem[r].z_w);
 #endif
     }
     printf("\n");
@@ -1928,8 +1915,8 @@ bool trackRes_findMax( void ){
     trackRes_maxVal = 0.0;
     trackRes_maxId  = 0;
     for(uint8_t i=0; i < trackRes_size; i++){
-        if(trackRes[i].r_c >= trackRes_maxVal){
-            trackRes_maxVal = trackRes[i].r_c;
+        if(trackRes[i].r_b >= trackRes_maxVal){
+            trackRes_maxVal = trackRes[i].r_b;
             trackRes_maxId  = i;
         }
     }
@@ -1947,7 +1934,7 @@ bool trackRes_add( trackResults newRes, uint8_t overwriteId){
         }
     }
     else if(trackRes_size == ARF_MAX_OBJECTS){
-        if(newRes.r_c < trackRes_maxVal){
+        if(newRes.r_b < trackRes_maxVal){
             trackRes[trackRes_maxId]    = newRes;
             trackRes_lastId             = trackRes_maxId;
             trackRes_findMax();
@@ -1981,8 +1968,8 @@ bool neighbourMem_findMax( void ){
     neighbourMem_maxVal = 0.0;
     neighbourMem_maxId  = 0;
     for(uint8_t i=0; i<neighbourMem_size; i++){
-        if(neighbourMem[i].r_c >= neighbourMem_maxVal){
-            neighbourMem_maxVal = neighbourMem[i].r_c;
+        if(neighbourMem[i].r_b >= neighbourMem_maxVal){
+            neighbourMem_maxVal = neighbourMem[i].r_b;
             neighbourMem_maxId  = i;
         }
     }
@@ -2002,7 +1989,7 @@ bool neighbourMem_add( memoryBlock newRes, uint8_t overwriteId){
         neighbourMem_lastId                 = overwriteId;
     }
     else if(neighbourMem_size == ARF_MAX_OBJECTS){
-        if(newRes.r_c < neighbourMem_maxVal){
+        if(newRes.r_b < neighbourMem_maxVal){
             neighbourMem[neighbourMem_maxId]    = newRes;
             neighbourMem_lastId                 = neighbourMem_maxId;
         }
