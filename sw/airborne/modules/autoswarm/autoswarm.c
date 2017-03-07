@@ -54,12 +54,12 @@ PRINT_CONFIG_VAR(AS_GLOBAL_ATTRACTOR)
 PRINT_CONFIG_VAR(AS_GLOBAL_STR)
 
 #ifndef AS_SEPARATION
-#define AS_SEPARATION 0.5
+#define AS_SEPARATION 1.3
 #endif
 PRINT_CONFIG_VAR(AS_SEPARATION)
 
 #ifndef AS_CIRCLE_RADIUS
-#define AS_CIRCLE_RADIUS 1.5
+#define AS_CIRCLE_RADIUS 2.0
 #endif
 PRINT_CONFIG_VAR(AS_CIRCLE_RADIUS)
 
@@ -89,7 +89,7 @@ PRINT_CONFIG_VAR(AS_EPS)
 PRINT_CONFIG_VAR(AS_HOME)
 
 #ifndef AS_LOGLO
-#define AS_LOGLO 1.75
+#define AS_LOGLO 0.05
 #endif
 PRINT_CONFIG_VAR(AS_LOGLO)
 
@@ -114,6 +114,8 @@ PRINT_CONFIG_VAR(AS_PRINT_WAYPOINT)
 #endif
 PRINT_CONFIG_VAR(AS_WRITE_RESULTS)
 
+#define AS_ADHERE_TO_FP 0
+
 #ifndef AS_ADHERE_TO_FP
 #define AS_ADHERE_TO_FP 1                                       ///< Don't start autoswarm until in block "Swarm" or "Swarm Home"
 #endif
@@ -125,7 +127,7 @@ PRINT_CONFIG_VAR(AS_WRITE_RESULTS)
 
 /// Static function declarations ///
 static void calculateVelocityResponse(struct NedCoor_f *pos, struct FloatEulers* eulerAngles, double totV[3], double gi[3]);
-static void calculateGlobalVelocity(struct NedCoor_f *pos, double gi[3]);
+static void calculateGlobalVelocity(struct NedCoor_f *pos, double gi[3], double ci[3]);
 static void calculateLocalVelocity(struct NedCoor_f *pos, double li[3]);
 static void calculateDiffVelocity(double totV[3], double di[3]);
 static void calculateCamPosition(struct NedCoor_f *pos, struct FloatEulers* eulerAngles, double totV[3], double gi[3], double cPos[3]);
@@ -243,12 +245,13 @@ void autoswarm_run( void ){
  */
 void calculateVelocityResponse(struct NedCoor_f *pos, struct FloatEulers* eulerAngles, double totV[3], double gi[3]){
     double li[3]    = {0.0, 0.0, 0.0};                      ///< Local contribution
+    double ci[3]    = {0.0, 0.0, 0.0};                      ///< Conflict resolution contribution
     double di[3]    = {0.0, 0.0, 0.0};                      ///< Differential contribution
     calculateLocalVelocity(pos, li);                        ///< Get the local contribution based on our neighbours
-    calculateGlobalVelocity(pos, gi);                       ///< Get the contribution due to the global attractor/field
+    calculateGlobalVelocity(pos, gi, ci);                   ///< Get the contribution due to the global attractor/field
     double g_coeff  = calculateLocalGlobalCoeff(pos, gi);   ///< Calculate the local-global interaction coefficient
-    totV[0]         = li[0] + g_coeff * gi[0];              ///< Scale the global component with the local-global interaction coefficient and add them
-    totV[1]         = li[1] + g_coeff * gi[1];
+    totV[0]         = li[0] + g_coeff * (gi[0] + ci[0]);    ///< Scale the global component with the local-global interaction coefficient and add them
+    totV[1]         = li[1] + g_coeff * (gi[1] + ci[1]);
     limitNorm(totV, settings_as_vmax);                      ///< Check if the desired velocity exceeds settings_as_vmax
     calculateDiffVelocity(totV, di);                        ///< Calculate the differential component based on change in desired velocity
     totV[0]         = totV[0] + di[0];                      ///< Add differential component
@@ -306,7 +309,7 @@ double calculateLocalGlobalCoeff(struct NedCoor_f *pos, double gi[3]){
 #ifdef __linux__
     pthread_mutex_lock(&neighbourMem_mutex);
 #endif
-    double result = 0.0;
+    double result = 1.0;
     if (neighbourMem_size > 0){
         double w_neighbours[2]  = {0.0, 0.0};                                                                                               ///< weighed neighbours vector
         for (unsigned int r = 0; r < neighbourMem_size; r++){
@@ -338,8 +341,11 @@ double calculateLocalGlobalCoeff(struct NedCoor_f *pos, double gi[3]){
  *
  * This function calculates the global velocity component
  */
-void calculateGlobalVelocity(struct NedCoor_f *pos, double gi[3]){
+void calculateGlobalVelocity(struct NedCoor_f *pos, double gi[3], double ci[3]){
+    /*
+    #warning Hardcoded origin location
     setGlobalOrigin(1.0, 0.0, 0.0);
+    */
     switch (settings_as_attractor){
     case AS_POINT :{
        double cr     = sqrt( pow( globalOrigin.cx - pos->x, 2.0 ) + pow( globalOrigin.cy - pos->y, 2.0 ) );
@@ -380,29 +386,30 @@ void calculateGlobalVelocity(struct NedCoor_f *pos, double gi[3]){
     default : break;
     }
     // Add doublets for all neighbours to enhance conflict resolution
+    double angle_gi = atan2(gi[1], gi[0]);
+    double gi_n     = sqrt( pow( gi[0], 2.0) + pow( gi[1], 2.0) );
+    double u        = 0.0;
+    double v        = 0.0;
 #ifdef __linux__
   pthread_mutex_lock(&neighbourMem_mutex);
 #endif
     for (uint8_t i=0; i < neighbourMem_size; i++){
-        double r    = sqrt( pow( ( pos->x - neighbourMem[i].x_w ), 2.0 ) + pow( ( pos->y - neighbourMem[i].y_w ), 2.0 ) );                  ///< The range to this neighbour
+        double r    = sqrt( pow( pos->x - neighbourMem[i].x_w , 2.0 ) + pow( pos->y - neighbourMem[i].y_w, 2.0 ) );  ///< The range to this neighbour
         if(r < settings_as_lattice_ratio * settings_as_separation && r > 0){
-            double gi_n     = sqrt( pow( gi[0], 2.0) + pow( gi[1], 2.0) );
-            r               = fmax(r, settings_as_separation);
-            double angle_gi = atan2(gi[1], gi[0]);
+            r = fmax(r, settings_as_separation);
             double dAngle   = angle_gi - atan2(neighbourMem[i].y_w - pos->y, neighbourMem[i].x_w - pos->x);
-
             if      (fabs(dAngle) >  2 * M_PI - fabs(dAngle))   dAngle =  2 * M_PI - dAngle;
             else if (fabs(dAngle) < -2 * M_PI + fabs(dAngle))   dAngle = -2 * M_PI + dAngle;
-
-            double u        = gi_n * (pow(settings_as_separation, 2.0) * (pow(r * sin(dAngle), 2.0) - pow(r * cos(dAngle), 2.0)) + pow( r, 4.0)) / pow( r, 4.0);
-            double v        = (-2) * gi_n * pow(settings_as_separation, 2.0) * cos(dAngle) * sin(dAngle) / pow( r, 2.0);
-            gi[0]           = u * cos(angle_gi) - v * sin(angle_gi);
-            gi[1]           = u * sin(angle_gi) - v * cos(angle_gi);;
+            u        += gi_n * pow(settings_as_separation, 2.0) * (pow(sin(dAngle), 2.0) - pow(cos(dAngle), 2.0)) / pow( r, 2.0);
+            v        += (-2) * gi_n * pow(settings_as_separation, 2.0) * cos(dAngle) * sin(dAngle) / pow( r, 2.0);
         }
     }
 #ifdef __linux__
     pthread_mutex_unlock(&neighbourMem_mutex);
 #endif
+    ci[0]           = u * cos(angle_gi) - v * sin(angle_gi);
+    ci[1]           = u * sin(angle_gi) - v * cos(angle_gi);
+    PRINT("gi: %4.2f %4.2f  ci: %4.2f %4.2f\n", gi[0], gi[1], ci[0], ci[1]);
     return;
 }
 

@@ -183,11 +183,11 @@ uint8_t     ARF_GREY_THRES                      = 0;
 /* Cyberzoo */
 uint8_t     ARF_Y_MIN                           = 50;                   ///< Minimum Y whilst searching and following contours
 uint8_t     ARF_Y_MAX                           = 250;                  ///< Maximum Y whilst searching and following contours
-uint8_t     ARF_U_MIN                           = 105;                  ///< Minimum U whilst searching and following contours
-uint8_t     ARF_U_MAX                           = 170;                  ///< Maximum U whilst searching and following contours
-uint8_t     ARF_V_MIN                           = 150;                  ///< Minimum V whilst searching and following contours
-uint8_t     ARF_V_MAX                           = 210;                  ///< Maximum V whilst searching and following contours
-uint8_t     ARF_GREY_THRES                      = 7;
+uint8_t     ARF_U_MIN                           = 104;                  ///< Minimum U whilst searching and following contours
+uint8_t     ARF_U_MAX                           = 150;                  ///< Maximum U whilst searching and following contours
+uint8_t     ARF_V_MIN                           = 152;                  ///< Minimum V whilst searching and following contours
+uint8_t     ARF_V_MAX                           = 190;                  ///< Maximum V whilst searching and following contours
+uint8_t     ARF_GREY_THRES                      = 35;
 /* FAKE LIGHT
 uint8_t     ARF_Y_MIN             = 0;
 uint8_t     ARF_Y_MAX             = 255;
@@ -210,8 +210,8 @@ uint8_t     ARF_V_MAX           = 188;
 uint8_t     ARF_MAX_SEARCH_PIXEL_SKIP = 6;                              ///< Maximum nr of false pixels to skip whilst searching upwards for contours
 /** Set up Remaining parameters **/
 double 	    ARF_CROP_X 			                = 1.2;                  ///< Crop margin for blobs when using omni detection
-uint8_t     ARF_MEMORY 			                = 40;                   ///< Frames to keep neighbours in memory
-double      ARF_FPS                             = 17.0;                 ///< Estimated FPS to estimate lost neighbour decay
+uint8_t     ARF_MEMORY 			                = 15;                   ///< Frames to keep neighbours in memory
+double      ARF_FPS                             = 20.0;                 ///< Estimated FPS to estimate lost neighbour decay
 double      ARF_VMAX                            = 7.0;                  ///< Maximum estimated velocity of a neighbour (account for some noise)
 
 /** Initialize parameters to be assigned during runtime **/

@@ -43,25 +43,22 @@
 			<define name="FILE_LOGGER_PATH" value="/data/ftp/internal_000" />
 		</module>
 		<module name="pose_history">
-			<define name="POSE_HISTORY_SIZE" value="50" />
+			<define name="POSE_HISTORY_SIZE" value="256" />
 		</module>
 		<module name="autoswarm">
-			<define name="AUTOSWARM_GLOBAL_ATTRACTOR" value="2" />
+			<define name="AS_GLOBAL_ATTRACTOR" value="2" />
 		</module>
+		<!-- Vision pipeline -->
 		<module name="video_thread" />
-		<module name="cv_image_pose"/>
+		<module name="cv_image_pose" />
 		<module name="cv_ae_awb">
-			<define name="CV_AE_AWB_AV" value="1" />
-			<define name="CV_AE_AWB_VERBOSE" value="0" />
 		</module>
 		<module name="cv_bebop_camera_stabilization">
-			<define name="CAM_STAB_CAMERA"    value="front_camera" />
 		</module>
 		<module name="cv_active_random_filter">
-			<define name="AR_FILTER_CAMERA"    value="front_camera" />
 		</module>
 		<module name="video_rtp_stream">
-			<configure name="VIEWVIDEO_HOST" value="192.168.42.65" />
+			<configure name="VIEWVIDEO_HOST" value="192.168.40.74" />
 			<configure name="VIEWVIDEO_BROADCAST" value="FALSE" />
 			<define name="VIEWVIDEO_CAMERA" value="front_camera" />
 			<define name="VIEWVIDEO_SHOT_PATH" value="/data/ftp/internal_000" />
