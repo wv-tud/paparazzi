@@ -59,7 +59,7 @@ PRINT_CONFIG_VAR(AS_GLOBAL_STR)
 PRINT_CONFIG_VAR(AS_SEPARATION)
 
 #ifndef AS_CIRCLE_RADIUS
-#define AS_CIRCLE_RADIUS 2.0
+#define AS_CIRCLE_RADIUS 1.0
 #endif
 PRINT_CONFIG_VAR(AS_CIRCLE_RADIUS)
 
@@ -103,6 +103,11 @@ PRINT_CONFIG_VAR(AS_LATTICE_RATIO)
 #endif
 PRINT_CONFIG_VAR(AS_DEADZONE)
 
+#ifndef AS_YAWRATEMAX
+#define AS_YAWRATEMAX 4096.0
+#endif
+PRINT_CONFIG_VAR(AS_YAWRATEMAX)
+
 /// Debug options ///
 #ifndef AS_PRINT_WAYPOINT
 #define AS_PRINT_WAYPOINT 0                                     ///< Show the updated positions of the waypoints
@@ -136,6 +141,7 @@ static void limitNorm(double totV[3], double maxNorm);
 static void limitVelocityYaw(struct FloatEulers* eulerAngles, double totV[3]);
 static void autoswarm_write_log(void);
 static double calculateLocalGlobalCoeff(struct NedCoor_f *pos, double gi[3]);
+static void limitYaw(struct NedCoor_f *pos, struct FloatEulers* eulerAngles, double cPos[3]);
 
 /// Set up swarm parameters ///
 int     settings_as_heading_mode    = AS_HEADING_MODE;          ///< Heading/Camera control modus
@@ -153,6 +159,8 @@ double  settings_as_vmax            = AS_VMAX;                  ///< Maximum goa
 int     settings_as_attractor       = AS_GLOBAL_ATTRACTOR;      ///< The type of global attractor/field
 double  settings_as_circle_radius   = AS_CIRCLE_RADIUS;         ///< Radius of the circle field
 double  settings_as_deadzone        = AS_DEADZONE;              ///< Deadzone near the centre of the global field to prevent spinning around the centre
+
+double  settings_as_bucket_vmin     = 0.25;                     ///< Bucket global field minimum velocity
 
 /// Initialize parameters to be assigned during runtime ///
 static uint32_t             runCount        = 0;                ///< The current frame number
@@ -224,13 +232,6 @@ void autoswarm_run( void ){
     calculateCamPosition(pos, eulerAngles, totV, gi, cPos);                 ///< Calculate WP_CAM/heading based on pos,totV and gi and store in cPos
     updateWaypoints(pos, totV, cPos);                                       ///< Update waypoints based on velocity contribution
     autoswarm_write_log();                                                  ///< Write to log file
-#ifdef __linux__
-  pthread_mutex_lock(&totV_mutex);
-#endif
-    lastTotV[0] = totV[0]; lastTotV[1] = totV[1]; lastTotV[2] = totV[2];
-#ifdef __linux__
-  pthread_mutex_unlock(&totV_mutex);
-#endif
     runCount++;                                                             ///< Update global run-counter
     return;
 }
@@ -249,6 +250,8 @@ void calculateVelocityResponse(struct NedCoor_f *pos, struct FloatEulers* eulerA
     double di[3]    = {0.0, 0.0, 0.0};                      ///< Differential contribution
     calculateLocalVelocity(pos, li);                        ///< Get the local contribution based on our neighbours
     calculateGlobalVelocity(pos, gi, ci);                   ///< Get the contribution due to the global attractor/field
+    //gi[0] = gi[0] + ci[0];
+    //gi[1] = gi[1] + ci[1];
     double g_coeff  = calculateLocalGlobalCoeff(pos, gi);   ///< Calculate the local-global interaction coefficient
     totV[0]         = li[0] + g_coeff * (gi[0] + ci[0]);    ///< Scale the global component with the local-global interaction coefficient and add them
     totV[1]         = li[1] + g_coeff * (gi[1] + ci[1]);
@@ -259,6 +262,14 @@ void calculateVelocityResponse(struct NedCoor_f *pos, struct FloatEulers* eulerA
     if (settings_as_heading_mode!=AS_CAM_GLOBAL){
         limitVelocityYaw(eulerAngles, totV);                ///< Limit the velocity when heading change gets larger
     }
+#ifdef __linux__
+  pthread_mutex_lock(&totV_mutex);
+#endif
+    lastTotV[0] = cos(-eulerAngles->psi) * totV[0] - sin(-eulerAngles->psi) * totV[1];
+    lastTotV[1] = sin(-eulerAngles->psi) * totV[0] + cos(-eulerAngles->psi) * totV[1];
+#ifdef __linux__
+  pthread_mutex_unlock(&totV_mutex);
+#endif
     return;
 }
 
@@ -346,6 +357,7 @@ void calculateGlobalVelocity(struct NedCoor_f *pos, double gi[3], double ci[3]){
     #warning Hardcoded origin location
     setGlobalOrigin(1.0, 0.0, 0.0);
     */
+    double direction = 1.0;
     switch (settings_as_attractor){
     case AS_POINT :{
        double cr     = sqrt( pow( globalOrigin.cx - pos->x, 2.0 ) + pow( globalOrigin.cy - pos->y, 2.0 ) );
@@ -358,28 +370,26 @@ void calculateGlobalVelocity(struct NedCoor_f *pos, double gi[3], double ci[3]){
     case AS_BUCKET :{
         double cr     = sqrt( pow( globalOrigin.cx - pos->x, 2.0 ) + pow( globalOrigin.cy - pos->y, 2.0 ) );
         if (cr > settings_as_deadzone){
-            double gScalar      = 0.5 * settings_as_global_strength * ( 1 - 1 / ( 1 + exp( 4 / settings_as_separation * (cr - settings_as_separation ) ) ) );
-            gi[0]               = gScalar * settings_as_vmax * ( globalOrigin.cx - pos->x ) / cr;
-            gi[1]               = gScalar * settings_as_vmax * ( globalOrigin.cy - pos->y ) / cr;
+            double gScalar      = fmin( settings_as_global_strength * settings_as_vmax, fmax( settings_as_bucket_vmin, settings_as_global_strength * settings_as_vmax * ( 1 - 1 / ( 1 + exp( 6.0 / settings_as_separation * (cr - settings_as_separation ) ) ) ) ) );
+            gi[0]               = gScalar * ( globalOrigin.cx - pos->x ) / cr;
+            gi[1]               = gScalar * ( globalOrigin.cy - pos->y ) / cr;
         }
         break;
     }
     case AS_CIRCLE_CW :
+        direction = -1.0;
     case AS_CIRCLE_CC :{
         double cr     = sqrt( pow( globalOrigin.cx - pos->x, 2.0 ) + pow( globalOrigin.cy - pos->y, 2.0 ) );
         if (cr > settings_as_deadzone){
-            double angle;
-            if (cr >= settings_as_circle_radius){
-                angle   = 90 * settings_as_circle_radius / cr;
-            }
-            else{
-                angle   = 90 + 90 * (settings_as_circle_radius - cr) / settings_as_circle_radius;     // From 90 to 180 over the length of settings_as_circle_radius
-            }
-            if (settings_as_attractor != AS_CIRCLE_CC)     angle = -angle;         // Switch between cc (+) and cw (-)
-            double xContrib     = settings_as_global_strength * settings_as_vmax * ( globalOrigin.cx - pos->x ) / cr;
-            double yContrib     = settings_as_global_strength * settings_as_vmax * ( globalOrigin.cy - pos->y ) / cr;
-            gi[0]               = cos( angle / 180 * M_PI ) * xContrib - sin( angle / 180 * M_PI ) * yContrib;
-            gi[1]               = sin( angle / 180 * M_PI ) * xContrib + cos( angle / 180 * M_PI ) * yContrib;
+            double band_width_gain  = 0.25;
+            double spiral_gain      = 6.0;
+            double circle_angle     = direction * (90.0 + fmin(90.0, fmax(-90.0, spiral_gain * pow(settings_as_circle_radius - cr, 3.0)))) / 180.0 * M_PI;
+            double circle_strength  = settings_as_global_strength * settings_as_vmax * fmin(0.9, 0.5 + band_width_gain * pow(cr - settings_as_circle_radius, 2.0));
+            double xContrib         = circle_strength * (globalOrigin.cx - pos->x) / cr;
+            double yContrib         = circle_strength * (globalOrigin.cy - pos->y) / cr;
+            gi[0]                   = cos(circle_angle) * xContrib - sin(circle_angle) * yContrib;
+            gi[1]                   = sin(circle_angle) * xContrib + cos(circle_angle) * yContrib;
+            PRINT("r: %4.2f dr: %4.2f angle: %4.2f str: %4.2f  x: %4.2f  y: %4.2f\n", cr, settings_as_circle_radius, circle_angle / M_PI * 180.0, circle_strength, xContrib, yContrib);
         }
         break;
     }
@@ -397,9 +407,10 @@ void calculateGlobalVelocity(struct NedCoor_f *pos, double gi[3], double ci[3]){
         double r    = sqrt( pow( pos->x - neighbourMem[i].x_w , 2.0 ) + pow( pos->y - neighbourMem[i].y_w, 2.0 ) );  ///< The range to this neighbour
         if(r < settings_as_lattice_ratio * settings_as_separation && r > 0){
             r = fmax(r, settings_as_separation);
+            //r = settings_as_separation + (r - settings_as_separation) / 1.0;
             double dAngle   = angle_gi - atan2(neighbourMem[i].y_w - pos->y, neighbourMem[i].x_w - pos->x);
-            if      (fabs(dAngle) >  2 * M_PI - fabs(dAngle))   dAngle =  2 * M_PI - dAngle;
-            else if (fabs(dAngle) < -2 * M_PI + fabs(dAngle))   dAngle = -2 * M_PI + dAngle;
+            if (dAngle >  M_PI)     dAngle =  2.0 * M_PI - dAngle;
+            if (dAngle < -M_PI)     dAngle =  2.0 * M_PI + dAngle;
             u        += gi_n * pow(settings_as_separation, 2.0) * (pow(sin(dAngle), 2.0) - pow(cos(dAngle), 2.0)) / pow( r, 2.0);
             v        += (-2) * gi_n * pow(settings_as_separation, 2.0) * cos(dAngle) * sin(dAngle) / pow( r, 2.0);
         }
@@ -465,6 +476,26 @@ void calculateCamPosition(struct NedCoor_f *pos, struct FloatEulers* eulerAngles
             cPos[2]     = pos->z;
         }
     }
+    //limitYaw(pos, eulerAngles, cPos);                                      // Limit yaw
+    return;
+}
+
+void limitYaw(struct NedCoor_f *pos, struct FloatEulers* eulerAngles, double cPos[3]){
+    double cameraHeading    = atan2(cPos[1] - pos->y, cPos[0] - pos->x);
+    double relHeading       = cameraHeading - eulerAngles->psi; // Z axis is defined downwards for psi so * -1 for the atan2
+
+    if (relHeading >  M_PI)     relHeading =  2.0 * M_PI - relHeading;
+    if (relHeading < -M_PI)     relHeading =  2.0 * M_PI + relHeading;
+
+    //PRINT("relHeading: %4.2f    max: %4.2f   psi: %4.2f", relHeading * 180.0 / M_PI, AS_YAWRATEMAX / 512.0, eulerAngles->psi / M_PI * 180.0);
+    if (fabs(relHeading) > AS_YAWRATEMAX  / 512.0 / 180.0 * M_PI){
+        double newHeading   = eulerAngles->psi + relHeading/fabs(relHeading) * (AS_YAWRATEMAX / 512.0 / 180.0 * M_PI);
+        //printf("  newHeading: %4.2f", newHeading / M_PI * 180);
+        cPos[0]             = pos->x + cos(newHeading) * 1.0;
+        cPos[1]             = pos->y + sin(newHeading) * 1.0;
+        cPos[2]             = pos->z;
+    }
+    //printf("\n");
     return;
 }
 

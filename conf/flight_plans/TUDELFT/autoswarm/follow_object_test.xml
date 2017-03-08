@@ -1,6 +1,6 @@
 <!DOCTYPE flight_plan SYSTEM "../../flight_plan.dtd">
 
-<flight_plan alt="1.5" ground_alt="0" lat0="51.990634" lon0="4.376789" max_dist_from_home="25" name="Bebop avoid orange TU Delft Cyberzoo" security_height="0.4">
+<flight_plan alt="1.0" ground_alt="0" lat0="51.990634" lon0="4.376789" max_dist_from_home="25" name="Bebop avoid orange TU Delft Cyberzoo" security_height="0.4">
   <header>
 #include "autopilot.h"
 #include "subsystems/datalink/datalink.h"
@@ -83,7 +83,6 @@
     <block name="Swarm" strip_button="Swarm" strip_icon="lookfore.png">
       <set var="viewvideo_recording" value="TRUE"/>
 	  <call_once fun="setSwarmMode(2)"/>
-      <call_once fun="nav_set_heading_towards_waypoint(WP__CAM)"/>
       <stay wp="_GOAL"/>
       <exception cond="LessThan(3, block_time) && !InsideCyberZoo(GetPosX(), GetPosY())" 	deroute="land here"/>
     </block>
