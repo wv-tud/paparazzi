@@ -154,10 +154,10 @@ static void             mod_video           (Mat& sourceFrame, Mat& frameGrey);
 uint16_t    default_calArea                     = 7650;                 ///< Area of a ball at 1m resolution on full sensor resolution
 uint8_t     ARF_FLOOD_STYLE                     = ARF_FLOOD_CW;         ///< Flood style to search for contours
 uint8_t     ARF_SAMPLE_STYLE                    = ARF_STYLE_RANDOM;     ///< Sample style to search for contours
-double      ARF_CAM_RANGE                       = 3.0;                  ///< Maximum camera range of newly added objects
+double      ARF_CAM_RANGE                       = 4.0;                  ///< Maximum camera range of newly added objects
 uint16_t    ARF_RND_PIX_SAMPLE                  = 2500;                 ///< Random pixel sample size
 uint16_t    ARF_MAX_LAYERS                      = 5000;                 ///< Maximum recursive depth of CW flood
-double 	    ARF_MAX_CIRCLE_DEF 	                = 0.15;                 ///< Maximum contour eccentricity
+double 	    ARF_MAX_CIRCLE_DEF 	                = 0.075;                ///< Maximum contour eccentricity
 double      ARF_MIN_CIRCLE_PERC                 = 0.45;                 ///< Minimum percentage of circle in view
 double      ARF_LARGE_SKIP_FACTOR               = 1.0 / 20.0;           ///< Percentage of length large contours are allowed to snap back to starting pos
 /** Automatically calculated tracking parameters **/
@@ -183,11 +183,11 @@ uint8_t     ARF_GREY_THRES                      = 0;
 /* Cyberzoo */
 uint8_t     ARF_Y_MIN                           = 50;                   ///< Minimum Y whilst searching and following contours
 uint8_t     ARF_Y_MAX                           = 250;                  ///< Maximum Y whilst searching and following contours
-uint8_t     ARF_U_MIN                           = 104;                  ///< Minimum U whilst searching and following contours
-uint8_t     ARF_U_MAX                           = 150;                  ///< Maximum U whilst searching and following contours
-uint8_t     ARF_V_MIN                           = 152;                  ///< Minimum V whilst searching and following contours
-uint8_t     ARF_V_MAX                           = 190;                  ///< Maximum V whilst searching and following contours
-uint8_t     ARF_GREY_THRES                      = 35;
+uint8_t     ARF_U_MIN                           = 104-5;                  ///< Minimum U whilst searching and following contours
+uint8_t     ARF_U_MAX                           = 150+5;                  ///< Maximum U whilst searching and following contours
+uint8_t     ARF_V_MIN                           = 152-3;                  ///< Minimum V whilst searching and following contours
+uint8_t     ARF_V_MAX                           = 190+3;                  ///< Maximum V whilst searching and following contours
+uint8_t     ARF_GREY_THRES                      = 35-10;
 /* FAKE LIGHT
 uint8_t     ARF_Y_MIN             = 0;
 uint8_t     ARF_Y_MAX             = 255;

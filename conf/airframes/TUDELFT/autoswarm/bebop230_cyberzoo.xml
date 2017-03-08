@@ -57,6 +57,7 @@
 		<module name="video_thread" />
 		<module name="cv_image_pose" />
 		<module name="cv_ae_awb">
+			<define name="CV_AE_MIDDLE_INDEX" value="60" /> <!--  Colour filter works better in slightly underexposed image -->
 		</module>
 		<module name="cv_bebop_camera_stabilization">
 		</module>
@@ -171,8 +172,8 @@
 		<define name="MAX_R" value="120.0" unit="deg/s" />
 
 		<define name="ESTIMATION_FILT_CUTOFF" value="4.0" />
-		<define name="FILT_CUTOFF" value="3.0" />
-		<define name="ACT_DYN" value="{0.05, 0.05, 0.05, 0.05}"/>
+		<define name="FILT_CUTOFF" value="1.5" />
+		<define name="ACT_DYN" value="{0.1, 0.1, 0.1, 0.1}"/>
 
 		<!-- Adaptive Learning Rate -->
 		<define name="USE_ADAPTIVE" value="FALSE" />
@@ -180,10 +181,10 @@
 	</section>
 	
 	<section name="GUIDANCE_INDI" prefix="GUIDANCE_INDI_">
-		<define name="FILTER_CUTOFF" value="3.0"/>
-		<define name="THRUST_FILTER_CUTOFF" value="3.0"/>
+		<define name="FILTER_CUTOFF" value="1.5"/>
+		<define name="THRUST_FILTER_CUTOFF" value="1.5"/>
 		<define name="SPECIFIC_FORCE_GAIN" value="-600.0"/>
-		<define name="THRUST_DYNAMICS" value="0.05"/>
+		<define name="THRUST_DYNAMICS" value="0.1"/>
 	</section>
 
 	<section name="GUIDANCE_V" prefix="GUIDANCE_V_">
@@ -234,7 +235,7 @@
 		<define name="MILLIAMP_AT_FULL_THROTTLE" value="8700" />
 		<define name="CATASTROPHIC_BAT_LEVEL" value="9.9" unit="V" />
 		<define name="CRITIC_BAT_LEVEL" value="10.8" unit="V" />
-		<define name="LOW_BAT_LEVEL" value="11.1" unit="V" />
+		<define name="LOW_BAT_LEVEL" value="11.2" unit="V" />
 		<define name="MAX_BAT_LEVEL" value="12.4" unit="V" />
 	</section>
 </airframe>

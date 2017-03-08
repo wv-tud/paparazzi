@@ -54,7 +54,7 @@ PRINT_CONFIG_VAR(AS_GLOBAL_ATTRACTOR)
 PRINT_CONFIG_VAR(AS_GLOBAL_STR)
 
 #ifndef AS_SEPARATION
-#define AS_SEPARATION 1.3
+#define AS_SEPARATION 1.5
 #endif
 PRINT_CONFIG_VAR(AS_SEPARATION)
 
@@ -64,7 +64,7 @@ PRINT_CONFIG_VAR(AS_SEPARATION)
 PRINT_CONFIG_VAR(AS_CIRCLE_RADIUS)
 
 #ifndef AS_VMAX
-#define AS_VMAX 2.5
+#define AS_VMAX 3.0
 #endif
 PRINT_CONFIG_VAR(AS_VMAX)
 
@@ -84,12 +84,12 @@ PRINT_CONFIG_VAR(AS_E)
 PRINT_CONFIG_VAR(AS_EPS)
 
 #ifndef AS_HOME
-#define AS_HOME 0.4
+#define AS_HOME 0.25
 #endif
 PRINT_CONFIG_VAR(AS_HOME)
 
 #ifndef AS_LOGLO
-#define AS_LOGLO 0.05
+#define AS_LOGLO 1.75
 #endif
 PRINT_CONFIG_VAR(AS_LOGLO)
 
@@ -131,17 +131,17 @@ PRINT_CONFIG_VAR(AS_WRITE_RESULTS)
 #endif
 
 /// Static function declarations ///
-static void calculateVelocityResponse(struct NedCoor_f *pos, struct FloatEulers* eulerAngles, double totV[3], double gi[3]);
-static void calculateGlobalVelocity(struct NedCoor_f *pos, double gi[3], double ci[3]);
-static void calculateLocalVelocity(struct NedCoor_f *pos, double li[3]);
-static void calculateDiffVelocity(double totV[3], double di[3]);
-static void calculateCamPosition(struct NedCoor_f *pos, struct FloatEulers* eulerAngles, double totV[3], double gi[3], double cPos[3]);
-static void updateWaypoints(struct NedCoor_f *pos, double totV[3], double cPos[3]);
-static void limitNorm(double totV[3], double maxNorm);
-static void limitVelocityYaw(struct FloatEulers* eulerAngles, double totV[3]);
-static void autoswarm_write_log(void);
-static double calculateLocalGlobalCoeff(struct NedCoor_f *pos, double gi[3]);
-static void limitYaw(struct NedCoor_f *pos, struct FloatEulers* eulerAngles, double cPos[3]);
+static void     calculateVelocityResponse   (struct NedCoor_f *pos, struct FloatEulers* eulerAngles, double totV[3], double gi[3]);
+static void     calculateGlobalVelocity     (struct NedCoor_f *pos, double gi[3], double ci[3]);
+static void     calculateLocalVelocity      (struct NedCoor_f *pos, double li[3]);
+static void     calculateDiffVelocity       (double totV[3], double di[3]);
+static void     calculateCamPosition        (struct NedCoor_f *pos, struct FloatEulers* eulerAngles, double totV[3], double gi[3], double cPos[3]);
+static void     updateWaypoints             (struct NedCoor_f *pos, double totV[3], double cPos[3]);
+static void     limitNorm                   (double totV[3], double maxNorm);
+static void     limitVelocityYaw            (struct FloatEulers* eulerAngles, double totV[3]);
+static void     autoswarm_write_log         (void);
+static double   calculateLocalGlobalCoeff   (struct NedCoor_f *pos, double gi[3], double ci[3]);
+static void     limitYaw                    (struct NedCoor_f *pos, struct FloatEulers* eulerAngles, double cPos[3]);
 
 /// Set up swarm parameters ///
 int     settings_as_heading_mode    = AS_HEADING_MODE;          ///< Heading/Camera control modus
@@ -204,7 +204,7 @@ void autoswarm_init( void ){
         printf("[AS] Writing tracking results to: %s\n", resultFile);
     }
 #endif
-    printf("[AS] initialized, set ar_filter cam_range to %0.2f\n",ARF_CAM_RANGE);
+    printf("[AS] initialized, ar_filter cam_range is %0.2f\n",ARF_CAM_RANGE);
     return;
 }
 
@@ -250,9 +250,7 @@ void calculateVelocityResponse(struct NedCoor_f *pos, struct FloatEulers* eulerA
     double di[3]    = {0.0, 0.0, 0.0};                      ///< Differential contribution
     calculateLocalVelocity(pos, li);                        ///< Get the local contribution based on our neighbours
     calculateGlobalVelocity(pos, gi, ci);                   ///< Get the contribution due to the global attractor/field
-    //gi[0] = gi[0] + ci[0];
-    //gi[1] = gi[1] + ci[1];
-    double g_coeff  = calculateLocalGlobalCoeff(pos, gi);   ///< Calculate the local-global interaction coefficient
+    double g_coeff  = calculateLocalGlobalCoeff(pos, gi, ci);   ///< Calculate the local-global interaction coefficient
     totV[0]         = li[0] + g_coeff * (gi[0] + ci[0]);    ///< Scale the global component with the local-global interaction coefficient and add them
     totV[1]         = li[1] + g_coeff * (gi[1] + ci[1]);
     limitNorm(totV, settings_as_vmax);                      ///< Check if the desired velocity exceeds settings_as_vmax
@@ -316,7 +314,7 @@ void calculateLocalVelocity(struct NedCoor_f *pos, double li[3]){
  *
  * This function calculates the local-global interaction coefficient
  */
-double calculateLocalGlobalCoeff(struct NedCoor_f *pos, double gi[3]){
+double calculateLocalGlobalCoeff(struct NedCoor_f *pos, double gi[3], double ci[3]){
 #ifdef __linux__
     pthread_mutex_lock(&neighbourMem_mutex);
 #endif
@@ -332,12 +330,12 @@ double calculateLocalGlobalCoeff(struct NedCoor_f *pos, double gi[3]){
                 w_neighbours[1]        += pow( rel_dist, 2.0 ) * ( pos->y - neighbourMem[r].y_w ) / range;
             }
         }
-        double gi_n             = sqrt( pow( gi[0], 2.0 ) + pow( gi[1], 2.0 ) );                                                            ///< Norm of global interaction
+        double gi_n             = sqrt( pow( gi[0] + ci[0], 2.0 ) + pow( gi[1] + ci[1], 2.0 ) );                                                            ///< Norm of global interaction
         w_neighbours[0] *= gi_n;                                                                                                            ///< Scale weighed neighbours vector by global contribution
         w_neighbours[1] *= gi_n;
-        double c_gi_coef   = ( w_neighbours[0] * gi[0] + w_neighbours[1] * gi[1] ) / pow( gi_n, 2.0 );                                      ///< dot product between weighed neighbours and global interaction, divided by dot produgt of global interaction and global interaction;
+        double c_gi_coef   = ( w_neighbours[0] * (gi[0] + ci[0]) + w_neighbours[1] * (gi[1] + ci[1]) ) / pow( gi_n, 2.0 );                                      ///< dot product between weighed neighbours and global interaction, divided by dot produgt of global interaction and global interaction;
         result = pow( fmin( 1.0, fmax( 0.0,
-                2.0 - sqrt( pow( gi[0] * ( 1 - c_gi_coef), 2.0 ) + pow( gi[1] * (1 - c_gi_coef), 2.0 ) ) / gi_n ) ), settings_as_loglo );   ///< Return local-global interaction coefficient
+                2.0 - sqrt( pow( (gi[0] + ci[0]) * ( 1 - c_gi_coef), 2.0 ) + pow( (gi[1] + ci[1]) * (1 - c_gi_coef), 2.0 ) ) / gi_n ) ), settings_as_loglo );   ///< Return local-global interaction coefficient
     }
 #ifdef __linux__
     pthread_mutex_unlock(&neighbourMem_mutex);
@@ -379,17 +377,17 @@ void calculateGlobalVelocity(struct NedCoor_f *pos, double gi[3], double ci[3]){
     case AS_CIRCLE_CW :
         direction = -1.0;
     case AS_CIRCLE_CC :{
-        double cr     = sqrt( pow( globalOrigin.cx - pos->x, 2.0 ) + pow( globalOrigin.cy - pos->y, 2.0 ) );
+        double cr     = hypot( globalOrigin.cx - pos->x, globalOrigin.cy - pos->y);
         if (cr > settings_as_deadzone){
-            double band_width_gain  = 0.25;
-            double spiral_gain      = 6.0;
-            double circle_angle     = direction * (90.0 + fmin(90.0, fmax(-90.0, spiral_gain * pow(settings_as_circle_radius - cr, 3.0)))) / 180.0 * M_PI;
+            double band_width_gain  = 0.5;
+            double spiral_gain      = 24.0;
+            double circle_angle     = direction * (80.0 + fmin(90.0, fmax(-90.0, spiral_gain * pow(settings_as_circle_radius - cr, 1.0)))) / 180.0 * M_PI;
             double circle_strength  = settings_as_global_strength * settings_as_vmax * fmin(0.9, 0.5 + band_width_gain * pow(cr - settings_as_circle_radius, 2.0));
             double xContrib         = circle_strength * (globalOrigin.cx - pos->x) / cr;
             double yContrib         = circle_strength * (globalOrigin.cy - pos->y) / cr;
             gi[0]                   = cos(circle_angle) * xContrib - sin(circle_angle) * yContrib;
             gi[1]                   = sin(circle_angle) * xContrib + cos(circle_angle) * yContrib;
-            PRINT("r: %4.2f dr: %4.2f angle: %4.2f str: %4.2f  x: %4.2f  y: %4.2f\n", cr, settings_as_circle_radius, circle_angle / M_PI * 180.0, circle_strength, xContrib, yContrib);
+            //PRINT("r: %4.2f dr: %4.2f angle: %4.2f str: %4.2f  x: %4.2f  y: %4.2f\n", cr, settings_as_circle_radius, circle_angle / M_PI * 180.0, circle_strength, xContrib, yContrib);
         }
         break;
     }
@@ -405,22 +403,22 @@ void calculateGlobalVelocity(struct NedCoor_f *pos, double gi[3], double ci[3]){
 #endif
     for (uint8_t i=0; i < neighbourMem_size; i++){
         double r    = sqrt( pow( pos->x - neighbourMem[i].x_w , 2.0 ) + pow( pos->y - neighbourMem[i].y_w, 2.0 ) );  ///< The range to this neighbour
-        if(r < settings_as_lattice_ratio * settings_as_separation && r > 0){
-            r = fmax(r, settings_as_separation);
-            //r = settings_as_separation + (r - settings_as_separation) / 1.0;
+        if(r > 0.85 * settings_as_separation){
+            r               = fmax(r, settings_as_separation);
             double dAngle   = angle_gi - atan2(neighbourMem[i].y_w - pos->y, neighbourMem[i].x_w - pos->x);
             if (dAngle >  M_PI)     dAngle =  2.0 * M_PI - dAngle;
             if (dAngle < -M_PI)     dAngle =  2.0 * M_PI + dAngle;
-            u        += gi_n * pow(settings_as_separation, 2.0) * (pow(sin(dAngle), 2.0) - pow(cos(dAngle), 2.0)) / pow( r, 2.0);
-            v        += (-2) * gi_n * pow(settings_as_separation, 2.0) * cos(dAngle) * sin(dAngle) / pow( r, 2.0);
+            u              += gi_n * pow(settings_as_separation, 2.0) * (pow(sin(dAngle), 2.0) - pow(cos(dAngle), 2.0)) / pow( r, 2.0);
+            v              += (2) * gi_n * pow(settings_as_separation, 2.0) * cos(dAngle) * sin(dAngle) / pow( r, 2.0);
         }
     }
 #ifdef __linux__
     pthread_mutex_unlock(&neighbourMem_mutex);
 #endif
     ci[0]           = u * cos(angle_gi) - v * sin(angle_gi);
-    ci[1]           = u * sin(angle_gi) - v * cos(angle_gi);
-    PRINT("gi: %4.2f %4.2f  ci: %4.2f %4.2f\n", gi[0], gi[1], ci[0], ci[1]);
+    ci[1]           = u * sin(angle_gi) + v * cos(angle_gi);
+    //PRINT("gi_n: %4.2f  gi_angle: %4.2f  u: %4.2f  v:  %4.2f\n", gi_n, angle_gi / M_PI * 180, u ,v);
+    //PRINT("gi: %4.2f %4.2f  ci: %4.2f %4.2f\n", gi[0], gi[1], ci[0], ci[1]);
     return;
 }
 
@@ -476,7 +474,7 @@ void calculateCamPosition(struct NedCoor_f *pos, struct FloatEulers* eulerAngles
             cPos[2]     = pos->z;
         }
     }
-    //limitYaw(pos, eulerAngles, cPos);                                      // Limit yaw
+    limitYaw(pos, eulerAngles, cPos);                                      // Limit yaw
     return;
 }
 

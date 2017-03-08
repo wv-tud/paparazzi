@@ -114,7 +114,7 @@
       <attitude pitch="0" roll="0" throttle="0" until="FALSE" vmode="throttle"/>
     </block>
     <block name="No GPS Landing">
-    	<attitude pitch="0" roll="0" throttle="0.49" until="GpsFixValid() && LessThan(GetPosAlt(), 0.15)" vmode="throttle"/>
+    	<attitude pitch="0" roll="0" throttle="0.39" until="GpsFixValid() && LessThan(GetPosAlt(), 0.15)" vmode="throttle"/>
     	<deroute block="Landed"/>
     	<exception cond="!nav_is_in_flight()" 	deroute="Landed"/>
     </block>

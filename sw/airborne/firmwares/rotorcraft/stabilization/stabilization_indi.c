@@ -322,7 +322,7 @@ static void stabilization_indi_calc_cmd(struct Int32Quat *att_err, bool rate_con
       /reference_acceleration.rate_r;
 
     // Possibly we can use some bounding here
-    BoundAbs(rate_ref.r, 5.0);
+    BoundAbs(rate_ref.r, 2.09); // 120/180 * M_PI
   }
 
   struct FloatRates *body_rates = stateGetBodyRates_f();

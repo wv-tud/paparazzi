@@ -55,6 +55,10 @@
 #define CV_AE_AWB_MAX_GAINS 64
 #endif
 
+#ifndef CV_AE_MIDDLE_INDEX
+#define CV_AE_MIDDLE_INDEX 85
+#endif
+
 #define PRINT(string,...) fprintf(stderr, "[cv_ae_awb->%s()] " string,__FUNCTION__ , ##__VA_ARGS__)
 
 #if CV_AE_AWB_VERBOSE
@@ -80,7 +84,7 @@ float awb_mu                = CV_AE_AWB_MU;
 
 uint8_t  bright_bin             = 211;
 uint8_t  sat_bin                = 25;
-uint8_t  middle_index           = 85;
+uint8_t  middle_index           = CV_AE_MIDDLE_INDEX;
 
 #include "boards/bebop/mt9f002.h"
 struct image_t* cv_ae_awb_periodic(struct image_t* img);
