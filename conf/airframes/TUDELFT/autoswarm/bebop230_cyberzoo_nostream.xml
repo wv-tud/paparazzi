@@ -48,7 +48,7 @@
 			<define name="FILE_LOGGER_PATH" value="/data/ftp/internal_000" />
 		</module>
 		<module name="pose_history">
-			<define name="POSE_HISTORY_SIZE" value="256" />
+			<define name="POSE_HISTORY_SIZE" value="128" />
 		</module>
 		<module name="autoswarm">
 			<define name="AS_GLOBAL_ATTRACTOR" value="2" />
@@ -57,7 +57,7 @@
 		<module name="video_thread" />
 		<module name="cv_image_pose" />
 		<module name="cv_ae_awb">
-			<define name="CV_AE_MIDDLE_INDEX" value="60" /> <!--  Colour filter works better in slightly underexposed image -->
+			<define name="CV_AE_MIDDLE_INDEX" value="75" /> <!--  Colour filter works better in slightly underexposed image -->
 		</module>
 		<module name="cv_bebop_camera_stabilization">
 		</module>
@@ -109,10 +109,9 @@
 	<section name="AHRS" prefix="AHRS_">
 		<!-- values used if no GPS fix, on 3D fix is update by geo_mag module -->
 		<define name="HEADING_UPDATE_GPS_MIN_SPEED" value="0" />
-		<!-- 
-		For vibrating airframes (tested without and seems to work well on bebop2-40)
+		<!-- For vibrating airframes -->
 		<define name="GRAVITY_HEURISTIC_FACTOR" value="0" />  
-		-->
+
 		<!-- Delft -->
 		<define name="H_X" value="0.3892503" />
 		<define name="H_Y" value="0.0017972" />
@@ -159,9 +158,9 @@
 		<!-- 
 		For the bebop2 we need to filter the roll rate due to the dampers - Tested without and seems to work well on bebop2-40
 		-->
-    		<define name="FILTER_ROLL_RATE"  value="TRUE"/>
-    		<define name="FILTER_PITCH_RATE" value="TRUE"/>
-    		<define name="FILTER_YAW_RATE"   value="TRUE"/>
+    	<define name="FILTER_ROLL_RATE"  value="TRUE"/>
+    	<define name="FILTER_PITCH_RATE" value="TRUE"/>
+    	<define name="FILTER_YAW_RATE"   value="TRUE"/>
 		<!-- reference acceleration for attitude control -->
 		<define name="REF_ERR_P" value="600.0" />
 		<define name="REF_ERR_Q" value="600.0" />

@@ -84,8 +84,7 @@ void file_logger_periodic(void)
   if (file_logger == NULL) {
     return;
   }
-  static uint32_t counter;
-  counter =3 ;
+  static uint32_t counter = 0;
   struct Int32Quat * quat       = stateGetNedToBodyQuat_i();
   struct NedCoor_f * pos        = stateGetPositionNed_f();
   struct NedCoor_f * accel_ned  = stateGetAccelNed_f();
@@ -97,9 +96,9 @@ void file_logger_periodic(void)
           pos->x,
           pos->y,
           pos->z,
-          filt_accel_ned[0].o[0],
-          filt_accel_ned[1].o[0],
-          filt_accel_ned[2].o[0],
+          filt_accel_ned[0].lp2.o[0],
+          filt_accel_ned[1].lp2.o[0],
+          filt_accel_ned[2].lp2.o[0],
           quat->qi,
           quat->qx,
           quat->qy,

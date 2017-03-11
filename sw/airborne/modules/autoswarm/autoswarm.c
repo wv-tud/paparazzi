@@ -54,7 +54,7 @@ PRINT_CONFIG_VAR(AS_GLOBAL_ATTRACTOR)
 PRINT_CONFIG_VAR(AS_GLOBAL_STR)
 
 #ifndef AS_SEPARATION
-#define AS_SEPARATION 1.5
+#define AS_SEPARATION 1.3
 #endif
 PRINT_CONFIG_VAR(AS_SEPARATION)
 
@@ -64,7 +64,7 @@ PRINT_CONFIG_VAR(AS_SEPARATION)
 PRINT_CONFIG_VAR(AS_CIRCLE_RADIUS)
 
 #ifndef AS_VMAX
-#define AS_VMAX 3.0
+#define AS_VMAX 2.5
 #endif
 PRINT_CONFIG_VAR(AS_VMAX)
 
@@ -84,7 +84,7 @@ PRINT_CONFIG_VAR(AS_E)
 PRINT_CONFIG_VAR(AS_EPS)
 
 #ifndef AS_HOME
-#define AS_HOME 0.25
+#define AS_HOME 0.4
 #endif
 PRINT_CONFIG_VAR(AS_HOME)
 
@@ -137,8 +137,8 @@ static void     calculateLocalVelocity      (struct NedCoor_f *pos, double li[3]
 static void     calculateDiffVelocity       (double totV[3], double di[3]);
 static void     calculateCamPosition        (struct NedCoor_f *pos, struct FloatEulers* eulerAngles, double totV[3], double gi[3], double cPos[3]);
 static void     updateWaypoints             (struct NedCoor_f *pos, double totV[3], double cPos[3]);
-static void     limitNorm                   (double totV[3], double maxNorm);
-static void     limitVelocityYaw            (struct FloatEulers* eulerAngles, double totV[3]);
+static void     limitNorm                   (double vec[3], double maxNorm);
+static void     limitNormHeading            (struct FloatEulers* eulerAngles, double vec[3]);
 static void     autoswarm_write_log         (void);
 static double   calculateLocalGlobalCoeff   (struct NedCoor_f *pos, double gi[3], double ci[3]);
 static void     limitYaw                    (struct NedCoor_f *pos, struct FloatEulers* eulerAngles, double cPos[3]);
@@ -251,6 +251,9 @@ void calculateVelocityResponse(struct NedCoor_f *pos, struct FloatEulers* eulerA
     calculateLocalVelocity(pos, li);                        ///< Get the local contribution based on our neighbours
     calculateGlobalVelocity(pos, gi, ci);                   ///< Get the contribution due to the global attractor/field
     double g_coeff  = calculateLocalGlobalCoeff(pos, gi, ci);   ///< Calculate the local-global interaction coefficient
+    if (settings_as_heading_mode == AS_CAM_GLOBAL){
+        limitNormHeading(eulerAngles, gi);                  ///< Limit the velocity when heading change gets larger
+    }
     totV[0]         = li[0] + g_coeff * (gi[0] + ci[0]);    ///< Scale the global component with the local-global interaction coefficient and add them
     totV[1]         = li[1] + g_coeff * (gi[1] + ci[1]);
     limitNorm(totV, settings_as_vmax);                      ///< Check if the desired velocity exceeds settings_as_vmax
@@ -258,7 +261,7 @@ void calculateVelocityResponse(struct NedCoor_f *pos, struct FloatEulers* eulerA
     totV[0]         = totV[0] + di[0];                      ///< Add differential component
     totV[1]         = totV[1] + di[1];
     if (settings_as_heading_mode!=AS_CAM_GLOBAL){
-        limitVelocityYaw(eulerAngles, totV);                ///< Limit the velocity when heading change gets larger
+        limitNormHeading(eulerAngles, totV);                ///< Limit the velocity when heading change gets larger
     }
 #ifdef __linux__
   pthread_mutex_lock(&totV_mutex);
@@ -283,7 +286,7 @@ void calculateLocalVelocity(struct NedCoor_f *pos, double li[3]){
   pthread_mutex_lock(&neighbourMem_mutex);
 #endif
     for (uint8_t i=0; i < neighbourMem_size; i++){
-        double r    = sqrt( pow( ( pos->x - neighbourMem[i].x_w ), 2.0 ) + pow( ( pos->y - neighbourMem[i].y_w ), 2.0 ) );                  ///< The range to this neighbour
+        double r    = hypot(pos->x - neighbourMem[i].x_w, pos->y - neighbourMem[i].y_w );                                                   ///< The range to this neighbour
         if(r < settings_as_lattice_ratio * settings_as_separation){
             double li_n = 12 * settings_as_e / r * ( pow( settings_as_separation / r, 12.0 ) - pow( settings_as_separation / r, 6.0 ) );    ///< Local contribution scaling factor
             li[0]      += li_n * (pos->x - neighbourMem[i].x_w) / r;                                                                        ///< Local contribution in x
@@ -320,18 +323,18 @@ double calculateLocalGlobalCoeff(struct NedCoor_f *pos, double gi[3], double ci[
 #endif
     double result = 1.0;
     if (neighbourMem_size > 0){
-        double w_neighbours[2]  = {0.0, 0.0};                                                                                               ///< weighed neighbours vector
+        double w_neighbours[2]  = {0.0, 0.0};                                                                                                                   ///< weighed neighbours vector
         for (unsigned int r = 0; r < neighbourMem_size; r++){
-            double range            = sqrt( pow( ( pos->x - neighbourMem[r].x_w ), 2.0 ) + pow( ( pos->y - neighbourMem[r].y_w ), 2.0 ) );  ///< Range of neighbour
+            double range            = hypot( pos->x - neighbourMem[r].x_w, pos->y - neighbourMem[r].y_w );                                                      ///< Range of neighbour
             if(range < settings_as_separation * settings_as_lattice_ratio){
                 double rel_dist         = fmin( 1.0, ( settings_as_lattice_ratio * settings_as_separation - range )
-                        / ( settings_as_separation * ( settings_as_lattice_ratio - 1 ) ) );                             ///< Relative distance coefficient
-                w_neighbours[0]        += pow( rel_dist, 2.0 ) * ( pos->x - neighbourMem[r].x_w ) / range;                                  ///< Calculate neighbour contribution to weighed neighbours
+                        / ( settings_as_separation * ( settings_as_lattice_ratio - 1 ) ) );                                                                     ///< Relative distance coefficient
+                w_neighbours[0]        += pow( rel_dist, 2.0 ) * ( pos->x - neighbourMem[r].x_w ) / range;                                                      ///< Calculate neighbour contribution to weighed neighbours
                 w_neighbours[1]        += pow( rel_dist, 2.0 ) * ( pos->y - neighbourMem[r].y_w ) / range;
             }
         }
-        double gi_n             = sqrt( pow( gi[0] + ci[0], 2.0 ) + pow( gi[1] + ci[1], 2.0 ) );                                                            ///< Norm of global interaction
-        w_neighbours[0] *= gi_n;                                                                                                            ///< Scale weighed neighbours vector by global contribution
+        double gi_n             = hypot( gi[0] + ci[0], gi[1] + ci[1]);                                                                                         ///< Norm of global interaction
+        w_neighbours[0] *= gi_n;                                                                                                                                ///< Scale weighed neighbours vector by global contribution
         w_neighbours[1] *= gi_n;
         double c_gi_coef   = ( w_neighbours[0] * (gi[0] + ci[0]) + w_neighbours[1] * (gi[1] + ci[1]) ) / pow( gi_n, 2.0 );                                      ///< dot product between weighed neighbours and global interaction, divided by dot produgt of global interaction and global interaction;
         result = pow( fmin( 1.0, fmax( 0.0,
@@ -358,7 +361,7 @@ void calculateGlobalVelocity(struct NedCoor_f *pos, double gi[3], double ci[3]){
     double direction = 1.0;
     switch (settings_as_attractor){
     case AS_POINT :{
-       double cr     = sqrt( pow( globalOrigin.cx - pos->x, 2.0 ) + pow( globalOrigin.cy - pos->y, 2.0 ) );
+       double cr     = hypot( globalOrigin.cx - pos->x, globalOrigin.cy - pos->y);
         if (cr > settings_as_deadzone){
             gi[0]               = settings_as_global_strength * settings_as_vmax * ( globalOrigin.cx - pos->x ) / cr;
             gi[1]               = settings_as_global_strength * settings_as_vmax * ( globalOrigin.cy - pos->y ) / cr;
@@ -366,7 +369,7 @@ void calculateGlobalVelocity(struct NedCoor_f *pos, double gi[3], double ci[3]){
         break;
     }
     case AS_BUCKET :{
-        double cr     = sqrt( pow( globalOrigin.cx - pos->x, 2.0 ) + pow( globalOrigin.cy - pos->y, 2.0 ) );
+        double cr     = hypot( globalOrigin.cx - pos->x, globalOrigin.cy - pos->y);
         if (cr > settings_as_deadzone){
             double gScalar      = fmin( settings_as_global_strength * settings_as_vmax, fmax( settings_as_bucket_vmin, settings_as_global_strength * settings_as_vmax * ( 1 - 1 / ( 1 + exp( 6.0 / settings_as_separation * (cr - settings_as_separation ) ) ) ) ) );
             gi[0]               = gScalar * ( globalOrigin.cx - pos->x ) / cr;
@@ -387,22 +390,21 @@ void calculateGlobalVelocity(struct NedCoor_f *pos, double gi[3], double ci[3]){
             double yContrib         = circle_strength * (globalOrigin.cy - pos->y) / cr;
             gi[0]                   = cos(circle_angle) * xContrib - sin(circle_angle) * yContrib;
             gi[1]                   = sin(circle_angle) * xContrib + cos(circle_angle) * yContrib;
-            //PRINT("r: %4.2f dr: %4.2f angle: %4.2f str: %4.2f  x: %4.2f  y: %4.2f\n", cr, settings_as_circle_radius, circle_angle / M_PI * 180.0, circle_strength, xContrib, yContrib);
         }
         break;
     }
     default : break;
     }
     // Add doublets for all neighbours to enhance conflict resolution
-    double angle_gi = atan2(gi[1], gi[0]);
-    double gi_n     = sqrt( pow( gi[0], 2.0) + pow( gi[1], 2.0) );
+    double angle_gi = atan2( gi[1], gi[0] );
+    double gi_n     = hypot( gi[0], gi[1] );
     double u        = 0.0;
     double v        = 0.0;
 #ifdef __linux__
   pthread_mutex_lock(&neighbourMem_mutex);
 #endif
     for (uint8_t i=0; i < neighbourMem_size; i++){
-        double r    = sqrt( pow( pos->x - neighbourMem[i].x_w , 2.0 ) + pow( pos->y - neighbourMem[i].y_w, 2.0 ) );  ///< The range to this neighbour
+        double r    = hypot(pos->x - neighbourMem[i].x_w , pos->y - neighbourMem[i].y_w);  ///< The range to this neighbour
         if(r > 0.85 * settings_as_separation){
             r               = fmax(r, settings_as_separation);
             double dAngle   = angle_gi - atan2(neighbourMem[i].y_w - pos->y, neighbourMem[i].x_w - pos->x);
@@ -417,8 +419,6 @@ void calculateGlobalVelocity(struct NedCoor_f *pos, double gi[3], double ci[3]){
 #endif
     ci[0]           = u * cos(angle_gi) - v * sin(angle_gi);
     ci[1]           = u * sin(angle_gi) + v * cos(angle_gi);
-    //PRINT("gi_n: %4.2f  gi_angle: %4.2f  u: %4.2f  v:  %4.2f\n", gi_n, angle_gi / M_PI * 180, u ,v);
-    //PRINT("gi: %4.2f %4.2f  ci: %4.2f %4.2f\n", gi[0], gi[1], ci[0], ci[1]);
     return;
 }
 
@@ -449,7 +449,7 @@ void calculateDiffVelocity(double totV[3], double di[3]){
  */
 void calculateCamPosition(struct NedCoor_f *pos, struct FloatEulers* eulerAngles, double totV[3], double gi[3], double cPos[3]){
     if (settings_as_heading_mode == AS_CAM_FORWARD){                     ///< Point WP_CAM on unity circle towards totV
-        double velR = sqrt(pow(totV[0], 2.0) + pow(totV[1], 2.0));
+        double velR = hypot(totV[0], totV[1]);
         if (velR > 0){
             cPos[0] = pos->x + totV[0] / velR;
             cPos[1] = pos->y + totV[1] / velR;
@@ -462,7 +462,7 @@ void calculateCamPosition(struct NedCoor_f *pos, struct FloatEulers* eulerAngles
         }
     }
     if (settings_as_heading_mode == AS_CAM_GLOBAL){                        ///< Point WP_CAM on unity circle towards global component
-        double velR = sqrt(pow(gi[0], 2.0) + pow(gi[1], 2.0));
+        double velR = hypot(gi[0], gi[1]);
         if (velR > 0){
             cPos[0]     = pos->x + gi[0] / velR;
             cPos[1]     = pos->y + gi[1] / velR;
@@ -503,18 +503,17 @@ void limitYaw(struct NedCoor_f *pos, struct FloatEulers* eulerAngles, double cPo
  *
  * This function limits the velocity when increasing yaw changes are made
  */
-void limitVelocityYaw(struct FloatEulers* eulerAngles, double totV[3]){
-    double totVHeading  = atan2(totV[1], totV[0]);              ///< Heading of totV
-    double relHeading   = totVHeading - eulerAngles->psi;       ///< Relative angle between totV and heading
-    double vTurn;
-    if (abs(relHeading) > acos(0.01)){
-        vTurn = 0.01            * sqrt(pow(totV[0], 2.0) + pow(totV[1], 2.0));
-    }
-    else{
-        vTurn = cos(relHeading) * sqrt(pow(totV[0], 2.0) + pow(totV[1], 2.0));
-    }
-    totV[0] = cos(totVHeading) * vTurn;
-    totV[1] = sin(totVHeading) * vTurn;
+void limitNormHeading(struct FloatEulers* eulerAngles, double vec[3]){
+    double vecHeading  = atan2(vec[1], vec[0]);                 ///< Heading of vec
+    double relHeading   = vecHeading - eulerAngles->psi;        ///< Relative angle between vec and heading
+
+    if (relHeading >  M_PI)     relHeading =  2.0 * M_PI - relHeading;
+    if (relHeading < -M_PI)     relHeading =  2.0 * M_PI + relHeading;
+
+    double vTurn = fmax(0.01, cos(relHeading)) * hypot(vec[0], vec[1]);
+
+    vec[0] = cos(vecHeading) * vTurn;
+    vec[1] = sin(vecHeading) * vTurn;
     return;
 }
 
@@ -526,10 +525,10 @@ void limitVelocityYaw(struct FloatEulers* eulerAngles, double totV[3]){
  * This function limits the input vector to a maximum given
  */
 void limitNorm(double vec[3], double maxNorm){
-    double vR = sqrt(pow(vec[0],2.0) + pow(vec[1],2.0));      ///< Find the norm
-    if (vR > maxNorm){
-        vec[0] = maxNorm * vec[0] / vR;                       ///< vector so that ||vector|| = maxNorm
-        vec[1] = maxNorm * vec[1] / vR;
+    double cor = maxNorm / hypot(vec[0], vec[1]);      ///< Find the correction factor
+    if (cor < 1.0){
+        vec[0] *= cor;                       ///< vector so that ||vector|| = maxNorm
+        vec[1] *= cor;
         vec[2] = 0.0;
     }
     return;
@@ -564,7 +563,7 @@ void updateWaypoints(struct NedCoor_f *pos, double totV[3], double cPos[3]){
  */
 bool amIhome(void){
     struct EnuCoor_f *pos = stateGetPositionEnu_f();  // Get current position
-    if (sqrt(pow(pos->x - waypoint_get_x((unsigned char) WP__TD), 2.0) + pow(pos->y - waypoint_get_y((unsigned char) WP__TD), 2.0)) < AS_HOME){
+    if (hypot(pos->x - waypoint_get_x((unsigned char) WP__TD), pos->y - waypoint_get_y((unsigned char) WP__TD)) < AS_HOME){
         return true;
     }
     else{

@@ -16,17 +16,13 @@ endif
 
 #
 # if gcc can't be found in path, try the codesourcery toolchain in /usr/local/codesourcery
-#
-ifeq ($(shell which $(PREFIX)-gcc),)
+
 ifndef HARD_FLOAT
-  TOOLCHAIN=$(shell find -L /usr/local/codesourcery -maxdepth 2 -type d -name arm-none-linux-gnueabi 2>/dev/null | head -n 1)
+  TOOLCHAIN=$(shell find -L /opt -maxdepth 4 -iname "arm-none-linux-gnueabi-gcc" | sed 's|-gcc||' | head -n 1)
   ifneq ($(TOOLCHAIN),)
-    PREFIX=$(shell dirname $(TOOLCHAIN))/bin/arm-none-linux-gnueabi
+    PREFIX=$(TOOLCHAIN)
   endif
 endif
-endif
-
-PREFIX=/usr/bin/arm-none-linux-gnueabi
 
 # if toolchain could not be found, print some useful info
 ifeq ($(shell which $(PREFIX)-gcc),)
