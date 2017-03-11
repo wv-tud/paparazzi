@@ -43,6 +43,6 @@ extern float guidance_indi_thrust_specific_force_gain;
 extern struct FloatVect3 euler_cmd;
 
 extern struct FloatVect3 sp_accel;
-extern Butterworth2LowPass filt_accel_ned[3];
+extern Butterworth4LowPass filt_accel_ned[3];
 
 #endif /* GUIDANCE_INDI_H */

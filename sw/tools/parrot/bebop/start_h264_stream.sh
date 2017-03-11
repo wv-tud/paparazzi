@@ -2,6 +2,7 @@
 
 function start_stream
 {
+	killall -9 vlc
 	/usr/bin/cvlc ftp://$ip/internal_000/stream.sdp --avcodec-hw=vaapi --no-xlib --no-interact --no-audio --clock-synchro 0 --no-sout-audio --network-caching $time_out --avcodec-skiploopfilter 4 --avcodec-codec h264 --sout-avcodec-hurry-up --avcodec-fast --udp-buffer 3000000 --live-caching $time_out --avcodec-skip-idct 4 --avcodec-skip-frame 2 --sout-schro-rate-control low_delay --screen-fps $fps --rtsp-frame-buffer-size 3000000 --h264-fps $fps --quiet
 }
 

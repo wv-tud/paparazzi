@@ -57,7 +57,7 @@ float guidance_indi_pos_gain = 1.0;
 #ifdef GUIDANCE_INDI_SPEED_GAIN
 float guidance_indi_speed_gain = GUIDANCE_INDI_SPEED_GAIN;
 #else
-float guidance_indi_speed_gain = 2.8;
+float guidance_indi_speed_gain = 3.8;
 #endif
 
 struct FloatVect3 sp_accel = {0.0,0.0,0.0};
@@ -84,10 +84,10 @@ static void guidance_indi_filter_thrust(void);
 #endif
 
 float thrust_act = 0;
-Butterworth2LowPass filt_accel_ned[3];
-Butterworth2LowPass roll_filt;
-Butterworth2LowPass pitch_filt;
-Butterworth2LowPass thrust_filt;
+Butterworth4LowPass filt_accel_ned[3];
+Butterworth4LowPass roll_filt;
+Butterworth4LowPass pitch_filt;
+Butterworth4LowPass thrust_filt;
 
 struct FloatMat33 Ga;
 struct FloatMat33 Ga_inv;
@@ -120,13 +120,13 @@ void guidance_indi_enter(void) {
   float tau_thrust = 1.0/(2.0*M_PI*thrust_filter_cutoff);
   float sample_time = 1.0/PERIODIC_FREQUENCY;
   for(int8_t i=0; i<2; i++) {
-    init_butterworth_2_low_pass(&filt_accel_ned[i], tau, sample_time, 0.0);
+    init_butterworth_4_low_pass(&filt_accel_ned[i], tau, sample_time, 0.0);
   }
-  init_butterworth_2_low_pass(&filt_accel_ned[2], tau_thrust, sample_time, 0.0);
+  init_butterworth_4_low_pass(&filt_accel_ned[2], tau_thrust, sample_time, 0.0);
 
-  init_butterworth_2_low_pass(&roll_filt, tau, sample_time, 0.0);
-  init_butterworth_2_low_pass(&pitch_filt, tau, sample_time, 0.0);
-  init_butterworth_2_low_pass(&thrust_filt, tau_thrust, sample_time, 0.0);
+  init_butterworth_4_low_pass(&roll_filt, tau, sample_time, 0.0);
+  init_butterworth_4_low_pass(&pitch_filt, tau, sample_time, 0.0);
+  init_butterworth_4_low_pass(&thrust_filt, tau_thrust, sample_time, 0.0);
 }
 
 /**
@@ -171,7 +171,7 @@ void guidance_indi_run(bool in_flight, int32_t heading) {
   //Invert this matrix
   MAT33_INV(Ga_inv, Ga);
 
-  struct FloatVect3 a_diff = { sp_accel.x - filt_accel_ned[0].o[0], sp_accel.y -filt_accel_ned[1].o[0], sp_accel.z -filt_accel_ned[2].o[0]};
+  struct FloatVect3 a_diff = { sp_accel.x - filt_accel_ned[0].lp2.o[0], sp_accel.y -filt_accel_ned[1].lp2.o[0], sp_accel.z -filt_accel_ned[2].lp2.o[0]};
 
   //Bound the acceleration error so that the linearization still holds
   Bound(a_diff.x, -6.0, 6.0);
@@ -191,8 +191,8 @@ void guidance_indi_run(bool in_flight, int32_t heading) {
 
   AbiSendMsgTHRUST(THRUST_INCREMENT_ID, euler_cmd.z);
 
-  guidance_euler_cmd.phi = roll_filt.o[0] + euler_cmd.x;
-  guidance_euler_cmd.theta = pitch_filt.o[0] + euler_cmd.y;
+  guidance_euler_cmd.phi = roll_filt.lp2.o[0] + euler_cmd.x;
+  guidance_euler_cmd.theta = pitch_filt.lp2.o[0] + euler_cmd.y;
   //zero psi command, because a roll/pitch quat will be constructed later
   guidance_euler_cmd.psi = 0;
 
@@ -200,7 +200,7 @@ void guidance_indi_run(bool in_flight, int32_t heading) {
   guidance_indi_filter_thrust();
 
   //Add the increment in specific force * specific_force_to_thrust_gain to the filtered thrust
-  thrust_in = thrust_filt.o[0] + euler_cmd.z*thrust_in_specific_force_gain;
+  thrust_in = thrust_filt.lp2.o[0] + euler_cmd.z*thrust_in_specific_force_gain;
   Bound(thrust_in, 0, 9600);
 
 #if GUIDANCE_INDI_RC_DEBUG
@@ -231,7 +231,7 @@ void guidance_indi_filter_thrust(void)
   thrust_act = thrust_act + GUIDANCE_INDI_THRUST_DYNAMICS * (thrust_in - thrust_act);
 
   // same filter as for the acceleration
-  update_butterworth_2_low_pass(&thrust_filt, thrust_act);
+  update_butterworth_4_low_pass(&thrust_filt, thrust_act);
 }
 #endif
 
@@ -242,12 +242,12 @@ void guidance_indi_filter_thrust(void)
  */
 void guidance_indi_propagate_filters(void) {
   struct NedCoor_f *accel = stateGetAccelNed_f();
-  update_butterworth_2_low_pass(&filt_accel_ned[0], accel->x);
-  update_butterworth_2_low_pass(&filt_accel_ned[1], accel->y);
-  update_butterworth_2_low_pass(&filt_accel_ned[2], accel->z);
+  update_butterworth_4_low_pass(&filt_accel_ned[0], accel->x);
+  update_butterworth_4_low_pass(&filt_accel_ned[1], accel->y);
+  update_butterworth_4_low_pass(&filt_accel_ned[2], accel->z);
 
-  update_butterworth_2_low_pass(&roll_filt, stateGetNedToBodyEulers_f()->phi);
-  update_butterworth_2_low_pass(&pitch_filt, stateGetNedToBodyEulers_f()->theta);
+  update_butterworth_4_low_pass(&roll_filt, stateGetNedToBodyEulers_f()->phi);
+  update_butterworth_4_low_pass(&pitch_filt, stateGetNedToBodyEulers_f()->theta);
 }
 
 /**
