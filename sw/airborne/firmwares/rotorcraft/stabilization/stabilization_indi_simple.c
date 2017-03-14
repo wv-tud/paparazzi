@@ -50,6 +50,14 @@
 #define STABILIZATION_INDI_FILT_CUTOFF 8.0
 #endif
 
+#ifndef STABILIZATION_INDI_FILT_CUTOFF_P
+#define STABILIZATION_INDI_FILT_CUTOFF_P STABILIZATION_INDI_FILT_CUTOFF
+#endif
+
+#ifndef STABILIZATION_INDI_FILT_CUTOFF_Q
+#define STABILIZATION_INDI_FILT_CUTOFF_Q STABILIZATION_INDI_FILT_CUTOFF
+#endif
+
 // the yaw sometimes requires more filtering
 #ifndef STABILIZATION_INDI_FILT_CUTOFF_R
 #define STABILIZATION_INDI_FILT_CUTOFF_R STABILIZATION_INDI_FILT_CUTOFF
@@ -150,8 +158,10 @@ void stabilization_indi_init(void)
 void indi_init_filters(void) {
   // tau = 1/(2*pi*Fc)
   float tau = 1.0/(2.0*M_PI*STABILIZATION_INDI_FILT_CUTOFF);
+  float tau_p = 1.0/(2.0*M_PI*STABILIZATION_INDI_FILT_CUTOFF_P);
+  float tau_q = 1.0/(2.0*M_PI*STABILIZATION_INDI_FILT_CUTOFF_Q);
   float tau_r = 1.0/(2.0*M_PI*STABILIZATION_INDI_FILT_CUTOFF_R);
-  float tau_axis[3] = {tau, tau, tau_r};
+  float tau_axis[3] = {tau_p, tau_q, tau_r};
   float tau_est = 1.0/(2.0*M_PI*STABILIZATION_INDI_ESTIMATION_FILT_CUTOFF);
   float sample_time = 1.0/PERIODIC_FREQUENCY;
   // Filtering of gyroscope and actuators

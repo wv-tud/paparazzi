@@ -137,11 +137,23 @@ float g2_est[INDI_NUM_ACT];
 float g1_init[INDI_OUTPUTS][INDI_NUM_ACT];
 float g2_init[INDI_NUM_ACT];
 
+#ifndef STABILIZATION_INDI_FILTER_ORDER
+#define STABILIZATION_INDI_FILTER_ORDER 2
+#endif
+
+#if STABILIZATION_INDI_FILTER_ORDER == 2
+Butterworth2LowPass actuator_lowpass_filters[INDI_NUM_ACT];
+Butterworth2LowPass estimation_input_lowpass_filters[INDI_NUM_ACT];
+Butterworth2LowPass measurement_lowpass_filters[3];
+Butterworth2LowPass estimation_output_lowpass_filters[3];
+Butterworth2LowPass acceleration_lowpass_filter;
+#else
 Butterworth4LowPass actuator_lowpass_filters[INDI_NUM_ACT];
 Butterworth4LowPass estimation_input_lowpass_filters[INDI_NUM_ACT];
 Butterworth4LowPass measurement_lowpass_filters[3];
 Butterworth4LowPass estimation_output_lowpass_filters[3];
 Butterworth4LowPass acceleration_lowpass_filter;
+#endif
 
 struct FloatVect3 body_accel_f;
 
@@ -234,18 +246,32 @@ void init_filters(void) {
   // Filtering of the gyroscope
   int8_t i;
   for(i=0; i<3; i++) {
+#if STABILIZATION_INDI_FILTER_ORDER == 2
+    init_butterworth_2_low_pass(&measurement_lowpass_filters[i], tau, sample_time, 0.0);
+    init_butterworth_2_low_pass(&estimation_output_lowpass_filters[i], tau_est, sample_time, 0.0);
+#else
     init_butterworth_4_low_pass(&measurement_lowpass_filters[i], tau, sample_time, 0.0);
     init_butterworth_4_low_pass(&estimation_output_lowpass_filters[i], tau_est, sample_time, 0.0);
+#endif
   }
 
   // Filtering of the actuators
   for(i=0; i<INDI_NUM_ACT; i++) {
+#if STABILIZATION_INDI_FILTER_ORDER == 2
+    init_butterworth_2_low_pass(&actuator_lowpass_filters[i], tau, sample_time, 0.0);
+    init_butterworth_2_low_pass(&estimation_input_lowpass_filters[i], tau_est, sample_time, 0.0);
+#else
     init_butterworth_4_low_pass(&actuator_lowpass_filters[i], tau, sample_time, 0.0);
     init_butterworth_4_low_pass(&estimation_input_lowpass_filters[i], tau_est, sample_time, 0.0);
+#endif
   }
 
   // Filtering of the accel body z
+#if STABILIZATION_INDI_FILTER_ORDER == 2
+  init_butterworth_2_low_pass(&acceleration_lowpass_filter, tau_est, sample_time, 0.0);
+#else
   init_butterworth_4_low_pass(&acceleration_lowpass_filter, tau_est, sample_time, 0.0);
+#endif
 }
 
 /**
@@ -394,11 +420,20 @@ static void stabilization_indi_calc_cmd(struct Int32Quat *att_err, bool rate_con
   for(i=0; i<INDI_NUM_ACT; i++) {
     update_butterworth_4_low_pass(&actuator_lowpass_filters[i], actuator_state[i]);
     update_butterworth_4_low_pass(&estimation_input_lowpass_filters[i], actuator_state[i]);
+
+#if STABILIZATION_INDI_FILTER_ORDER == 2
+    actuator_state_filt_vect[i] = actuator_lowpass_filters[i].o[0];
+#else
     actuator_state_filt_vect[i] = actuator_lowpass_filters[i].lp2.o[0];
+#endif
 
     // calculate derivatives for estimation
     float actuator_state_filt_vectd_prev = actuator_state_filt_vectd[i];
+#if STABILIZATION_INDI_FILTER_ORDER == 2
+    actuator_state_filt_vectd[i] = (estimation_input_lowpass_filters[i].o[0] - estimation_input_lowpass_filters[i].o[1])*PERIODIC_FREQUENCY;
+#else
     actuator_state_filt_vectd[i] = (estimation_input_lowpass_filters[i].lp2.o[0] - estimation_input_lowpass_filters[i].lp2.o[1])*PERIODIC_FREQUENCY;
+#endif
     actuator_state_filt_vectdd[i] = (actuator_state_filt_vectd[i] - actuator_state_filt_vectd_prev)*PERIODIC_FREQUENCY;
   }
 
@@ -435,12 +470,20 @@ void stabilization_indi_run(bool in_flight, bool rate_control)
     update_butterworth_4_low_pass(&estimation_output_lowpass_filters[i], rate_vect[i]);
 
     //Calculate the angular acceleration via finite difference
+#if STABILIZATION_INDI_FILTER_ORDER == 2
+    angular_acceleration[i] = (measurement_lowpass_filters[i].o[0]
+          - measurement_lowpass_filters[i].o[1])*PERIODIC_FREQUENCY;
+#else
     angular_acceleration[i] = (measurement_lowpass_filters[i].lp2.o[0]
       - measurement_lowpass_filters[i].lp2.o[1])*PERIODIC_FREQUENCY;
-
+#endif
     // Calculate derivatives for estimation
     float estimation_rate_d_prev = estimation_rate_d[i];
+#if STABILIZATION_INDI_FILTER_ORDER == 2
+    estimation_rate_d[i] = (estimation_output_lowpass_filters[i].o[0] - estimation_output_lowpass_filters[i].o[1]) *PERIODIC_FREQUENCY;
+#else
     estimation_rate_d[i] = (estimation_output_lowpass_filters[i].lp2.o[0] - estimation_output_lowpass_filters[i].lp2.o[1]) *PERIODIC_FREQUENCY;
+#endif
     estimation_rate_dd[i] = (estimation_rate_d[i] - estimation_rate_d_prev) * PERIODIC_FREQUENCY;
   }
 
@@ -548,11 +591,17 @@ void lms_estimation(void) {
   ACCELS_FLOAT_OF_BFP(body_accel_f, *body_accel_i);
 
   // Filter the acceleration in z axis
+#if STABILIZATION_INDI_FILTER_ORDER == 2
+  update_butterworth_2_low_pass(&acceleration_lowpass_filter, body_accel_f.z);
+  // Calculate the derivative of the acceleration via finite difference
+  float indi_accel_d = (acceleration_lowpass_filter.o[0]
+        - acceleration_lowpass_filter.o[1])*PERIODIC_FREQUENCY;
+#else
   update_butterworth_4_low_pass(&acceleration_lowpass_filter, body_accel_f.z);
-
   // Calculate the derivative of the acceleration via finite difference
   float indi_accel_d = (acceleration_lowpass_filter.lp2.o[0]
-      - acceleration_lowpass_filter.lp2.o[1])*PERIODIC_FREQUENCY;
+        - acceleration_lowpass_filter.lp2.o[1])*PERIODIC_FREQUENCY;
+#endif
 
   // scale the inputs to avoid numerical errors
   float_vect_smul(du_estimation, actuator_state_filt_vectd, 0.001, INDI_NUM_ACT);

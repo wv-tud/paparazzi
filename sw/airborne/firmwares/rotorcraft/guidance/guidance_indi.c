@@ -57,7 +57,7 @@ float guidance_indi_pos_gain = 1.0;
 #ifdef GUIDANCE_INDI_SPEED_GAIN
 float guidance_indi_speed_gain = GUIDANCE_INDI_SPEED_GAIN;
 #else
-float guidance_indi_speed_gain = 3.8;
+float guidance_indi_speed_gain = 2.7;
 #endif
 
 struct FloatVect3 sp_accel = {0.0,0.0,0.0};
@@ -83,24 +83,57 @@ static void guidance_indi_filter_thrust(void);
 #endif
 #endif
 
+#ifndef GUIDANCE_INDI_FILTER_CUTOFF_P
+#ifndef STABILIZATION_INDI_FILT_CUTOFF_P
+#define GUIDANCE_INDI_FILTER_CUTOFF_P GUIDANCE_INDI_FILTER_CUTOFF
+#else
+#define GUIDANCE_INDI_FILTER_CUTOFF_P STABILIZATION_INDI_FILT_CUTOFF_P
+#endif
+#endif
+
+#ifndef GUIDANCE_INDI_FILTER_CUTOFF_Q
+#ifndef STABILIZATION_INDI_FILT_CUTOFF_Q
+#define GUIDANCE_INDI_FILTER_CUTOFF_Q GUIDANCE_INDI_FILTER_CUTOFF
+#else
+#define GUIDANCE_INDI_FILTER_CUTOFF_Q STABILIZATION_INDI_FILT_CUTOFF_Q
+#endif
+#endif
+
+#ifndef GUIDANCE_INDI_FILTER_CUTOFF_R
+#ifndef STABILIZATION_INDI_FILT_CUTOFF_R
+#define GUIDANCE_INDI_FILTER_CUTOFF_R GUIDANCE_INDI_FILTER_CUTOFF
+#else
+#define GUIDANCE_INDI_FILTER_CUTOFF_R STABILIZATION_INDI_FILT_CUTOFF_R
+#endif
+#endif
+
 float thrust_act = 0;
+
+#ifndef GUIDANCE_INDI_FILTER_ORDER
+#ifndef STABILIZATION_INDI_FILTER_ORDER
+#define GUIDANCE_INDI_FILTER_ORDER 2
+#else
+#define GUIDANCE_INDI_FILTER_ORDER STABILIZATION_INDI_FILTER_ORDER
+#endif
+#endif
+
+#if GUIDANCE_INDI_FILTER_ORDER == 2
+Butterworth2LowPass filt_accel_ned[3];
+Butterworth2LowPass roll_filt;
+Butterworth2LowPass pitch_filt;
+Butterworth2LowPass thrust_filt;
+#else
 Butterworth4LowPass filt_accel_ned[3];
 Butterworth4LowPass roll_filt;
 Butterworth4LowPass pitch_filt;
 Butterworth4LowPass thrust_filt;
+#endif
 
 struct FloatMat33 Ga;
 struct FloatMat33 Ga_inv;
 struct FloatVect3 euler_cmd;
 
-/*
-#ifndef GUIDANCE_INDI_THRUST_FILTER_CUTOFF
-#define GUIDANCE_INDI_THRUST_FILTER_CUTOFF GUIDANCE_INDI_FILTER_CUTOFF
-#endif
-*/
-
 float filter_cutoff = GUIDANCE_INDI_FILTER_CUTOFF;
-float thrust_filter_cutoff = GUIDANCE_INDI_THRUST_FILTER_CUTOFF;
 
 struct FloatEulers guidance_euler_cmd;
 float thrust_in;
@@ -117,16 +150,32 @@ void guidance_indi_enter(void) {
   thrust_act = 0;
 
   float tau = 1.0/(2.0*M_PI*filter_cutoff);
-  float tau_thrust = 1.0/(2.0*M_PI*thrust_filter_cutoff);
-  float sample_time = 1.0/PERIODIC_FREQUENCY;
-  for(int8_t i=0; i<2; i++) {
-    init_butterworth_4_low_pass(&filt_accel_ned[i], tau, sample_time, 0.0);
-  }
-  init_butterworth_4_low_pass(&filt_accel_ned[2], tau_thrust, sample_time, 0.0);
 
-  init_butterworth_4_low_pass(&roll_filt, tau, sample_time, 0.0);
-  init_butterworth_4_low_pass(&pitch_filt, tau, sample_time, 0.0);
-  init_butterworth_4_low_pass(&thrust_filt, tau_thrust, sample_time, 0.0);
+  float tau_p = 1.0/(2.0*M_PI*GUIDANCE_INDI_FILTER_CUTOFF_P);
+  float tau_q = 1.0/(2.0*M_PI*GUIDANCE_INDI_FILTER_CUTOFF_Q);
+  float tau_r = 1.0/(2.0*M_PI*GUIDANCE_INDI_FILTER_CUTOFF_R);
+
+  float sample_time = 1.0/PERIODIC_FREQUENCY;
+
+#if GUIDANCE_INDI_FILTER_ORDER == 2
+    init_butterworth_2_low_pass(&filt_accel_ned[0], tau_p, sample_time, 0.0);
+    init_butterworth_2_low_pass(&filt_accel_ned[1], tau_q, sample_time, 0.0);
+    init_butterworth_2_low_pass(&filt_accel_ned[2], tau_r, sample_time, 0.0);
+#else
+    init_butterworth_4_low_pass(&filt_accel_ned[0], tau_p, sample_time, 0.0);
+    init_butterworth_2_low_pass(&filt_accel_ned[1], tau_q, sample_time, 0.0);
+    init_butterworth_2_low_pass(&filt_accel_ned[2], tau_r, sample_time, 0.0);
+#endif
+
+#if GUIDANCE_INDI_FILTER_ORDER == 2
+  init_butterworth_2_low_pass(&roll_filt,   tau_p, sample_time, 0.0);
+  init_butterworth_2_low_pass(&pitch_filt,  tau_q, sample_time, 0.0);
+  init_butterworth_2_low_pass(&thrust_filt, tau_r, sample_time, 0.0);
+#else
+  init_butterworth_4_low_pass(&roll_filt,   tau_p, sample_time, 0.0);
+  init_butterworth_4_low_pass(&pitch_filt,  tau_q, sample_time, 0.0);
+  init_butterworth_4_low_pass(&thrust_filt, tau_r, sample_time, 0.0);
+#endif
 }
 
 /**
@@ -171,7 +220,11 @@ void guidance_indi_run(bool in_flight, int32_t heading) {
   //Invert this matrix
   MAT33_INV(Ga_inv, Ga);
 
+#if GUIDANCE_INDI_FILTER_ORDER == 2
+  struct FloatVect3 a_diff = { sp_accel.x - filt_accel_ned[0].o[0], sp_accel.y -filt_accel_ned[1].o[0], sp_accel.z -filt_accel_ned[2].o[0]};
+#else
   struct FloatVect3 a_diff = { sp_accel.x - filt_accel_ned[0].lp2.o[0], sp_accel.y -filt_accel_ned[1].lp2.o[0], sp_accel.z -filt_accel_ned[2].lp2.o[0]};
+#endif
 
   //Bound the acceleration error so that the linearization still holds
   Bound(a_diff.x, -6.0, 6.0);
@@ -190,9 +243,13 @@ void guidance_indi_run(bool in_flight, int32_t heading) {
   MAT33_VECT3_MUL(euler_cmd, Ga_inv, a_diff);
 
   AbiSendMsgTHRUST(THRUST_INCREMENT_ID, euler_cmd.z);
-
+#if GUIDANCE_INDI_FILTER_ORDER == 2
+  guidance_euler_cmd.phi = roll_filt.o[0] + euler_cmd.x;
+  guidance_euler_cmd.theta = pitch_filt.o[0] + euler_cmd.y;
+#else
   guidance_euler_cmd.phi = roll_filt.lp2.o[0] + euler_cmd.x;
   guidance_euler_cmd.theta = pitch_filt.lp2.o[0] + euler_cmd.y;
+#endif
   //zero psi command, because a roll/pitch quat will be constructed later
   guidance_euler_cmd.psi = 0;
 
@@ -200,7 +257,11 @@ void guidance_indi_run(bool in_flight, int32_t heading) {
   guidance_indi_filter_thrust();
 
   //Add the increment in specific force * specific_force_to_thrust_gain to the filtered thrust
+#if GUIDANCE_INDI_FILTER_ORDER == 2
+  thrust_in = thrust_filt.o[0] + euler_cmd.z*thrust_in_specific_force_gain;
+#else
   thrust_in = thrust_filt.lp2.o[0] + euler_cmd.z*thrust_in_specific_force_gain;
+#endif
   Bound(thrust_in, 0, 9600);
 
 #if GUIDANCE_INDI_RC_DEBUG
@@ -231,7 +292,11 @@ void guidance_indi_filter_thrust(void)
   thrust_act = thrust_act + GUIDANCE_INDI_THRUST_DYNAMICS * (thrust_in - thrust_act);
 
   // same filter as for the acceleration
+#if GUIDANCE_INDI_FILTER_ORDER == 2
+  update_butterworth_2_low_pass(&thrust_filt, thrust_act);
+#else
   update_butterworth_4_low_pass(&thrust_filt, thrust_act);
+#endif
 }
 #endif
 
@@ -242,12 +307,21 @@ void guidance_indi_filter_thrust(void)
  */
 void guidance_indi_propagate_filters(void) {
   struct NedCoor_f *accel = stateGetAccelNed_f();
+#if GUIDANCE_INDI_FILTER_ORDER == 2
+  update_butterworth_2_low_pass(&filt_accel_ned[0], accel->x);
+  update_butterworth_2_low_pass(&filt_accel_ned[1], accel->y);
+  update_butterworth_2_low_pass(&filt_accel_ned[2], accel->z);
+
+  update_butterworth_2_low_pass(&roll_filt, stateGetNedToBodyEulers_f()->phi);
+  update_butterworth_2_low_pass(&pitch_filt, stateGetNedToBodyEulers_f()->theta);
+#else
   update_butterworth_4_low_pass(&filt_accel_ned[0], accel->x);
   update_butterworth_4_low_pass(&filt_accel_ned[1], accel->y);
   update_butterworth_4_low_pass(&filt_accel_ned[2], accel->z);
 
   update_butterworth_4_low_pass(&roll_filt, stateGetNedToBodyEulers_f()->phi);
   update_butterworth_4_low_pass(&pitch_filt, stateGetNedToBodyEulers_f()->theta);
+#endif
 }
 
 /**

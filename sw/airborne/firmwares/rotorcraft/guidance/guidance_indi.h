@@ -43,6 +43,19 @@ extern float guidance_indi_thrust_specific_force_gain;
 extern struct FloatVect3 euler_cmd;
 
 extern struct FloatVect3 sp_accel;
+
+#ifndef GUIDANCE_INDI_FILTER_ORDER
+#ifndef STABILIZATION_INDI_FILTER_ORDER
+#define GUIDANCE_INDI_FILTER_ORDER 2
+#else
+#define GUIDANCE_INDI_FILTER_ORDER STABILIZATION_INDI_FILTER_ORDER
+#endif
+#endif
+
+#if GUIDANCE_INDI_FILTER_ORDER == 2
+extern Butterworth2LowPass filt_accel_ned[3];
+#else
 extern Butterworth4LowPass filt_accel_ned[3];
+#endif
 
 #endif /* GUIDANCE_INDI_H */

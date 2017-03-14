@@ -96,9 +96,15 @@ void file_logger_periodic(void)
           pos->x,
           pos->y,
           pos->z,
+#if GUIDANCE_INDI_FILTER_ORDER == 2
+          filt_accel_ned[0].o[0],
+          filt_accel_ned[1].o[0],
+          filt_accel_ned[2].o[0],
+#else
           filt_accel_ned[0].lp2.o[0],
           filt_accel_ned[1].lp2.o[0],
           filt_accel_ned[2].lp2.o[0],
+#endif
           quat->qi,
           quat->qx,
           quat->qy,
