@@ -31,3 +31,6 @@
 [submodule "sw/ext/librtcm3"]
 	path = sw/ext/librtcm3
 	url = https://github.com/wv-tud/ubx_RTK_groundstation
+[submodule "sw/ext/TRICAL"]
+	path = sw/ext/TRICAL
+	url = https://github.com/sfwa/TRICAL.git

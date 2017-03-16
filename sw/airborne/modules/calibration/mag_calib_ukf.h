@@ -1,7 +1,7 @@
 /*
- * Copyright (C) 2016 Alexandre Bustico, Gautier Hattenberger
+ * Copyright (C) w.vlenterie
  *
- * This file is part of paparazzi.
+ * This file is part of paparazzi
  *
  * paparazzi is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -17,31 +17,19 @@
  * along with paparazzi; see the file COPYING.  If not, see
  * <http://www.gnu.org/licenses/>.
  */
-
 /**
- * @file arch/chibios/modules/tlsf/tlsf_malloc_arch.h
- *
- * Dynamic memory allocation based on TLSF library.
- *
+ * @file "modules/calibration/mag_calib_ukf.h"
+ * @author w.vlenterie
+ * Calibrate magnetometer using UKF
  */
 
-#ifndef TLSF_MALLOC_ARCH_H
-#define TLSF_MALLOC_ARCH_H
-#include <ch.h>
-#include <hal.h>
-#include "mcu_periph/ram_arch.h"
+#ifndef MAG_CALIB_UKF_H
+#define MAG_CALIB_UKF_H
 
-
-#define HEAP_CCM          ccmHeap
-// F7 has more than twice RAM than others families
-#if defined STM32F7XX
-#define HEAP_CCM_SIZE     65536
-#else 
-#define HEAP_CCM_SIZE     16384
-#endif
-#define HEAP_CCM_SECTION  FAST_SECTION
-
-#define HEAP_DEFAULT      HEAP_CCM
+extern void mag_calib_ukf_init( void );
+extern void accel_calib_ukf_init( void );
+extern void mag_calib_ukf_run( void );
+extern void accel_calib_ukf_run( void );
 
 #endif
 
