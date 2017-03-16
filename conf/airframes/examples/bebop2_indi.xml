@@ -6,7 +6,10 @@
     <target name="ap" board="bebop2">
       <define name="STABILIZATION_INDI_G2_R" value="0.20"/>
     </target>
-
+    <!--
+    <configure name="HOST" value="192.168.40.40"/>
+    <configure name="MODEM_HOST" value="192.168.40.255"/>
+    -->
     <target name="nps" board="pc">
       <module name="fdm" type="jsbsim"/>
       <module name="udp"/>
@@ -19,7 +22,9 @@
     <module name="radio_control" type="datalink"/>
     <module name="motor_mixing"/>
     <module name="actuators" type="bebop"/>
-    <module name="imu" type="bebop"/>
+    <module name="imu" type="bebop">
+    	<define name="UKF_CALIBRATE_FIELD_SENSOR" value="TRUE"/>
+    </module>
     <module name="gps" type="ublox"/>
     <module name="stabilization" type="indi_simple"/>
     <module name="ahrs" type="int_cmpl_quat">
@@ -31,6 +36,9 @@
 
   <modules main_freq="512">
     <module name="geo_mag"/>
+    <module name="mag_calib_ukf">
+    	<define name="CALIB_UKF_VERBOSE" value="FALSE"/>
+    </module>
     <module name="air_data"/>
     <module name="send_imu_mag_current"/>
     <module name="gps" type="ubx_ucenter"/>
