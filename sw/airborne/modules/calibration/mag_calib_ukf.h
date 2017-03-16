@@ -28,36 +28,6 @@
 
 #include "subsystems/imu.h"
 
-#define PRINT(string,...) fprintf(stderr, "[CALIB_UKF->%s()] " string,__FUNCTION__ , ##__VA_ARGS__)
-
-#if !defined MAG_CALIB_UKF_GEO_MAG_TIMEOUT
-#define MAG_CALIB_UKF_GEO_MAG_TIMEOUT 0
-#endif
-
-#if !defined MAG_CALIB_UKF_NORM
-#define MAG_CALIB_UKF_NORM 1.0f
-#endif
-
-#if !defined MAG_CALIB_UKF_NOISE_RMS
-#define MAG_CALIB_UKF_NOISE_RMS 2e-1f
-#endif
-
-#if !defined MAG_CALIB_UKF_HOTSTART
-#define MAG_CALIB_UKF_HOTSTART TRUE
-#endif
-
-#if !defined MAG_CALIB_UKF_HOTSTART_SAVE_FILE
-#define MAG_CALIB_UKF_HOTSTART_SAVE_FILE /data/ftp/internal_000/mag_ukf_calib.txt
-#endif
-
-#if !defined MAG_CALIB_UKF_VERBOSE
-#define VERBOSE_PRINT(...)
-#elif MAG_CALIB_UKF_VERBOSE == TRUE
-#define VERBOSE_PRINT PRINT
-#else
-#define VERBOSE_PRINT(...)
-#endif
-
 #if USE_MAGNETOMETER
 extern void mag_calib_ukf_init( struct Imu *_imu );
 extern void mag_calib_ukf_run( struct Imu *_imu );

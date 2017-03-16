@@ -20,7 +20,11 @@
 /**
  * @file "modules/calibration/mag_calib_ukf.c"
  * @author w.vlenterie
- * Calibrate magnetometer using UKF
+ * Calibrate the magnetometer using an unscented kalman filter
+ * For more information please visit the following links:
+ *   - https://github.com/sfwa/trical
+ *   - http://au.tono.my/log/20131213-trical-magnetometer-calibration.html
+ *   - http://www.acsu.buffalo.edu/~johnc/mag_cal05.pdf
  */
 
 #include <stdio.h>
@@ -37,6 +41,49 @@
 #include "modules/geo_mag/geo_mag.h"
 #include "generated/airframe.h"
 #include "subsystems/gps.h"
+
+
+#define PRINT(string,...) fprintf(stderr, "[CALIB_UKF->%s()] " string,__FUNCTION__ , ##__VA_ARGS__)
+
+#if !defined MAG_CALIB_UKF_GEO_MAG_TIMEOUT
+#define MAG_CALIB_UKF_GEO_MAG_TIMEOUT 0
+#else
+PRINT_CONFIG_VAR(MAG_CALIB_UKF_GEO_MAG_TIMEOUT)
+#endif
+
+#if !defined MAG_CALIB_UKF_NORM
+#define MAG_CALIB_UKF_NORM 1.0f
+#else
+PRINT_CONFIG_VAR(MAG_CALIB_UKF_NORM)
+#endif
+
+#if !defined MAG_CALIB_UKF_NOISE_RMS
+#define MAG_CALIB_UKF_NOISE_RMS 2e-1f
+#else
+PRINT_CONFIG_VAR(MAG_CALIB_UKF_NOISE_RMS)
+#endif
+
+#if !defined MAG_CALIB_UKF_HOTSTART
+#define MAG_CALIB_UKF_HOTSTART TRUE
+#else
+PRINT_CONFIG_VAR(MAG_CALIB_UKF_HOTSTART)
+#endif
+
+#if !defined MAG_CALIB_UKF_HOTSTART_SAVE_FILE
+#define MAG_CALIB_UKF_HOTSTART_SAVE_FILE /data/ftp/internal_000/mag_ukf_calib.txt
+#else
+PRINT_CONFIG_VAR(MAG_CALIB_UKF_HOTSTART_SAVE_FILE)
+#endif
+
+#if !defined MAG_CALIB_UKF_VERBOSE
+#define VERBOSE_PRINT(...)
+#elif MAG_CALIB_UKF_VERBOSE == TRUE
+#define VERBOSE_PRINT PRINT
+PRINT_CONFIG_VAR(MAG_CALIB_UKF_VERBOSE)
+#else
+#define VERBOSE_PRINT(...)
+PRINT_CONFIG_VAR(MAG_CALIB_UKF_VERBOSE)
+#endif
 
 #if USE_MAGNETOMETER
 TRICAL_instance_t mag_calib;
@@ -75,7 +122,7 @@ void mag_calib_ukf_init(struct Imu *_imu) {
 
 void mag_calib_ukf_run(struct Imu *_imu) {
 #if USE_MAGNETOMETER
-    float bias[3] = {0.0, 0.0, 0.0}, scale[9] = {0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0}, meas[3] = {0.0, 0.0, 0.0}, calib_meas[3] = {0.0, 0.0, 0.0};
+    float meas[3] = {0.0, 0.0, 0.0}, calib_meas[3] = {0.0, 0.0, 0.0};
     /** Update geo_mag based on MAG_CALIB_UKF_GEO_MAG_TIMEOUT (0 = no periodic updates) **/
     if(update_geo_mag_field && geo_mag.ready){
         double n                = double_vect3_norm(&geo_mag.vect);
@@ -105,14 +152,13 @@ void mag_calib_ukf_run(struct Imu *_imu) {
         meas[1] = MAG_FLOAT_OF_BFP( _imu->mag.y );
         meas[2] = MAG_FLOAT_OF_BFP( _imu->mag.z );
         TRICAL_estimate_update(&mag_calib, meas, expected_mag_field);
-        TRICAL_estimate_get(&mag_calib, bias, scale);
         TRICAL_measurement_calibrate(&mag_calib, meas, calib_meas);
         /** Save calibrated result **/
         _imu->mag.x = (int32_t) MAG_BFP_OF_REAL( calib_meas[0] );
         _imu->mag.y = (int32_t) MAG_BFP_OF_REAL( calib_meas[1] );
         _imu->mag.z = (int32_t) MAG_BFP_OF_REAL( calib_meas[2] );
         VERBOSE_PRINT("magnetometer measurement (x: %4.2f  y: %4.2f  z: %4.2f) norm: %4.2f\n", meas[0], meas[1], meas[2], hypot(hypot(meas[0],meas[1]), meas[2]));
-        VERBOSE_PRINT("magnetometer bias_f (x: %4.2f  y: %4.2f  z: %4.2f)\n", bias[0], bias[1], bias[2]);
+        VERBOSE_PRINT("magnetometer bias_f (x: %4.2f  y: %4.2f  z: %4.2f)\n", mag_calib.state[0], mag_calib.state[1],  mag_calib.state[2]);
         VERBOSE_PRINT("expected measurement (x: %4.2f  y: %4.2f  z: %4.2f) norm: %4.2f\n", expected_mag_field[0], expected_mag_field[1], expected_mag_field[2], hypot(hypot(expected_mag_field[0],expected_mag_field[1]), expected_mag_field[2]));
         VERBOSE_PRINT("calibrated   measurement (x: %4.2f  y: %4.2f  z: %4.2f) norm: %4.2f\n\n", calib_meas[0], calib_meas[1], calib_meas[2], hypot(hypot(calib_meas[0],calib_meas[1]), calib_meas[2]));
     }
@@ -145,7 +191,7 @@ void mag_calib_hotstart_write( void ){
     if(fp != NULL){
         fwrite(mag_calib.state, sizeof(float), 12, fp);
         fclose(fp);
-        PRINT("Wrote current state to disk:\n"
+        VERBOSE_PRINT("Wrote current state to disk:\n"
           "bias  {%4.2f, %4.2f, %4.2f}\n"
           "scale {%4.2f, %4.2f, %4.2f}\n"
           "      {%4.2f, %4.2f, %4.2f}\n"

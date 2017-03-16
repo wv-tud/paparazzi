@@ -65,10 +65,9 @@ PRINT_CONFIG_VAR(BEBOP_ACCEL_RANGE)
 
 #if !defined UKF_CALIBRATE_FIELD_SENSOR
 #define UKF_CALIBRATE_FIELD_SENSOR 0
-#else
+#elif UKF_CALIBRATE_FIELD_SENSOR
 #include "modules/calibration/mag_calib_ukf.h"
 #endif
-
 
 struct OrientationReps imu_to_mag_bebop;    ///< IMU to magneto rotation
 
@@ -94,13 +93,12 @@ void imu_bebop_init(void)
   //the magnetometer of the bebop2 is located on the gps board,
   //which is under a slight angle
   struct FloatEulers imu_to_mag_eulers =
-  {RadOfDeg( 0.0 ), RadOfDeg( 8.5 ), RadOfDeg( 180.0 )};
+  { 0.0, RadOfDeg( 8.5 ), M_PI };
   orientationSetEulers_f(&imu_to_mag_bebop, &imu_to_mag_eulers);
 #endif
 
 #if UKF_CALIBRATE_FIELD_SENSOR
   mag_calib_ukf_init(&imu);
-  //accel_calib_ukf_init(&imu);
 #endif
 }
 
@@ -138,9 +136,6 @@ void imu_bebop_event(void)
     imu_bebop.mpu.data_available = false;
     imu_scale_gyro(&imu);
     imu_scale_accel(&imu);
-#if UKF_CALIBRATE_FIELD_SENSOR
-    //accel_calib_ukf_run(&imu);
-#endif
     AbiSendMsgIMU_GYRO_INT32(IMU_BOARD_ID, now_ts, &imu.gyro);
     AbiSendMsgIMU_ACCEL_INT32(IMU_BOARD_ID, now_ts, &imu.accel);
   }
