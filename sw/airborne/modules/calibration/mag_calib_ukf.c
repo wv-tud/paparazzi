@@ -61,9 +61,11 @@ void mag_calib_ukf_init() {
 
     VERBOSE_PRINT("magnetometer initial calibration(x_n: %d  y_n: %d  z_n: %d)\n", imu.mag_neutral.x, imu.mag_neutral.y, imu.mag_neutral.z);
 
+    /*
     imu.mag_neutral.x = 0;
     imu.mag_neutral.y = 0;
     imu.mag_neutral.z = 0;
+    */
     /*
     mag_field[0] = 0.3892503;
     mag_field[1] = 0.0017972;
@@ -114,9 +116,11 @@ void mag_calib_ukf_run() {
         TRICAL_measurement_calibrate(&mag_calib, meas, calib_meas);
         VERBOSE_PRINT("calibrated   measurement (x: %4.2f  y: %4.2f  z: %4.2f) norm: %4.2f\n", calib_meas[0], calib_meas[1], calib_meas[2], hypot(hypot(calib_meas[0],calib_meas[1]), calib_meas[2]));
         float n = hypot(hypot(calib_meas[0],calib_meas[1]), calib_meas[2]);
+        /*
         imu.mag.x = (int32_t) MAG_BFP_OF_REAL( calib_meas[0] / n );
         imu.mag.y = (int32_t) MAG_BFP_OF_REAL( calib_meas[1] / n );
         imu.mag.z = (int32_t) MAG_BFP_OF_REAL( calib_meas[2] / n );
+        */
     }
 }
 

@@ -7,7 +7,7 @@
       <define name="STABILIZATION_INDI_G2_R" value="0.20"/>
     </target>
     <!--
-    <configure name="HOST" value="192.168.40.40"/>
+    <configure name="HOST" value="192.168.40.45"/>
     <configure name="MODEM_HOST" value="192.168.40.255"/>
     -->
     <target name="nps" board="pc">
@@ -85,12 +85,12 @@
 
   <section name="IMU" prefix="IMU_">
     <!-- Magneto calibration -->
-    <define name="MAG_X_NEUTRAL" value="18"/>
-    <define name="MAG_Y_NEUTRAL" value="46"/>
-    <define name="MAG_Z_NEUTRAL" value="202"/>
-    <define name="MAG_X_SENS" value="8.32441255621" integer="16"/>
-    <define name="MAG_Y_SENS" value="8.25720085664" integer="16"/>
-    <define name="MAG_Z_SENS" value="8.60009819293" integer="16"/>
+    <define name="MAG_X_NEUTRAL" value="40"/>    <!-- -32 -->
+    <define name="MAG_Y_NEUTRAL" value="-20"/>   <!-- 31 -->
+    <define name="MAG_Z_NEUTRAL" value="82"/>    <!-- 82 -->
+    <define name="MAG_X_SENS" value="7.40" integer="16"/> <!-- 8.32441255621 -->
+    <define name="MAG_Y_SENS" value="7.40" integer="16"/> <!-- 8.25720085664 -->
+    <define name="MAG_Z_SENS" value="7.55" integer="16"/> <!-- 8.60009819293 -->
   </section>
 
   <!-- local magnetic field -->
