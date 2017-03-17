@@ -6,9 +6,13 @@
     	<define name="ACCEL_Y_NEUTRAL" value="18"/>
     	<define name="ACCEL_Z_NEUTRAL" value="-80"/>
     	
-    	<define name="MAG_X_SENS" value="8.32441255621" integer="16"/>
-    	<define name="MAG_Y_SENS" value="8.25720085664" integer="16"/>
-    	<define name="MAG_Z_SENS" value="8.60009819293" integer="16"/>
+    	<define name="MAG_X_NEUTRAL" value="27"/>
+<define name="MAG_Y_NEUTRAL" value="-32"/>
+<define name="MAG_Z_NEUTRAL" value="79"/>
+<define name="MAG_X_SENS" value="7.70602909776" integer="16"/>
+<define name="MAG_Y_SENS" value="7.68257612609" integer="16"/>
+<define name="MAG_Z_SENS" value="8.05321388156" integer="16"/>
+
 	</section>
 	<section name="STABILIZATION_ATTITUDE_INDI" prefix="STABILIZATION_INDI_">
 		<define name="G1_ROLL" 		value="{17.761, 	-18.726, 	-16.318, 	14.175 }" />

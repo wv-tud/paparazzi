@@ -324,7 +324,7 @@ void viewvideo_init(void)
 #if VIEWVIDEO_WRITE_VIDEO
   videoEncoder.bitRate   = 6 * 8 * 1024 * 1024; // 6 MBps
 #else
-  videoEncoder.bitRate   = 4 * 1024 * 1024; // 0.5 Mbps
+  videoEncoder.bitRate   = 1 * 1024 * 1024; // 0.5 Mbps
 #endif
 #if VIEWVIDEO_WRITE_VIDEO || VIEWVIDEO_STREAM_VIDEO
   videoEncoder.frameRate = VIEWVIDEO_FPS;

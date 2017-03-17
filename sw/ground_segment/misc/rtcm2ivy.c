@@ -350,7 +350,7 @@ int main(int argc, char** argv)
 	uint8_t mode =1; // 1- suvery in, 0 - disabled , 2- Fixed mode
 	uint16_t ubx_flags = (lla<<8)+mode; // Fix me : mind the reserve bytes get shifted
 	uint32_t svinacclimit= 10 * 25000; // in  mm
-	uint32_t svinmindur= 10;
+	uint32_t svinmindur= 480;
 
 	UbxSend_CFG_TMODE3(0,0, ubx_flags,0,0,0,0,0,0,0,0,svinmindur,svinacclimit,0,0);
 

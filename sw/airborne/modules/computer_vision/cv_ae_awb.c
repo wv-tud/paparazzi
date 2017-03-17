@@ -86,6 +86,8 @@ uint8_t  bright_bin             = 211;
 uint8_t  sat_bin                = 25;
 uint8_t  middle_index           = CV_AE_MIDDLE_INDEX;
 
+uint8_t bin_clip = 15;
+
 #include "boards/bebop/mt9f002.h"
 struct image_t* cv_ae_awb_periodic(struct image_t* img);
 struct image_t* cv_ae_awb_periodic(struct image_t* img) {
@@ -99,7 +101,6 @@ struct image_t* cv_ae_awb_periodic(struct image_t* img) {
             cdf[i] = cdf[i-1] + yuv_stats.ae_histogram_Y[i];
         }
         float adjustment                = 1.0f;
-        uint8_t bin_clip = 15;
         int l = MIN_HIST_Y + bin_clip;
         uint32_t total_pixels = 0;
         while (total_pixels < ( (cdf[MAX_HIST_Y - 1 - bin_clip] - cdf[MIN_HIST_Y + bin_clip]) / 2.0 ) && l < MAX_HIST_Y - 1 - bin_clip) {

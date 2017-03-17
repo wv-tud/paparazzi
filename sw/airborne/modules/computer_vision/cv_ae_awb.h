@@ -33,6 +33,7 @@ extern float setting_max_saturated;
 extern float awb_fTolerance;
 extern float awb_targetAWB;
 extern float awb_mu;
+extern uint8_t bin_clip;
 
 extern uint8_t  middle_index;
 
