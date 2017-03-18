@@ -85,12 +85,15 @@
 
   <section name="IMU" prefix="IMU_">
     <!-- Magneto calibration -->
-    <define name="MAG_X_NEUTRAL" value="40"/>    <!-- -32 -->
-    <define name="MAG_Y_NEUTRAL" value="-20"/>   <!-- 31 -->
-    <define name="MAG_Z_NEUTRAL" value="82"/>    <!-- 82 -->
-    <define name="MAG_X_SENS" value="7.40" integer="16"/> <!-- 8.32441255621 -->
-    <define name="MAG_Y_SENS" value="7.40" integer="16"/> <!-- 8.25720085664 -->
-    <define name="MAG_Z_SENS" value="7.55" integer="16"/> <!-- 8.60009819293 -->
+    <!--  40  -->
+    <!-- -20  -->
+    <!--  82  -->
+    <define name="MAG_X_SENS" value="8" integer="16"/>
+    <define name="MAG_Y_SENS" value="8" integer="16"/>
+    <define name="MAG_Z_SENS" value="8" integer="16"/>
+    <!-- 7.40 / 8.32441255621 -->
+    <!-- 7.40 / 8.25720085664 -->
+    <!-- 7.55 / 8.60009819293 -->
   </section>
 
   <!-- local magnetic field -->

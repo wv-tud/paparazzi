@@ -57,15 +57,13 @@ float mag_field[3]      = {1.0f, 0.0f, 0.0f};
 void mag_calib_ukf_init(struct Imu *_imu) {
     TRICAL_init(&mag_calib);
     TRICAL_norm_set(&mag_calib, 1.0f);
-    TRICAL_noise_set(&mag_calib, 1e-6f);
+    TRICAL_noise_set(&mag_calib, 1e-2f);
 
     VERBOSE_PRINT("magnetometer initial calibration(x_n: %d  y_n: %d  z_n: %d)\n", _imu->mag_neutral.x, _imu->mag_neutral.y, _imu->mag_neutral.z);
 
-    /*
     _imu->mag_neutral.x = 0;
     _imu->mag_neutral.y = 0;
     _imu->mag_neutral.z = 0;
-    */
 
     mag_field[0] = 0.3892503;
     mag_field[1] = 0.0017972;
@@ -101,7 +99,6 @@ void mag_calib_ukf_run(struct Imu *_imu) {
         mag_field_from_geo_mag = true;
     }
 
-
     struct FloatQuat* body_quat = stateGetNedToBodyQuat_f();
     struct FloatRMat body_rmat;
     float_rmat_of_quat(&body_rmat, body_quat);
@@ -111,6 +108,7 @@ void mag_calib_ukf_run(struct Imu *_imu) {
     float expected_mag_field[3] = { expected_meas.x, expected_meas.y, expected_meas.z };
 
     /* Let's create a fake imu without calibration for comparison */
+    /*
     struct Imu fake_imu;
     fake_imu.mag_neutral.x  = 0;
     fake_imu.mag_neutral.y  = 0;
@@ -120,6 +118,7 @@ void mag_calib_ukf_run(struct Imu *_imu) {
     fake_imu.mag_unscaled.z = _imu->mag_unscaled.z;
     imu_scale_mag(&fake_imu);
     _imu = &fake_imu;
+    */
 
     if(_imu->mag.x != 0 || _imu->mag.y != 0 || _imu->mag.z != 0){
         // Update magnetometer UKF
