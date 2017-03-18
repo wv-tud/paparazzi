@@ -3,24 +3,22 @@
 <module name="mag_calib_ukf" dir="calibration">
   <doc>
     <description>Calibrate magnetometer using UKF</description>
+    <section name="MAG_CALIB_UKF" prefix="MAG_CALIB_UKF_">
+      <define name="VERBOSE" value="FALSE|TRUE" description="enable verbose"/>
+      <define name="GEO_MAG_TIMEOUT" value="0" description="Timeout for geo_mag updates (0 = disabled)" unit="sec"/>
+      <define name="NORM" value="1.0f" description="Magnetometer measurement norm"/>
+      <define name="NOISE_RMS" value="1e-2f" description="Magnetometer noise RMS"/>
+    </section>
   </doc>
   <header>
     <file name="mag_calib_ukf.h"/>
   </header>
-  <!--  
-  <init fun="mag_calib_ukf_init()"/>
-  <periodic fun="mag_calib_ukf_run()" freq="512"/>
-  -->
   <makefile>
     <file name="mag_calib_ukf.c"/>
     <flag name="CFLAGS" value="I$(PAPARAZZI_SRC)/sw/ext/TRICAL/include"/>
     <flag name="CFLAGS" value="I$(PAPARAZZI_SRC)/sw/ext/TRICAL/src"/>
     <file name="../../../ext/TRICAL/src/TRICAL.c"/>
     <file name="../../../ext/TRICAL/src/filter.c"/>
-    <!--
-    <flag name="LDFLAGS" value="Wl, -Bdynamic -L$(PAPARAZZI_HOME)/sw/ext/TRICAL/build" />
-	<flag name="LDFLAGS" value="l:libTRICAL.so -Wl, -Bstatic" />
-	-->
   </makefile>
 </module>
 

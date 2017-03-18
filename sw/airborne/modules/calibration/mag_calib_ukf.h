@@ -28,10 +28,30 @@
 
 #include "subsystems/imu.h"
 
+#define PRINT(string,...) fprintf(stderr, "[CALIB_UKF->%s()] " string,__FUNCTION__ , ##__VA_ARGS__)
+
+#if !defined MAG_CALIB_UKF_GEO_MAG_TIMEOUT
+#define MAG_CALIB_UKF_GEO_MAG_TIMEOUT 0
+#endif
+
+#if !defined MAG_CALIB_UKF_NORM
+#define MAG_CALIB_UKF_NORM 1.0f
+#endif
+
+#if !defined MAG_CALIB_UKF_NOISE_RMS
+#define MAG_CALIB_UKF_NOISE_RMS 1e-2f
+#endif
+
+#if !defined MAG_CALIB_UKF_VERBOSE
+#define VERBOSE_PRINT(...)
+#elif MAG_CALIB_UKF_VERBOSE == TRUE
+#define VERBOSE_PRINT PRINT
+#else
+#define VERBOSE_PRINT(...)
+#endif
+
 extern void mag_calib_ukf_init( struct Imu *_imu );
-extern void accel_calib_ukf_init( struct Imu *_imu );
 extern void mag_calib_ukf_run( struct Imu *_imu );
-extern void accel_calib_ukf_run( struct Imu *_imu );
 
 #endif
 
