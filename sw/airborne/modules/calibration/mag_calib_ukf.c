@@ -25,6 +25,7 @@
 
 #include "modules/calibration/mag_calib_ukf.h"
 #include "subsystems/ahrs/ahrs_magnetic_field_model.h"
+#include "autopilot.h"
 #include "math/pprz_algebra_double.h"
 #include "TRICAL.h"
 #include "state.h"
@@ -50,9 +51,10 @@ TRICAL_instance_t mag_calib;
 TRICAL_instance_t acc_calib;
 
 bool mag_field_from_geo_mag = false;
+float g_diff = 9.81;
 
-float accel_field[3]    = {0.0f, 0.0f, -9.81f};
-float mag_field[3]      = {1.0f, 0.0f, 0.0f};
+struct FloatVect3 G = { .x = 0.0f, .y = 0.0f, .z = -9.81f};
+struct FloatVect3 H = { .x = 1.0f, .y = 0.0f, .z =  0.0f};
 
 void mag_calib_ukf_init(struct Imu *_imu) {
     TRICAL_init(&mag_calib);
@@ -65,26 +67,22 @@ void mag_calib_ukf_init(struct Imu *_imu) {
     _imu->mag_neutral.y = 0;
     _imu->mag_neutral.z = 0;
 
-    mag_field[0] = 0.3892503;
-    mag_field[1] = 0.0017972;
-    mag_field[2] = 0.9211303;
+    /* Delft */
+    H.x = 0.3892503;
+    H.y = 0.0017972;
+    H.z = 0.9211303;
 }
 
 void accel_calib_ukf_init(struct Imu *_imu) {
     TRICAL_init(&acc_calib);
     TRICAL_norm_set(&acc_calib, (float) 9.81);
-    TRICAL_noise_set(&acc_calib, (float) 0.5f);
+    TRICAL_noise_set(&acc_calib, (float) 2.0f);
 
     VERBOSE_PRINT("acelerometer initial calibration(x_n: %d  y_n: %d  z_n: %d)\n", _imu->accel_neutral.x, _imu->accel_neutral.y, _imu->accel_neutral.z);
     /*
     _imu->accel_neutral.x = 0;
     _imu->accel_neutral.y = 0;
     _imu->accel_neutral.z = 0;
-    */
-    /*
-    accel_field[0] = 0.0;
-    accel_field[1] = 0.0;
-    accel_field[2] = -9.81;
     */
 }
 
@@ -93,9 +91,9 @@ void mag_calib_ukf_run(struct Imu *_imu) {
 
     if(geo_mag.ready && mag_field_from_geo_mag == false){
         double n = double_vect3_norm(&geo_mag.vect);
-        mag_field[0] = (float) geo_mag.vect.x / n;
-        mag_field[1] = (float) geo_mag.vect.y / n;
-        mag_field[2] = (float) geo_mag.vect.z / n;
+        H.x = (float) geo_mag.vect.x / n;
+        H.y = (float) geo_mag.vect.y / n;
+        H.z = (float) geo_mag.vect.z / n;
         mag_field_from_geo_mag = true;
     }
 
@@ -103,7 +101,6 @@ void mag_calib_ukf_run(struct Imu *_imu) {
     struct FloatRMat body_rmat;
     float_rmat_of_quat(&body_rmat, body_quat);
     struct FloatVect3 expected_meas;
-    struct FloatVect3 H = { .x = mag_field[0], .y = mag_field[1], .z = mag_field[2] };
     float_rmat_vmult(&expected_meas, &body_rmat, &H);
     float expected_mag_field[3] = { expected_meas.x, expected_meas.y, expected_meas.z };
 
@@ -143,8 +140,16 @@ void mag_calib_ukf_run(struct Imu *_imu) {
 
 void accel_calib_ukf_run(struct Imu *_imu) {
     float bias[3] = {0.0, 0.0, 0.0}, scale[9] = {0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0}, meas[3] = {0.0, 0.0, 0.0}, calib_meas[3] = {0.0, 0.0, 0.0};
+    float bias_variance[3] = {0.0, 0.0, 0.0}, scale_variance[9] = {0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0};
+    struct FloatQuat* body_quat = stateGetNedToBodyQuat_f();
+    struct FloatRMat body_rmat;
+    float_rmat_of_quat(&body_rmat, body_quat);
+    struct FloatVect3 expected_meas;
+    float_rmat_vmult(&expected_meas, &body_rmat, &G);
+    float expected_accel_field[3] = { expected_meas.x, expected_meas.y, expected_meas.z };
 
     /* Let's create a fake imu without calibration for comparison */
+    /*
     struct Imu fake_imu;
     fake_imu.accel_neutral.x = 0;
     fake_imu.accel_neutral.y = 0;
@@ -154,23 +159,34 @@ void accel_calib_ukf_run(struct Imu *_imu) {
     fake_imu.accel_unscaled.z = _imu->accel_unscaled.z;
     imu_scale_accel(&fake_imu);
     _imu = &fake_imu;
-
-    if(_imu->accel.x != 0 || _imu->accel.y != 0 || _imu->accel.z != 0){
+    */
+    if((_imu->accel.x != 0 || _imu->accel.y != 0 || _imu->accel.z != 0)){
         // Update accelerometer UKF
         meas[0] = ACCEL_FLOAT_OF_BFP( _imu->accel.x );
         meas[1] = ACCEL_FLOAT_OF_BFP( _imu->accel.y );
         meas[2] = ACCEL_FLOAT_OF_BFP( _imu->accel.z );
-        //VERBOSE_PRINT("accelerometer field (x: %4.2f  y: %4.2f  z: %4.2f) norm: %4.2f\n", accel_field[0], accel_field[1], accel_field[2], hypot(hypot(accel_field[0],accel_field[1]), accel_field[2]));
-        VERBOSE_PRINT("accelerometer measurement (x: %4.2f  y: %4.2f  z: %4.2f) norm: %4.2f\n", meas[0], meas[1], meas[2], hypot(hypot(meas[0],meas[1]), meas[2]));
-        TRICAL_estimate_update(&acc_calib, meas, meas);// accel_field);
-        // Read accelerometer estimate and update measurement
-        TRICAL_estimate_get(&acc_calib, bias, scale);
-        VERBOSE_PRINT("accelerometer bias (x_b: %4.2f  y_b: %4.2f  z_b: %4.2f) bias_i (x: %d  y: %d  z: %d)\n", bias[0], bias[1], bias[2], (int32_t) ACCEL_BFP_OF_REAL( bias[0] ), (int32_t) ACCEL_BFP_OF_REAL( bias[1] ), (int32_t) ACCEL_BFP_OF_REAL( bias[2] ));
+
         TRICAL_measurement_calibrate(&acc_calib, meas,  calib_meas);
-        VERBOSE_PRINT("calibrated   measurement (x: %4.2f  y: %4.2f  z: %4.2f) norm: %4.2f\n", calib_meas[0], calib_meas[1], calib_meas[2], hypot(hypot(calib_meas[0],calib_meas[1]), calib_meas[2]));
+        float g_n = sqrtf(calib_meas[0] * calib_meas[0] + calib_meas[1] * calib_meas[1] + calib_meas[2] * calib_meas[2]);
+        if(fabs( g_n - 9.81 ) < g_diff){
+            g_diff = fmax(0.35, 1.5 * fabs( g_n - 9.81 ));
+        }
+        printf("g_n: %4.2f   g_diff: %4.2f\n", g_n, g_diff);
+        if(!autopilot.motors_on && g_n > (9.81 - g_diff) && g_n < (9.81 + g_diff)){
+            TRICAL_estimate_update(&acc_calib, meas, calib_meas);
+            TRICAL_measurement_calibrate(&acc_calib, meas,  calib_meas);
+        }
+        TRICAL_estimate_get_ext(&acc_calib, bias, scale, bias_variance, scale_variance);
+
         _imu->accel.x = (int32_t) ACCEL_BFP_OF_REAL( calib_meas[0] );
         _imu->accel.y = (int32_t) ACCEL_BFP_OF_REAL( calib_meas[1] );
         _imu->accel.z = (int32_t) ACCEL_BFP_OF_REAL( calib_meas[2] );
+
+        VERBOSE_PRINT("accelerometer measurement (x: %4.2f  y: %4.2f  z: %4.2f) norm: %4.2f\n", meas[0], meas[1], meas[2], hypot(hypot(meas[0],meas[1]), meas[2]));
+        VERBOSE_PRINT("accelerometer bias (x_b: %4.2f  y_b: %4.2f  z_b: %4.2f)\n", bias[0], bias[1], bias[2]);
+        VERBOSE_PRINT("bias variance (x_b: %4.2f  y_b: %4.2f  z_b: %4.2f)\n", bias_variance[0], bias_variance[1], bias_variance[2]);
+        VERBOSE_PRINT("expected measurement (x: %4.2f  y: %4.2f  z: %4.2f) norm: %4.2f\n", expected_accel_field[0], expected_accel_field[1], expected_accel_field[2], hypot(hypot(expected_accel_field[0],expected_accel_field[1]), expected_accel_field[2]));
+        VERBOSE_PRINT("calibrated   measurement (x: %4.2f  y: %4.2f  z: %4.2f) norm: %4.2f\n\n", calib_meas[0], calib_meas[1], calib_meas[2], hypot(hypot(calib_meas[0],calib_meas[1]), calib_meas[2]));
     }
 }
 
