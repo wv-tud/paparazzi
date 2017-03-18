@@ -99,8 +99,8 @@ void imu_bebop_init(void)
 #endif
 
 #if UKF_CALIBRATE_FIELD_SENSOR
-  mag_calib_ukf_init();
-  //accel_calib_ukf_init();
+  mag_calib_ukf_init(&imu);
+  //accel_calib_ukf_init(&imu);
 #endif
 }
 
@@ -139,7 +139,7 @@ void imu_bebop_event(void)
     imu_scale_gyro(&imu);
     imu_scale_accel(&imu);
 #if UKF_CALIBRATE_FIELD_SENSOR
-    //accel_calib_ukf_run();
+    //accel_calib_ukf_run(&imu);
 #endif
     AbiSendMsgIMU_GYRO_INT32(IMU_BOARD_ID, now_ts, &imu.gyro);
     AbiSendMsgIMU_ACCEL_INT32(IMU_BOARD_ID, now_ts, &imu.accel);
@@ -163,7 +163,7 @@ void imu_bebop_event(void)
     imu_bebop.ak.data_available = false;
     imu_scale_mag(&imu);
 #if UKF_CALIBRATE_FIELD_SENSOR
-  mag_calib_ukf_run();
+  mag_calib_ukf_run(&imu);
 #endif
     AbiSendMsgIMU_MAG_INT32(IMU_BOARD_ID, now_ts, &imu.mag);
   }

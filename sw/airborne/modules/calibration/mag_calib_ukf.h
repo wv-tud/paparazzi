@@ -26,10 +26,12 @@
 #ifndef MAG_CALIB_UKF_H
 #define MAG_CALIB_UKF_H
 
-extern void mag_calib_ukf_init( void );
-extern void accel_calib_ukf_init( void );
-extern void mag_calib_ukf_run( void );
-extern void accel_calib_ukf_run( void );
+#include "subsystems/imu.h"
+
+extern void mag_calib_ukf_init( struct Imu *_imu );
+extern void accel_calib_ukf_init( struct Imu *_imu );
+extern void mag_calib_ukf_run( struct Imu *_imu );
+extern void accel_calib_ukf_run( struct Imu *_imu );
 
 #endif
 
