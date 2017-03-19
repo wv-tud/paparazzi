@@ -39,7 +39,7 @@
 #endif
 
 #if !defined MAG_CALIB_UKF_NOISE_RMS
-#define MAG_CALIB_UKF_NOISE_RMS 1e-2f
+#define MAG_CALIB_UKF_NOISE_RMS 2e-1f
 #endif
 
 #if !defined MAG_CALIB_UKF_VERBOSE
