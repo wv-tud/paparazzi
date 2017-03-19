@@ -7,7 +7,7 @@
       <define name="STABILIZATION_INDI_G2_R" value="0.20"/>
     </target>
     <!--
-    <configure name="HOST" value="192.168.40.40"/>
+    <configure name="HOST" value="192.168.40.45"/>
     <configure name="MODEM_HOST" value="192.168.40.255"/>
     -->
     <target name="nps" board="pc">
@@ -38,7 +38,8 @@
   <modules main_freq="512">
     <module name="geo_mag"/>
     <module name="mag_calib_ukf">
-    	<define name="CALIB_UKF_VERBOSE" value="FALSE"/>
+    	<define name="MAG_CALIB_UKF_VERBOSE" value="FALSE"/>
+    	<define name="MAG_CALIB_UFK_GEO_MAG_TIMEOUT" value="30"/>
     </module>
     <module name="air_data"/>
     <module name="send_imu_mag_current"/>
@@ -86,26 +87,26 @@
 
   <section name="IMU" prefix="IMU_">
     <!-- Magneto calibration -->
-    <define name="MAG_X_NEUTRAL" value="18"/>
-    <define name="MAG_Y_NEUTRAL" value="46"/>
-    <define name="MAG_Z_NEUTRAL" value="202"/>
-    <define name="MAG_X_SENS" value="8.32441255621" integer="16"/>
-    <define name="MAG_Y_SENS" value="8.25720085664" integer="16"/>
-    <define name="MAG_Z_SENS" value="8.60009819293" integer="16"/>
+    <!--  40  -->
+    <!-- -20  -->
+    <!--  82  -->
+    <define name="MAG_X_SENS" value="8" integer="16"/>
+    <define name="MAG_Y_SENS" value="8" integer="16"/>
+    <define name="MAG_Z_SENS" value="8" integer="16"/>
+    <!-- 7.40 / 8.32441255621 -->
+    <!-- 7.40 / 8.25720085664 -->
+    <!-- 7.55 / 8.60009819293 -->
   </section>
 
   <!-- local magnetic field -->
   <!-- http://wiki.paparazziuav.org/wiki/Subsystem/ahrs#Local_Magnetic_Field -->
   <section name="AHRS" prefix="AHRS_">
     <!-- values used if no GPS fix, on 3D fix is update by geo_mag module -->
-    <!-- Toulouse -->
-    <!--define name="H_X" value="0.513081"/>
-    <define name="H_Y" value="-0.00242783"/>
-    <define name="H_Z" value="0.858336"/-->
     <!-- Delft -->
     <define name="H_X" value="0.3892503"/>
     <define name="H_Y" value="0.0017972"/>
     <define name="H_Z" value="0.9211303"/>
+    <define name="MAG_UPDATE_ALL_AXES" value="TRUE"/>
   </section>
 
   <section name="INS" prefix="INS_">

@@ -94,13 +94,13 @@ void imu_bebop_init(void)
   //the magnetometer of the bebop2 is located on the gps board,
   //which is under a slight angle
   struct FloatEulers imu_to_mag_eulers =
-  {0.0, RadOfDeg(8.5), RadOfDeg(-90.0)};
+  {RadOfDeg( 0.0 ), RadOfDeg( 8.5 ), RadOfDeg( 180.0 )};
   orientationSetEulers_f(&imu_to_mag_bebop, &imu_to_mag_eulers);
 #endif
 
 #if UKF_CALIBRATE_FIELD_SENSOR
-  mag_calib_ukf_init();
-  //accel_calib_ukf_init();
+  mag_calib_ukf_init(&imu);
+  //accel_calib_ukf_init(&imu);
 #endif
 }
 
@@ -139,7 +139,7 @@ void imu_bebop_event(void)
     imu_scale_gyro(&imu);
     imu_scale_accel(&imu);
 #if UKF_CALIBRATE_FIELD_SENSOR
-    //accel_calib_ukf_run();
+    //accel_calib_ukf_run(&imu);
 #endif
     AbiSendMsgIMU_GYRO_INT32(IMU_BOARD_ID, now_ts, &imu.gyro);
     AbiSendMsgIMU_ACCEL_INT32(IMU_BOARD_ID, now_ts, &imu.accel);
@@ -152,7 +152,7 @@ void imu_bebop_event(void)
 #if BEBOP_VERSION2
     struct Int32Vect3 mag_temp;
     // In the second bebop version the magneto is turned 90 degrees
-    VECT3_ASSIGN(mag_temp, -imu_bebop.ak.data.vect.y, imu_bebop.ak.data.vect.x, imu_bebop.ak.data.vect.z);
+    VECT3_ASSIGN(mag_temp, imu_bebop.ak.data.vect.x, imu_bebop.ak.data.vect.y, imu_bebop.ak.data.vect.z);
     // Rotate the magneto
     struct Int32RMat *imu_to_mag_rmat = orientationGetRMat_i(&imu_to_mag_bebop);
     int32_rmat_vmult(&imu.mag_unscaled, imu_to_mag_rmat, &mag_temp);
@@ -163,7 +163,7 @@ void imu_bebop_event(void)
     imu_bebop.ak.data_available = false;
     imu_scale_mag(&imu);
 #if UKF_CALIBRATE_FIELD_SENSOR
-  mag_calib_ukf_run();
+  mag_calib_ukf_run(&imu);
 #endif
     AbiSendMsgIMU_MAG_INT32(IMU_BOARD_ID, now_ts, &imu.mag);
   }
