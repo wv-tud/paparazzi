@@ -13,6 +13,7 @@
   <header>
     <file name="mag_calib_ukf.h"/>
   </header>
+  <periodic fun="mag_calib_hotstart_write()" freq="0.25"/>
   <makefile>
     <file name="mag_calib_ukf.c"/>
     <flag name="CFLAGS" value="I$(PAPARAZZI_SRC)/sw/ext/TRICAL/include"/>

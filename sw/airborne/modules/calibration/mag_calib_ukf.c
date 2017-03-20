@@ -44,6 +44,11 @@ time_t mag_field_from_geo_mag;
 bool   update_geo_mag_field = true;
 struct FloatVect3 H = { .x = MAG_CALIB_UKF_NORM, .y = 0.0f, .z =  0.0f};
 
+#if MAG_CALIB_UKF_HOTSTART
+static FILE* fp;
+char hotstart_file_name[512];
+#endif
+
 void mag_calib_ukf_init(struct Imu *_imu) {
     TRICAL_init(&mag_calib);
     TRICAL_norm_set(&mag_calib, MAG_CALIB_UKF_NORM);
@@ -56,6 +61,11 @@ void mag_calib_ukf_init(struct Imu *_imu) {
     H.x = 0.3892503;
     H.y = 0.0017972;
     H.z = 0.9211303;
+
+#if MAG_CALIB_UKF_HOTSTART
+    snprintf(hotstart_file_name, 512, "%s", STRINGIFY(MAG_CALIB_UKF_HOTSTART_SAVE_FILE));
+    mag_calib_hotstart_read();
+#endif
 }
 
 void mag_calib_ukf_run(struct Imu *_imu) {
@@ -100,4 +110,42 @@ void mag_calib_ukf_run(struct Imu *_imu) {
         VERBOSE_PRINT("expected measurement (x: %4.2f  y: %4.2f  z: %4.2f) norm: %4.2f\n", expected_mag_field[0], expected_mag_field[1], expected_mag_field[2], hypot(hypot(expected_mag_field[0],expected_mag_field[1]), expected_mag_field[2]));
         VERBOSE_PRINT("calibrated   measurement (x: %4.2f  y: %4.2f  z: %4.2f) norm: %4.2f\n\n", calib_meas[0], calib_meas[1], calib_meas[2], hypot(hypot(calib_meas[0],calib_meas[1]), calib_meas[2]));
     }
+}
+
+void mag_calib_hotstart_read( void ){
+    fp = fopen(hotstart_file_name, "r");
+    if(fp != NULL){
+        fread(mag_calib.state, sizeof(float), 12, fp);
+        fclose(fp);
+        VERBOSE_PRINT("Loaded initial state from disk:\n"
+          "bias  {%4.2f, %4.2f, %4.2f}\n"
+          "scale {%4.2f, %4.2f, %4.2f}\n"
+          "      {%4.2f, %4.2f, %4.2f}\n"
+          "      {%4.2f, %4.2f, %4.2f}\n",
+          mag_calib.state[0], mag_calib.state[1],  mag_calib.state[2],
+          mag_calib.state[3], mag_calib.state[4],  mag_calib.state[5],
+          mag_calib.state[6], mag_calib.state[7],  mag_calib.state[8],
+          mag_calib.state[9], mag_calib.state[10], mag_calib.state[11]
+        );
+    }
+}
+
+void mag_calib_hotstart_write( void ){
+#if MAG_CALIB_UKF_HOTSTART
+    fp = fopen(hotstart_file_name, "w");
+    if(fp != NULL){
+        fwrite(mag_calib.state, sizeof(float), 12, fp);
+        fclose(fp);
+        PRINT("Wrote current state to disk:\n"
+          "bias  {%4.2f, %4.2f, %4.2f}\n"
+          "scale {%4.2f, %4.2f, %4.2f}\n"
+          "      {%4.2f, %4.2f, %4.2f}\n"
+          "      {%4.2f, %4.2f, %4.2f}\n",
+          mag_calib.state[0], mag_calib.state[1],  mag_calib.state[2],
+          mag_calib.state[3], mag_calib.state[4],  mag_calib.state[5],
+          mag_calib.state[6], mag_calib.state[7],  mag_calib.state[8],
+          mag_calib.state[9], mag_calib.state[10], mag_calib.state[11]
+        );
+    }
+#endif
 }

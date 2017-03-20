@@ -42,6 +42,14 @@
 #define MAG_CALIB_UKF_NOISE_RMS 2e-1f
 #endif
 
+#if !defined MAG_CALIB_UKF_HOTSTART
+#define MAG_CALIB_UKF_HOTSTART TRUE
+#endif
+
+#if !defined MAG_CALIB_UKF_HOTSTART_SAVE_FILE
+#define MAG_CALIB_UKF_HOTSTART_SAVE_FILE /data/ftp/internal_000/mag_ukf_calib.txt
+#endif
+
 #if !defined MAG_CALIB_UKF_VERBOSE
 #define VERBOSE_PRINT(...)
 #elif MAG_CALIB_UKF_VERBOSE == TRUE
@@ -52,6 +60,8 @@
 
 extern void mag_calib_ukf_init( struct Imu *_imu );
 extern void mag_calib_ukf_run( struct Imu *_imu );
+void mag_calib_hotstart_read( void );
+void mag_calib_hotstart_write( void );
 
 #endif
 
