@@ -8,10 +8,13 @@
   <dl_settings>
     <dl_settings NAME="AE/AWB">
       <dl_setting var="middle_index" min="6" step="1" max="249" module="computer_vision/cv_ae_awb" shortname="Middle index"/>
-      <dl_setting var="awb_fTolerance"        min="0" step="0.01"   max="1" module="computer_vision/cv_ae_awb" shortname="AWB Tolerance"/>
-      <dl_setting var="awb_targetAWB"         min="-10" step="0.01" max="10" module="computer_vision/cv_ae_awb" shortname="AWB Target"/>
-      <dl_setting var="awb_mu"                min="0" step="0.001"  max="1" module="computer_vision/cv_ae_awb" shortname="AWB Mu"/>
-      <dl_setting var="bin_clip"                min="0" step="1"  max="127" module="computer_vision/cv_ae_awb" shortname="clip"/>
+      <dl_setting var="awb_fTolerance" min="0" step="0.01" max="1" module="computer_vision/cv_ae_awb" shortname="AWB Tolerance"/>
+      <dl_setting var="awb_targetAWB" min="-10" step="0.01" max="10" module="computer_vision/cv_ae_awb" shortname="AWB Target"/>
+      <dl_setting var="awb_mu" min="0" step="0.001" max="1" module="computer_vision/cv_ae_awb" shortname="AWB Mu"/>
+      <dl_setting var="dark_index" min="0" step="1" max="127" module="computer_vision/cv_ae_awb" shortname="dark index"/>
+      <dl_setting var="bright_index" min="0" step="1" max="127" module="computer_vision/cv_ae_awb" shortname="bright index"/>
+      <dl_setting var="dark_ignore" min="0" step="0.01" max="1" module="computer_vision/cv_ae_awb" shortname="dark ignore (%)"/>
+      <dl_setting var="bright_ignore" min="0" step="0.01" max="1" module="computer_vision/cv_ae_awb" shortname="bright ignore (%)"/>
     </dl_settings>
   </dl_settings>
 </settings>

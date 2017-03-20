@@ -26,9 +26,14 @@
 #ifndef BEBOP_ACCEL_CALIB_FLAT_H
 #define BEBOP_ACCEL_CALIB_FLAT_H
 
+#include <stdbool.h>
+
 void bebop_accel_calib_init( void );
 void bebop_accel_calib_run( void );
 void bebop_set_accel_neutral( void );
+
+extern bool  settings_calibration_running;
+extern float settings_calibration_time;
 
 #endif
 

@@ -464,7 +464,7 @@ struct libisp_config isp_config = {
     .circle_pos_x_squared  = {{ CAMERA_H_FISHEYE_CENTER_X * CAMERA_H_FISHEYE_CENTER_X }},
     .circle_pos_y_center   = {{ CAMERA_H_FISHEYE_CENTER_Y }},
     .circle_pos_y_squared  = {{ CAMERA_H_FISHEYE_CENTER_Y * CAMERA_H_FISHEYE_CENTER_Y }},
-    .circle_radius_squared = {{ CAMERA_H_FISHEYE_RADIUS * CAMERA_H_FISHEYE_RADIUS }},
+    .circle_radius_squared = {{ (CAMERA_H_FISHEYE_RADIUS - 40) * (CAMERA_H_FISHEYE_RADIUS - 40) }},
     .increments_log2       = {{ 0, 0 }},
     .awb_threshold         = {{ 33 }},
   },

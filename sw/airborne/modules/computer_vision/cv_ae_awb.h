@@ -33,8 +33,11 @@ extern float setting_max_saturated;
 extern float awb_fTolerance;
 extern float awb_targetAWB;
 extern float awb_mu;
-extern uint8_t bin_clip;
+extern float   bright_ignore;
+extern float   dark_ignore;
 
+extern uint8_t dark_index;
+extern uint8_t bright_index;
 extern uint8_t  middle_index;
 
 extern void cv_ae_awb_init(void);

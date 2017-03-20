@@ -64,7 +64,7 @@ using namespace cv;
 #define ARF_PLOT_COORDS     0                       ///< Plot the coordinates of balls on frame
 #define ARF_DISTANCE_PLOT   1                       ///< Plot lines with distance on frame
 #define ARF_CROSSHAIR       0                       ///< Plot horizon
-#define ARF_SHOW_CAM_INFO   0                       ///< Show colour gains and exposure on frame
+#define ARF_SHOW_CAM_INFO   1                       ///< Show colour gains and exposure on frame
 #define ARF_SHOW_STATS      0                       ///< Show statistics on the performance of the contour detection
 
 #define ARF_MEASURE_FPS     1                       ///< Measure average FPS

@@ -157,7 +157,7 @@ void stabilization_indi_init(void)
 
 void indi_init_filters(void) {
   // tau = 1/(2*pi*Fc)
-  float tau = 1.0/(2.0*M_PI*STABILIZATION_INDI_FILT_CUTOFF);
+//  float tau = 1.0/(2.0*M_PI*STABILIZATION_INDI_FILT_CUTOFF);
   float tau_p = 1.0/(2.0*M_PI*STABILIZATION_INDI_FILT_CUTOFF_P);
   float tau_q = 1.0/(2.0*M_PI*STABILIZATION_INDI_FILT_CUTOFF_Q);
   float tau_r = 1.0/(2.0*M_PI*STABILIZATION_INDI_FILT_CUTOFF_R);

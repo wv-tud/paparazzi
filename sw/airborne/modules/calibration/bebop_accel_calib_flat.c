@@ -23,7 +23,7 @@
  * Calibrate the bebop accelerometer from a flat surface
  */
 
-#include "modules/bebop_accel_calib_flat/bebop_accel_calib_flat.h"
+#include "modules/calibration/bebop_accel_calib_flat.h"
 #include "subsystems/imu.h"
 #include "subsystems/imu/imu_bebop.h"
 #include "state.h"
@@ -31,6 +31,10 @@
 #include <stdbool.h>
 #include <stdio.h>
 #include "subsystems/datalink/telemetry.h"
+
+#ifndef BEBOP_ACCEL_CALIB_AUTOSTART
+#define BEBOP_ACCEL_CALIB_AUTOSTART 0
+#endif
 
 #ifndef BEBOP_ACCEL_CALIB_MEASURE_TIME
 #define BEBOP_ACCEL_CALIB_MEASURE_TIME 30
@@ -47,7 +51,9 @@ int32_t  accel_z_avg = 0;
 
 int32_t z_ideal;
 
-bool calibration_running = true;
+bool  settings_calibration_running  = BEBOP_ACCEL_CALIB_AUTOSTART;
+float settings_calibration_time     = BEBOP_ACCEL_CALIB_MEASURE_TIME;
+
 
 void bebop_accel_calib_init( void ) {
     imu.accel_neutral.x = 0;
@@ -59,10 +65,10 @@ void bebop_accel_calib_init( void ) {
 #warning Do not fly with this module activated!!
 
 void bebop_accel_calib_run( void ) {
-  if(!autopilot.motors_on && calibration_running){
-      if(runCount == BEBOP_ACCEL_CALIB_MEASURE_TIME * PERIODIC_FREQUENCY){
+  if(!autopilot.motors_on && settings_calibration_running){
+      if(runCount == settings_calibration_time * PERIODIC_FREQUENCY){
           bebop_set_accel_neutral();
-          calibration_running = false;
+          settings_calibration_running = false;
           char data[200];
           snprintf(data, 200, "bebob %d ACCEL_NEUTRAL (X: %d  Y: %d  Z:  %d)", AC_ID, accel_x_avg, accel_y_avg, accel_z_avg - z_ideal);
           DOWNLINK_SEND_INFO_MSG(DefaultChannel, DefaultDevice, strlen(data), data);

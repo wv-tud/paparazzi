@@ -59,6 +59,14 @@
 #define CV_AE_MIDDLE_INDEX 85
 #endif
 
+#ifndef CV_AE_DARK_IGNORE
+#define CV_AE_DARK_IGNORE 0.8
+#endif
+
+#ifndef CV_AE_BRIGHT_IGNORE
+#define CV_AE_BRIGHT_IGNORE 0.2
+#endif
+
 #define PRINT(string,...) fprintf(stderr, "[cv_ae_awb->%s()] " string,__FUNCTION__ , ##__VA_ARGS__)
 
 #if CV_AE_AWB_VERBOSE
@@ -82,11 +90,12 @@ float awb_fTolerance        = CV_AE_AWB_FTOLERANCE;
 float awb_targetAWB         = CV_AE_AWB_TARGET_AWB;
 float awb_mu                = CV_AE_AWB_MU;
 
-uint8_t  bright_bin             = 211;
-uint8_t  sat_bin                = 25;
-uint8_t  middle_index           = CV_AE_MIDDLE_INDEX;
+float   bright_ignore       = CV_AE_BRIGHT_IGNORE;
+float   dark_ignore         = CV_AE_DARK_IGNORE;
+uint8_t middle_index        = CV_AE_MIDDLE_INDEX;
 
-uint8_t bin_clip = 15;
+uint8_t dark_index          = 73; // 16 --> 89
+uint8_t bright_index        = 73; // 163 --> 236
 
 #include "boards/bebop/mt9f002.h"
 struct image_t* cv_ae_awb_periodic(struct image_t* img);
@@ -101,17 +110,20 @@ struct image_t* cv_ae_awb_periodic(struct image_t* img) {
             cdf[i] = cdf[i-1] + yuv_stats.ae_histogram_Y[i];
         }
         float adjustment                = 1.0f;
-        int l = MIN_HIST_Y + bin_clip;
-        uint32_t total_pixels = 0;
-        while (total_pixels < ( (cdf[MAX_HIST_Y - 1 - bin_clip] - cdf[MIN_HIST_Y + bin_clip]) / 2.0 ) && l < MAX_HIST_Y - 1 - bin_clip) {
-            total_pixels += yuv_stats.ae_histogram_Y[l];
-            l++;
+
+        uint32_t total_pixels = ( cdf[MIN_HIST_Y + dark_index] * dark_ignore ) + ( cdf[MAX_HIST_Y - 1 - bright_index] - cdf[MIN_HIST_Y + dark_index] ) + ( cdf[MAX_HIST_Y - 1] - cdf[MAX_HIST_Y - 1 - bright_index] );
+        uint32_t median_pixels = (uint32_t) round( total_pixels / 2.0f );
+        uint32_t current_pixels = cdf[MIN_HIST_Y + dark_index] * dark_ignore;
+        uint32_t current_level = dark_index;
+        while (current_pixels < median_pixels) {
+            current_level++;
+            current_pixels += yuv_stats.ae_histogram_Y[MIN_HIST_Y + current_level];
         }
         // that level is supposed to be in the middle of the bright_pixels bins
-        adjustment = 1 + 0.5 * (( (float) (middle_index) ) / ( (float) l ) - 1);
-        VERBOSE_PRINT("des_middle_index: %d,  actual_middle: %d,  adjustment: %f\n", middle_index, l, adjustment);
+        adjustment = middle_index / ( (float) MIN_HIST_Y + current_level );
+        VERBOSE_PRINT("des_middle_index: %d,  actual_middle: %d,  adjustment: %f\n", middle_index, current_level, adjustment);
         // Calculate exposure
-        Bound(adjustment, 1/4.0f, 2.0);
+        Bound(adjustment, 1/16.0f, 16.0);
         float desiredExposure       = mt9f002.real_exposure * adjustment;
         mt9f002.target_exposure     = desiredExposure;
         mt9f002_set_exposure(&mt9f002);
@@ -128,9 +140,9 @@ struct image_t* cv_ae_awb_periodic(struct image_t* img) {
                 VERBOSE_PRINT("Adjust blue gain (error: %f)  blue_gain = %f + %f * %d\n", error, mt9f002.gain_blue, awb_mu, awb_muK(error));
                 mt9f002.gain_blue   *= 1 + awb_mu * awb_muK(error);
                 if(mt9f002.gain_blue > CV_AE_AWB_MAX_GAINS || mt9f002.gain_blue < CV_AE_AWB_MIN_GAINS){
-                    mt9f002.gain_red    *= 1 - 0.5 * awb_mu * awb_muK(error);
-                    mt9f002.gain_green1 *= 1 - 0.5 * awb_mu * awb_muK(error);
-                    mt9f002.gain_green2 *= 1 - 0.5 * awb_mu * awb_muK(error);
+                    mt9f002.gain_red    *= 1 - awb_mu * awb_muK(error);
+                    mt9f002.gain_green1 *= 1 - awb_mu * awb_muK(error);
+                    mt9f002.gain_green2 *= 1 - awb_mu * awb_muK(error);
                 }
             }else if((fabs(avgU) + awb_fTolerance) < fabs(avgV)){
                 // filter output: avgV
@@ -138,9 +150,9 @@ struct image_t* cv_ae_awb_periodic(struct image_t* img) {
                 VERBOSE_PRINT("Adjust red gain (error: %f)  red_gain = %f + %f * %d\n", error, mt9f002.gain_red, awb_mu, awb_muK(error));
                 mt9f002.gain_red    *= 1 + awb_mu * awb_muK(error);
                 if(mt9f002.gain_red > CV_AE_AWB_MAX_GAINS || mt9f002.gain_red < CV_AE_AWB_MIN_GAINS){
-                    mt9f002.gain_blue   *= 1 - 0.5 * awb_mu * awb_muK(error);
-                    mt9f002.gain_green1 *= 1 - 0.5 * awb_mu * awb_muK(error);
-                    mt9f002.gain_green2 *= 1 - 0.5 * awb_mu * awb_muK(error);
+                    mt9f002.gain_blue   *= 1 - awb_mu * awb_muK(error);
+                    mt9f002.gain_green1 *= 1 - awb_mu * awb_muK(error);
+                    mt9f002.gain_green2 *= 1 - awb_mu * awb_muK(error);
                 }
             }else{
                 VERBOSE_PRINT("White balance achieved\n");
@@ -149,19 +161,19 @@ struct image_t* cv_ae_awb_periodic(struct image_t* img) {
             {
                 // Let's try to decrease the exposure to be able to account for darker conditions better
                 gains_minned           = false;
-                mt9f002.gain_blue     *= 1 + 0.5 * awb_mu;
-                mt9f002.gain_red      *= 1 + 0.5 * awb_mu;
-                mt9f002.gain_green1   *= 1 + 0.5 * awb_mu;
-                mt9f002.gain_green2   *= 1 + 0.5 * awb_mu;
+                mt9f002.gain_blue     *= 1 + 0.05 * awb_mu;
+                mt9f002.gain_red      *= 1 + 0.05 * awb_mu;
+                mt9f002.gain_green1   *= 1 + 0.05 * awb_mu;
+                mt9f002.gain_green2   *= 1 + 0.05 * awb_mu;
             }
             else if((mt9f002.target_exposure < 1.5) && !gains_minned)
             {
                 // Let's try to increase the exposure to be able to account for lighter conditions better
                 gains_maxed            = false;
-                mt9f002.gain_blue     *= 1 - 0.5 * awb_mu;
-                mt9f002.gain_red      *= 1 - 0.5 * awb_mu;
-                mt9f002.gain_green1   *= 1 - 0.5 * awb_mu;
-                mt9f002.gain_green2   *= 1 - 0.5 * awb_mu;
+                mt9f002.gain_blue     *= 1 - 0.05 * awb_mu;
+                mt9f002.gain_red      *= 1 - 0.05 * awb_mu;
+                mt9f002.gain_green1   *= 1 - 0.05 * awb_mu;
+                mt9f002.gain_green2   *= 1 - 0.05 * awb_mu;
             }
             else{
                 // Let's try to center the exposure, that way we'll be able to account for fast changes in lightness
@@ -207,6 +219,7 @@ struct image_t* cv_ae_awb_periodic(struct image_t* img) {
             if(mt9f002.gain_blue <= (CV_AE_AWB_MIN_GAINS * 1.2) || mt9f002.gain_red <= (CV_AE_AWB_MIN_GAINS * 1.2)  || mt9f002.gain_green1 <= (CV_AE_AWB_MIN_GAINS * 1.2)  || mt9f002.gain_green2 <= (CV_AE_AWB_MIN_GAINS * 1.2)){
                 gains_minned = true;
             }
+
             Bound(mt9f002.gain_blue,    CV_AE_AWB_MIN_GAINS, CV_AE_AWB_MAX_GAINS);
             Bound(mt9f002.gain_red,     CV_AE_AWB_MIN_GAINS, CV_AE_AWB_MAX_GAINS);
             Bound(mt9f002.gain_green1,  CV_AE_AWB_MIN_GAINS, CV_AE_AWB_MAX_GAINS);
