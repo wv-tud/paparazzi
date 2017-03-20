@@ -38,18 +38,21 @@
 #include "generated/airframe.h"
 #include "subsystems/gps.h"
 
+#if USE_MAGNETOMETER
 TRICAL_instance_t mag_calib;
 
 time_t mag_field_from_geo_mag;
 bool   update_geo_mag_field = true;
 struct FloatVect3 H = { .x = MAG_CALIB_UKF_NORM, .y = 0.0f, .z =  0.0f};
+#endif
 
-#if MAG_CALIB_UKF_HOTSTART
+#if USE_MAGNETOMETER && MAG_CALIB_UKF_HOTSTART
 static FILE* fp;
 char hotstart_file_name[512];
 #endif
 
 void mag_calib_ukf_init(struct Imu *_imu) {
+#if USE_MAGNETOMETER
     TRICAL_init(&mag_calib);
     TRICAL_norm_set(&mag_calib, MAG_CALIB_UKF_NORM);
     TRICAL_noise_set(&mag_calib, MAG_CALIB_UKF_NOISE_RMS);
@@ -58,17 +61,20 @@ void mag_calib_ukf_init(struct Imu *_imu) {
     _imu->mag_neutral.y = 0;
     _imu->mag_neutral.z = 0;
     /* Delft */
-    H.x = 0.3892503;
-    H.y = 0.0017972;
-    H.z = 0.9211303;
+    H.x = AHRS_H_X;
+    H.y = AHRS_H_Y;
+    H.z = AHRS_H_Z;
+    VERBOSE_PRINT("Local magnetic field loaded from airframe file (Hx: %4.2f, Hy: %4.2f, Hz: %4.2f)\n", H.x, H.y, H.z);
 
 #if MAG_CALIB_UKF_HOTSTART
     snprintf(hotstart_file_name, 512, "%s", STRINGIFY(MAG_CALIB_UKF_HOTSTART_SAVE_FILE));
     mag_calib_hotstart_read();
 #endif
+#endif
 }
 
 void mag_calib_ukf_run(struct Imu *_imu) {
+#if USE_MAGNETOMETER
     float bias[3] = {0.0, 0.0, 0.0}, scale[9] = {0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0}, meas[3] = {0.0, 0.0, 0.0}, calib_meas[3] = {0.0, 0.0, 0.0};
     /** Update geo_mag based on MAG_CALIB_UKF_GEO_MAG_TIMEOUT (0 = no periodic updates) **/
     if(update_geo_mag_field && geo_mag.ready){
@@ -78,7 +84,7 @@ void mag_calib_ukf_run(struct Imu *_imu) {
         H.z                     = (float) geo_mag.vect.z / n;
         mag_field_from_geo_mag  = time(0);
         update_geo_mag_field    = false;
-        VERBOSE_PRINT("Updating the geo_mag field to H(%4.2f, %4.2f, %4.2f)\n", H.x, H.y, H.z);
+        VERBOSE_PRINT("Updating local magnetic field from geo_mag module (Hx: %4.2f, Hy: %4.2f, Hz: %4.2f)\n", H.x, H.y, H.z);
     }
     if(MAG_CALIB_UKF_GEO_MAG_TIMEOUT && GpsFixValid() && difftime( time(0), mag_field_from_geo_mag ) >= MAG_CALIB_UKF_GEO_MAG_TIMEOUT){
         geo_mag.ready           = false;
@@ -110,9 +116,11 @@ void mag_calib_ukf_run(struct Imu *_imu) {
         VERBOSE_PRINT("expected measurement (x: %4.2f  y: %4.2f  z: %4.2f) norm: %4.2f\n", expected_mag_field[0], expected_mag_field[1], expected_mag_field[2], hypot(hypot(expected_mag_field[0],expected_mag_field[1]), expected_mag_field[2]));
         VERBOSE_PRINT("calibrated   measurement (x: %4.2f  y: %4.2f  z: %4.2f) norm: %4.2f\n\n", calib_meas[0], calib_meas[1], calib_meas[2], hypot(hypot(calib_meas[0],calib_meas[1]), calib_meas[2]));
     }
+#endif
 }
 
 void mag_calib_hotstart_read( void ){
+#if USE_MAGNETOMETER && MAG_CALIB_UKF_HOTSTART
     fp = fopen(hotstart_file_name, "r");
     if(fp != NULL){
         fread(mag_calib.state, sizeof(float), 12, fp);
@@ -128,10 +136,11 @@ void mag_calib_hotstart_read( void ){
           mag_calib.state[9], mag_calib.state[10], mag_calib.state[11]
         );
     }
+#endif
 }
 
 void mag_calib_hotstart_write( void ){
-#if MAG_CALIB_UKF_HOTSTART
+#if USE_MAGNETOMETER && MAG_CALIB_UKF_HOTSTART
     fp = fopen(hotstart_file_name, "w");
     if(fp != NULL){
         fwrite(mag_calib.state, sizeof(float), 12, fp);

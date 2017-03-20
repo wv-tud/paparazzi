@@ -58,10 +58,12 @@
 #define VERBOSE_PRINT(...)
 #endif
 
+#if USE_MAGNETOMETER
 extern void mag_calib_ukf_init( struct Imu *_imu );
 extern void mag_calib_ukf_run( struct Imu *_imu );
 void mag_calib_hotstart_read( void );
 void mag_calib_hotstart_write( void );
+#endif
 
 #endif
 
