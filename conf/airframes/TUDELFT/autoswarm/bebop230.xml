@@ -4,10 +4,10 @@
 
 	<firmware name="rotorcraft">
 		<target name="ap" board="bebop2" />
-		<!-- 
+
 		<configure name="HOST" value="192.168.40.$(AC_ID)" />
 		<configure name="MODEM_HOST" value="192.168.40.255" /> 
-	    -->
+
 		<configure name="USE_BARO_BOARD" value="TRUE" />
 		<configure name="USE_BARO" value="TRUE" />
 		<configure name="USE_SONAR" value="TRUE" />
@@ -78,7 +78,7 @@
 		<module name="cv_active_random_filter">
 		</module>
 		<module name="video_rtp_stream">
-			<configure name="VIEWVIDEO_HOST" value="192.168.42.65" />
+			<configure name="VIEWVIDEO_HOST" value="192.168.40.222" />
 			<configure name="VIEWVIDEO_BROADCAST" value="FALSE" />
 			<define name="VIEWVIDEO_CAMERA" value="front_camera" />
 			<define name="VIEWVIDEO_SHOT_PATH" value="/data/ftp/internal_000" />
