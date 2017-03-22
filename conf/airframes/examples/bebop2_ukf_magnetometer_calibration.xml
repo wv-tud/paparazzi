@@ -13,6 +13,8 @@
       <!-- rotor inertia not modelled in simple_quad JSBSim model, set G2 to zero -->
       <define name="STABILIZATION_INDI_G2_R" value="0.0"/>
     </target>
+    
+    <define name="AHRS_ICQ_MAG_ID" value="MAG_CALIB_UKF_ID" />
 
 	  <!-- Subsystem section -->
     <module name="telemetry" type="transparent_udp"/>
@@ -58,8 +60,9 @@
     <define name="HOTSTART" value="TRUE"/>
     <define name="HOTSTART_SAVE_FILE" value="/data/ftp/internal_000/mag_ukf_calib.txt"/>
     <define name="NORM" value="1.0f"/>
-    <define name="NOISE_RMS" value="2e-1f"/>
+    <define name="NOISE_RMS" value="5e-2f"/>
     <define name="GEO_MAG_TIMEOUT" value="0"/>
+    <define name="INITIAL_STATE" value="0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0" type="float[]" />
     <define name="VERBOSE" value="TRUE"/>
   </section>
 
