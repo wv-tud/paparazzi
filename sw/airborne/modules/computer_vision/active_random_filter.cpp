@@ -1809,7 +1809,6 @@ void mod_video(Mat& sourceFrame, Mat& frameGrey){
 #ifdef __linux__
   pthread_mutex_lock(&totV_mutex);
 #endif
-    PRINT("lastTotV: %4.2f  %4.2f\n", lastTotV[0], lastTotV[1]);
     circle(sourceFrame, Point(sourceFrame.cols / 2.0, sourceFrame.rows / 2.0), 3, cvScalar(100,255), 1, 4);
 	arrowedLine(sourceFrame, Point(sourceFrame.cols / 2.0, sourceFrame.rows / 2.0), Point(sourceFrame.cols / 2.0 + 240.0 / settings_as_vmax * lastTotV[0], sourceFrame.rows / 2.0  + 240.0 / settings_as_vmax * lastTotV[1]), Scalar(100,255), 1, 4);
 #ifdef __linux__
@@ -1836,7 +1835,7 @@ void active_random_filter_footer( void ){
 #if ARF_SHOW_MEM
     for(unsigned int r=0; r < neighbourMem_size; r++)        // Print to file & terminal
     {
-        PRINT("%i - Object %d at (%0.2f m, %0.2f m, %0.2f m)\n", runCount, neighbourMem[r].id, neighbourMem[r].x_w, neighbourMem[r].y_w, neighbourMem[r].z_w);                                                        // Print to terminal
+        VERBOSE_PRINT("%i - Object %d at (%0.2f m, %0.2f m, %0.2f m)\n", runCount, neighbourMem[r].id, neighbourMem[r].x_w, neighbourMem[r].y_w, neighbourMem[r].z_w);                                                        // Print to terminal
 #if ARF_WRITE_LOG
         clock_gettime(CLOCK_MONOTONIC, &time_now);
         curT            = sys_time_elapsed_us(&time_init, &time_now);

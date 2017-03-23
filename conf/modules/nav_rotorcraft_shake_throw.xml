@@ -1,0 +1,16 @@
+<!DOCTYPE module SYSTEM "module.dtd">
+
+<module name="nav_rotorcraft_shake_throw" dir="nav">
+  <doc>
+    <description>Shake and throw launch for rotorcraft</description>
+  </doc>
+  <header>
+    <file name="nav_rotorcraft_shake_throw.h"/>
+  </header>
+  <init fun="nav_rotorcraft_shake_throw_init()"/>
+  <periodic fun="nav_rotorcraft_shake_throw_run()" freq="512"/>
+  <makefile>
+    <file name="nav_rotorcraft_shake_throw.c"/>
+  </makefile>
+</module>
+

@@ -17,8 +17,10 @@
       <message name="INS"                    period="2.0"/>
       <message name="ENERGY"                 period="5.0"/>
       <message name="DATALINK_REPORT"        period="3.0"/>
+      <!--
       <message name="IMU_MAG_SCALED"         period=".1"/>
-      <message name="IMU_MAG_RAW"       period=".05"/>
+      <message name="IMU_ACCEL_SCALED"       period=".075"/>
+      -->
     </mode>
 
     <mode name="ppm">

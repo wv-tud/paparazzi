@@ -56,9 +56,6 @@ float settings_calibration_time     = BEBOP_ACCEL_CALIB_MEASURE_TIME;
 
 
 void bebop_accel_calib_init( void ) {
-    imu.accel_neutral.x = 0;
-    imu.accel_neutral.y = 0;
-    imu.accel_neutral.z = 0;
     z_ideal = (int32_t) round( ACCEL_BFP_OF_REAL( -9.81 ) * MPU60X0_ACCEL_SENS_FRAC[BEBOP_ACCEL_RANGE][1] / (IMU_ACCEL_Z_SIGN * MPU60X0_ACCEL_SENS_FRAC[BEBOP_ACCEL_RANGE][0]));
 }
 
@@ -66,6 +63,11 @@ void bebop_accel_calib_init( void ) {
 
 void bebop_accel_calib_run( void ) {
   if(!autopilot.motors_on && settings_calibration_running){
+      if( imu.accel_neutral.x || imu.accel_neutral.y || imu.accel_neutral.z){
+          imu.accel_neutral.x = 0;
+          imu.accel_neutral.y = 0;
+          imu.accel_neutral.z = 0;
+      }
       if(runCount == settings_calibration_time * PERIODIC_FREQUENCY){
           bebop_set_accel_neutral();
           settings_calibration_running = false;

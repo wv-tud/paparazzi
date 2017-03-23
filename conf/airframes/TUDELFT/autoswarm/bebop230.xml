@@ -12,6 +12,7 @@
 		<configure name="USE_BARO" value="TRUE" />
 		<configure name="USE_SONAR" value="TRUE" />
 		<define name="USE_GPS_UBX_RTCM" value="TRUE" />
+		<define name="AHRS_ICQ_MAG_ID" value="MAG_CALIB_UKF_ID" />
 		<!-- 
 		<configure name="USE_HFF" value="true" />
 		<configure name="HFF_ACCEL_NOISE" value="0.75" /> 
@@ -58,6 +59,7 @@
 		<module name="logger_file">
 			<define name="FILE_LOGGER_PATH" value="/data/ftp/internal_000" />
 		</module>
+		<module name="nav_rotorcraft_shake_throw"/>
 		<!-- Modules for swarming -->
 		<module name="pose_history">
 			<define name="POSE_HISTORY_SIZE" value="128" />
@@ -70,7 +72,7 @@
 		<module name="video_thread" />
 		<module name="cv_image_pose" />
 		<module name="cv_ae_awb">
-			<define name="CV_AE_AWB_VERBOSE" value="TRUE" />
+			<define name="CV_AE_AWB_VERBOSE" value="FALSE" />
 			<define name="CV_AE_MIDDLE_INDEX" value="127" /> <!-- Colour filter works better in slightly underexposed image -->
 		</module>
 		<module name="cv_bebop_camera_stabilization">
@@ -108,8 +110,7 @@
 		<define name="HOTSTART" value="TRUE" />
 		<define name="HOTSTART_SAVE_FILE" value="/data/ftp/internal_000/mag_ukf_calib.txt" />
 		<define name="NORM" value="1.0f" />
-		<define name="NOISE_RMS" value="2e-1f" />
-		<define name="GEO_MAG_TIMEOUT" value="0" />
+		<define name="NOISE_RMS" value="3e-1f" />
 		<define name="VERBOSE" value="FALSE" />
 	</section>
 
@@ -157,8 +158,8 @@
 	<section name="INS" prefix="INS_">
 		<define name="SONAR_MAX_RANGE" value="2.2" />
 		<define name="SONAR_UPDATE_ON_AGL" value="FALSE" />
-		<define name="USE_GPS_ALT" value="1" />     <!-- Use height from the optitrack -->
-		<define name="VFF_R_GPS" value="0.01" />   <!-- The optitrack has high accuracy -->
+		<define name="USE_GPS_ALT" value="0" />     <!-- Use height from the optitrack -->
+		<!-- <define name="VFF_R_GPS" value="0.01" /> -->   <!-- The optitrack has high accuracy -->
 	</section>
 
 
