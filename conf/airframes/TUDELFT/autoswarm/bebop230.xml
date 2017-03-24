@@ -59,7 +59,11 @@
 		<module name="logger_file">
 			<define name="FILE_LOGGER_PATH" value="/data/ftp/internal_000" />
 		</module>
-		<module name="nav_rotorcraft_shake_throw"/>
+		<module name="nav_rotorcraft_shake_throw">
+			<define name="NAV_RC_SHAKE_THROW_DEBUG_NO_FLIGHT" value="TRUE" />
+			<define name="NAV_RC_SHAKE_THROW_GOTO_BLOCK" value="Launched" />
+			<define name="NAV_RC_SHAKE_THROW_RESET_BLOCK" value="Landed" />
+		</module>
 		<!-- Modules for swarming -->
 		<module name="pose_history">
 			<define name="POSE_HISTORY_SIZE" value="128" />

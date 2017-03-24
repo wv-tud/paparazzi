@@ -459,7 +459,6 @@ void gps_ubx_msg(void)
  * Write bytes to the ublox UART connection
  * This is a wrapper functions used in the librtcm library
  */
-void gps_ublox_write(struct link_device *dev, uint8_t *buff, uint32_t n);
 void gps_ublox_write(struct link_device *dev, uint8_t *buff, uint32_t n)
 {
   uint32_t i = 0;

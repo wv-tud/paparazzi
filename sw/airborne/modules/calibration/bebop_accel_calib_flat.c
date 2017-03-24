@@ -37,7 +37,7 @@
 #endif
 
 #ifndef BEBOP_ACCEL_CALIB_MEASURE_TIME
-#define BEBOP_ACCEL_CALIB_MEASURE_TIME 30
+#define BEBOP_ACCEL_CALIB_MEASURE_TIME 30.0
 #endif
 
 uint32_t runCount = 0;

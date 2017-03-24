@@ -26,10 +26,12 @@
 #ifndef NAV_ROTORCRAFT_SHAKE_THROW_H
 #define NAV_ROTORCRAFT_SHAKE_THROW_H
 
+#include "std.h"
+
 void nav_rotorcraft_shake_throw_init( void );
 void nav_rotorcraft_shake_throw_run( void );
 float nav_rotorcraft_shake_throw_body_accel_norm( void );
-bool nav_rotorcraft_shake_throw_upside_down( void );
+uint8_t nav_rotorcraft_shake_throw_upside_down( void );
 
 #endif
 
