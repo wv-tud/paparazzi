@@ -47,7 +47,7 @@ PRINT_CONFIG_MSG("Gyro/Accel output rate is 100Hz at 1kHz internal sampling")
  * Gyroscope: Bandwidth 256Hz, Delay 0.98ms sampling 8kHz
  */
 #define IMU_MPU_LOWPASS_FILTER MPU60X0_DLPF_256HZ
-#define IMU_MPU_SMPLRT_DIV 3
+#define IMU_MPU_SMPLRT_DIV 1
 PRINT_CONFIG_MSG("Gyro/Accel output rate is 2kHz at 8kHz internal sampling")
 #else
 #error Non-default PERIODIC_FREQUENCY: please define IMU_MPU_LOWPASS_FILTER and IMU_MPU_SMPLRT_DIV.

@@ -53,8 +53,8 @@ PRINT_CONFIG_MSG("Gyro/Accel output rate is 100Hz at 1kHz internal sampling")
  * Gyroscope: Bandwidth 256Hz, Delay 0.98ms sampling 8kHz
  */
 #define BEBOP_LOWPASS_FILTER MPU60X0_DLPF_256HZ
-#define BEBOP_SMPLRT_DIV 3
-PRINT_CONFIG_MSG("Gyro/Accel output rate is 2kHz at 8kHz internal sampling")
+#define BEBOP_SMPLRT_DIV 1
+PRINT_CONFIG_MSG("Gyro/Accel output rate is 1kHz at 8kHz internal sampling")
 #endif
 #endif
 PRINT_CONFIG_VAR(BEBOP_SMPLRT_DIV)
