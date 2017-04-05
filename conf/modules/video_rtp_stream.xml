@@ -59,7 +59,7 @@
       else
         $(TARGET).CFLAGS += $(VIEWVID_CFLAGS) -DVIEWVIDEO_USE_NETCAT
       endif
-      $(TARGET).LDFLAGS += -Wl,-Bdynamic -Lmodules/computer_vision/lib/encoding -l:libh1enc.so -Wl,-Bstatic
+      $(TARGET).LDFLAGS += -Wl,-Bdynamic,-rpath,/data/ftp/internal_000/paparazzi/ -Lmodules/computer_vision/lib/encoding -l:libh1enc.so -Wl,-Bstatic
     </raw>
   </makefile>
 </module>
