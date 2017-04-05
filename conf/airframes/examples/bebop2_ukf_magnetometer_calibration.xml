@@ -21,7 +21,10 @@
 
     
     <define name="AHRS_ICQ_MAG_ID" value="MAG_CALIB_UKF_ID" />
-
+    <configure name="USE_BARO_BOARD" value="TRUE" />
+    <configure name="USE_BARO" value="TRUE" />
+    <configure name="USE_SONAR" value="TRUE" />
+    <define name="GPS_TIMEOUT" value="1" />
 	  <!-- Subsystem section -->
     <module name="telemetry" type="transparent_udp"/>
     <module name="radio_control" type="datalink"/>
@@ -66,10 +69,9 @@
     <define name="HOTSTART" value="TRUE"/>
     <define name="HOTSTART_SAVE_FILE" value="/data/ftp/internal_000/mag_ukf_calib.txt"/>
     <define name="NORM" value="1.0f"/>
-    <define name="NOISE_RMS" value="1e-2f"/>
-    <define name="GEO_MAG_TIMEOUT" value="0"/>
-    <!-- <define name="INITIAL_STATE" value="0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0" type="float[]" /> -->
-    <define name="VERBOSE" value="TRUE"/>
+    <define name="NOISE_RMS" value="5e-2f"/>
+    <define name="INITIAL_STATE" value="0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0" type="float[]" />
+    <define name="VERBOSE" value="FALSE"/>
   </section>
 
   <section name="MIXING" prefix="MOTOR_MIXING_">
@@ -95,9 +97,9 @@
   </section>
 
   <section name="IMU" prefix="IMU_">
-    <define name="ACCEL_X_NEUTRAL" value="98"/>
-    <define name="ACCEL_Y_NEUTRAL" value="16"/>
-    <define name="ACCEL_Z_NEUTRAL" value="-30"/>
+    <define name="ACCEL_X_NEUTRAL" value="0"/>
+    <define name="ACCEL_Y_NEUTRAL" value="0"/>
+    <define name="ACCEL_Z_NEUTRAL" value="0"/>
     <!-- Magneto calibration -->
     <define name="MAG_X_SENS" value="8" integer="16"/>
     <define name="MAG_Y_SENS" value="8" integer="16"/>
@@ -107,6 +109,8 @@
   <!-- local magnetic field -->
   <!-- http://wiki.paparazziuav.org/wiki/Subsystem/ahrs#Local_Magnetic_Field -->
   <section name="AHRS" prefix="AHRS_">
+      <!-- For vibrating airframes -->
+      <define name="GRAVITY_HEURISTIC_FACTOR" value="0" />
     <!-- values used if no GPS fix, on 3D fix is update by geo_mag module -->
     <!-- Toulouse -->
     <!--define name="H_X" value="0.513081"/>
@@ -117,12 +121,13 @@
     <define name="H_Y" value="0.0017972"/>
     <define name="H_Z" value="0.9211303"/>
     <!-- <define name="MAG_UPDATE_ALL_AXES" value="TRUE" /> -->
-    <define name="GRAVITY_HEURISTIC_FACTOR" value="0" />
+(??)
   </section>
 
   <section name="INS" prefix="INS_">
     <define name="SONAR_MAX_RANGE" value="2.2"/>
     <define name="SONAR_UPDATE_ON_AGL" value="TRUE"/>
+    <define name="USE_GPS_ALT" value="1" />
   </section>
 
 
