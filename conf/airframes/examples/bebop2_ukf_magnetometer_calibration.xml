@@ -14,12 +14,6 @@
       <define name="STABILIZATION_INDI_G2_R" value="0.0"/>
     </target>
     
-    <configure name="PERIODIC_FREQUENCY" value="512" />
-    <define name="AHRS_PROPAGATE_FREQUENCY" value="500" />
-    <!-- <define name="SYS_TIME_THREAD_PRIO" value="-20" /> -->
-
-
-    
     <define name="AHRS_ICQ_MAG_ID" value="MAG_CALIB_UKF_ID" />
     <configure name="USE_BARO_BOARD" value="TRUE" />
     <configure name="USE_BARO" value="TRUE" />
@@ -121,7 +115,6 @@
     <define name="H_Y" value="0.0017972"/>
     <define name="H_Z" value="0.9211303"/>
     <!-- <define name="MAG_UPDATE_ALL_AXES" value="TRUE" /> -->
-(??)
   </section>
 
   <section name="INS" prefix="INS_">

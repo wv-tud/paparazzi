@@ -172,24 +172,24 @@ void mag_calib_ukf_run(uint8_t sender_id, uint32_t stamp, struct Int32Vect3 *mag
       measurement[1] = MAG_FLOAT_OF_BFP(mag->y);
       measurement[2] = MAG_FLOAT_OF_BFP(mag->z);
       /** Rotate the local magnetic field by our current attitude **/
-      struct FloatQuat *body_quat = stateGetNedToBodyQuat_f();
-      struct FloatVect3 expected_measurement;
-      float_quat_vmult(&expected_measurement, body_quat, &H);
-      /// See if the AHRS has already aligned with magnetometer
-      TRICAL_measurement_calibrate(&mag_calib, measurement, calibrated_measurement);
-      struct FloatVect3 AHRS_calibrated_difference;
-      AHRS_calibrated_difference.x = expected_measurement.x - calibrated_measurement[0];
-      AHRS_calibrated_difference.y = expected_measurement.y - calibrated_measurement[1];
-      AHRS_calibrated_difference.z = expected_measurement.z - calibrated_measurement[2];
-      float dn = float_vect3_norm(&AHRS_calibrated_difference);
-      VERBOSE_PRINT("AHRS diff: %0.4f, %0.4f, %0.4f (%0.4f)\n", AHRS_calibrated_difference.x, AHRS_calibrated_difference.y, AHRS_calibrated_difference.z, dn);
-      float expected_mag_field[3];
-      if(dn > AHRS_align_tolerance_norm){
-          //< The AHRS has not yet aligned to the magnetometer value. For now use only the norm of the measurement to calibrate
-          VERBOSE_PRINT("Using norm only for magnetometer calibration\n");
-          expected_mag_field[0] = calibrated_measurement[0];
-          expected_mag_field[1] = calibrated_measurement[1];
-          expected_mag_field[2] = calibrated_measurement[2];
+//      struct FloatQuat *body_quat = stateGetNedToBodyQuat_f();
+//      struct FloatVect3 expected_measurement;
+//      float_quat_vmult(&expected_measurement, body_quat, &H);
+//      /// See if the AHRS has already aligned with magnetometer
+//      TRICAL_measurement_calibrate(&mag_calib, measurement, calibrated_measurement);
+//      struct FloatVect3 AHRS_calibrated_difference;
+//      AHRS_calibrated_difference.x = expected_measurement.x - calibrated_measurement[0];
+//      AHRS_calibrated_difference.y = expected_measurement.y - calibrated_measurement[1];
+//      AHRS_calibrated_difference.z = expected_measurement.z - calibrated_measurement[2];
+//      float dn = float_vect3_norm(&AHRS_calibrated_difference);
+//      VERBOSE_PRINT("AHRS diff: %0.4f, %0.4f, %0.4f (%0.4f)\n", AHRS_calibrated_difference.x, AHRS_calibrated_difference.y, AHRS_calibrated_difference.z, dn);
+//      float expected_mag_field[3];
+//      if(dn > AHRS_align_tolerance_norm){
+//          //< The AHRS has not yet aligned to the magnetometer value. For now use only the norm of the measurement to calibrate
+//          VERBOSE_PRINT("Using norm only for magnetometer calibration\n");
+//          expected_mag_field[0] = calibrated_measurement[0];
+//          expected_mag_field[1] = calibrated_measurement[1];
+//          expected_mag_field[2] = calibrated_measurement[2];
           /*
           float cm_norm = sqrtf(powf(calibrated_measurement[0], 2.0) + powf(calibrated_measurement[1], 2.0) + powf(calibrated_measurement[2], 2.0));
           if(cm_norm > 0.01){
@@ -198,16 +198,16 @@ void mag_calib_ukf_run(uint8_t sender_id, uint32_t stamp, struct Int32Vect3 *mag
               expected_mag_field[2] /= cm_norm;
           }
           */
-      }
-      else{
-          //< The AHRS has aligned, to a certain degree of accuracy, with the magnetometer. Use full attitude to calibrate magnetometer
-          VERBOSE_PRINT("Using full attitude for magnetometer calibration\n");
-          expected_mag_field[0] = expected_measurement.x;
-          expected_mag_field[1] = expected_measurement.y;
-          expected_mag_field[2] = expected_measurement.z;
-      }
+//      }
+//      else{
+//          //< The AHRS has aligned, to a certain degree of accuracy, with the magnetometer. Use full attitude to calibrate magnetometer
+//          VERBOSE_PRINT("Using full attitude for magnetometer calibration\n");
+//          expected_mag_field[0] = expected_measurement.x;
+//          expected_mag_field[1] = expected_measurement.y;
+//          expected_mag_field[2] = expected_measurement.z;
+//      }
       /** Update magnetometer UKF **/
-      TRICAL_estimate_update(&mag_calib, measurement, expected_mag_field);
+      TRICAL_estimate_update(&mag_calib, measurement);//, expected_mag_field);
       TRICAL_measurement_calibrate(&mag_calib, measurement, calibrated_measurement);
       /** Save calibrated result **/
       calibrated_mag.x = (int32_t) MAG_BFP_OF_REAL(calibrated_measurement[0]);
