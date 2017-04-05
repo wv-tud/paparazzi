@@ -31,7 +31,10 @@
 
 #include "subsystems/imu.h"
 #include "firmwares/rotorcraft/stabilization.h"
+#include "firmwares/rotorcraft/stabilization/stabilization_indi.h"
+#include "firmwares/rotorcraft/guidance/guidance_indi.h"
 #include "state.h"
+#include "subsystems/actuators.h"
 
 /** Set the default File logger path to the USB drive */
 #ifndef FILE_LOGGER_PATH
@@ -61,7 +64,8 @@ void file_logger_start(void)
   if (file_logger != NULL) {
     fprintf(
       file_logger,
-      "counter,gyro_unscaled_p,gyro_unscaled_q,gyro_unscaled_r,accel_unscaled_x,accel_unscaled_y,accel_unscaled_z,mag_unscaled_x,mag_unscaled_y,mag_unscaled_z,COMMAND_THRUST,COMMAND_ROLL,COMMAND_PITCH,COMMAND_YAW,qi,qx,qy,qz\n"
+      "counter,RAW_mag_x, RAW_mag_y, RAW_mag_z, SCALED_mag_x, SCALED_mag_y, SCALED_mag_z, psi\n"
+      // INDI LOG: "counter,pos_NED_x, pos_NED_y, pos_NED_z, filt_accel_ned_x, filt_accel_ned_y, filt_accel_ned_z, quat_i, quat_x, quat_y, quat_z,  sp_quat_i, sp_quat_x, sp_quat_y, sp_quat_z, sp_accel_x, sp_accel_y, sp_accel_z, accel_ned_x, accel_ned_y, accel_ned_z, speed_ned_x, speed_ned_y, speed_ned_z, imu_accel_unscaled_x, imu_accel_unscaled_y, imu_accel_unscaled_z, body_rates_p, body_rates_q, body_rates_r, actuaros_pprz_0, actuaros_pprz_1, actuaros_pprz_2, actuaros_pprz_3\n"
     );
   }
 }
@@ -81,28 +85,65 @@ void file_logger_periodic(void)
   if (file_logger == NULL) {
     return;
   }
-  static uint32_t counter;
-  struct Int32Quat *quat = stateGetNedToBodyQuat_i();
-
-  fprintf(file_logger, "%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d\n",
+  static uint32_t counter = 0;
+  struct FloatEulers* eulers = stateGetNedToBodyEulers_f();
+  fprintf(file_logger, "%d,%d,%d,%d,%f,%f,%f,%f\n",
+            counter,
+            imu.mag_unscaled.x,
+            imu.mag_unscaled.y,
+            imu.mag_unscaled.z,
+            MAG_FLOAT_OF_BFP(imu.mag.x),
+            MAG_FLOAT_OF_BFP(imu.mag.y),
+            MAG_FLOAT_OF_BFP(imu.mag.z),
+            eulers->psi);
+/*  INDI LOG
+  struct Int32Quat * quat       = stateGetNedToBodyQuat_i();
+  struct NedCoor_f * pos        = stateGetPositionNed_f();
+  struct NedCoor_f * accel_ned  = stateGetAccelNed_f();
+  struct NedCoor_f * speed_ned  = stateGetSpeedNed_f();
+  struct FloatRates* rates_body = stateGetBodyRates_f();
+  fprintf(file_logger, "%d,%f,%f,%f,%f,%f,%f,%d,%d,%d,%d,%d,%d,%d,%d,%f,%f,%f,%f,%f,%f,%f,%f,%f,%d,%d,%d,%f,%f,%f,%d,%d,%d,%d\n",
           counter,
-          imu.gyro_unscaled.p,
-          imu.gyro_unscaled.q,
-          imu.gyro_unscaled.r,
-          imu.accel_unscaled.x,
-          imu.accel_unscaled.y,
-          imu.accel_unscaled.z,
-          imu.mag_unscaled.x,
-          imu.mag_unscaled.y,
-          imu.mag_unscaled.z,
-          stabilization_cmd[COMMAND_THRUST],
-          stabilization_cmd[COMMAND_ROLL],
-          stabilization_cmd[COMMAND_PITCH],
-          stabilization_cmd[COMMAND_YAW],
+          pos->x,
+          pos->y,
+          pos->z,
+#if GUIDANCE_INDI_FILTER_ORDER == 2
+          filt_accel_ned[0].o[0],
+          filt_accel_ned[1].o[0],
+          filt_accel_ned[2].o[0],
+#else
+          filt_accel_ned[0].lp2.o[0],
+          filt_accel_ned[1].lp2.o[0],
+          filt_accel_ned[2].lp2.o[0],
+#endif
           quat->qi,
           quat->qx,
           quat->qy,
-          quat->qz
+          quat->qz,
+          stab_att_sp_quat.qi,
+          stab_att_sp_quat.qx,
+          stab_att_sp_quat.qy,
+          stab_att_sp_quat.qz,
+          sp_accel.x,
+          sp_accel.y,
+          sp_accel.z,
+          accel_ned->x,
+          accel_ned->y,
+          accel_ned->z,
+          speed_ned->x,
+          speed_ned->y,
+          speed_ned->z,
+          imu.accel_unscaled.x,
+          imu.accel_unscaled.y,
+          imu.accel_unscaled.z,
+          rates_body->p,
+          rates_body->q,
+          rates_body->r,
+          actuators_pprz[0],
+          actuators_pprz[1],
+          actuators_pprz[2],
+          actuators_pprz[3]
          );
+*/
   counter++;
 }
