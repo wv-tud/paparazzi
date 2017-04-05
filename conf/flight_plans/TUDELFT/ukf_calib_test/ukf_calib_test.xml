@@ -20,10 +20,7 @@
   </waypoints>
   <exceptions>
     <!-- RC-Loss -->
-    <exception cond="((radio_control.status == RC_REALLY_LOST) &&
-      !(IndexOfBlock('Takeoff') > nav_block) &&
-      !(nav_block >= IndexOfBlock('land')) &&
-      (autopilot_in_flight() == true) )" deroute="ComeBackAndLand"/>
+    
 
     <!-- GPS loss -->
     <!-- Not done from flight plan, main.c goes to AP_MODE_FAILSAFE hardcoded -->
@@ -69,42 +66,55 @@
     <block name="Takeoff" strip_button="Takeoff" strip_icon="takeoff.png">
       <exception cond="stateGetPositionEnu_f()->z > 2.0" deroute="Standby"/>
       <call_once fun="NavSetWaypointHere(WP_CLIMB)"/>
+      <call_once fun="NavSetWaypointHere(WP_HOME)"/>
       <stay climb="nav_climb_vspeed" vmode="climb" wp="CLIMB"/>
     </block>
     <block name="Standby" strip_button="Standby" strip_icon="home.png">
       <call_once fun="NavSetWaypointHere(WP_STDBY)"/>
       <stay wp="STDBY"/>
     </block>
-    <block name="stay_p1">
-      <stay wp="p1"/>
+    <block name="Prepare">
+        <stay wp="p1"/>
     </block>
-    <block name="go_p2">
-      <go wp="p2"/>
-      <deroute block="stay_p1"/>
+    <block name="Test Line">
+        <go from="p1" hmode="route" wp="p2"/>
+        <stay until="stage_time>10" wp="p2"/>
+        <go from="p2" hmode="route" wp="p1"/>
+        <deroute block="Prepare"/>
     </block>
-    <block name="line_p1_p2">
-      <go from="p1" hmode="route" wp="p2"/>
-      <stay until="stage_time>10" wp="p2"/>
-      <go from="p2" hmode="route" wp="p1"/>
-      <deroute block="stay_p1"/>
+    <block name="Test Block (1x)">
+        <stay until="stage_time>10" wp="p1"/>
+        <go from="p1" hmode="route" wp="p2"/>
+        <go from="p2" hmode="route" wp="p3"/>
+        <go from="p3" hmode="route" wp="p4"/>
+        <go from="p4" hmode="route" wp="p1"/>
+        <stay until="stage_time>5" wp="p1"/>
+        <call_once fun="NavSetWaypointHere(WP_TD)"/>
+        <stay until="stage_time>10" wp="TD"/>
     </block>
-    <block name="route">
-      <go from="p1" hmode="route" wp="p2"/>
-      <go from="p2" hmode="route" wp="p3"/>
-      <go from="p3" hmode="route" wp="p4"/>
-      <go from="p4" hmode="route" wp="p1"/>
-      <deroute block="stay_p1"/>
+    <block name="Test Block (5x)">
+        <for var="i" from="0" to="4">
+            <stay until="stage_time>10" wp="p1"/>
+            <go from="p1" hmode="route" wp="p2"/>
+            <go from="p2" hmode="route" wp="p3"/>
+            <go from="p3" hmode="route" wp="p4"/>
+            <go from="p4" hmode="route" wp="p1"/>
+            <stay until="stage_time>5" wp="p1"/>
+            <call_once fun="NavSetWaypointHere(WP_TD)"/>
+            <stay until="stage_time>10" wp="TD"/>
+        </for>
+        <deroute block="Prepare"/>
     </block>
-    <block name="test yaw">
-      <call_once fun="NavSetWaypointHere(WP_STDBY)"/>
-      <go wp="STDBY"/>
+    <block name="Test Yaw">
+      <go wp="p1"/>
       <for from="1" to="16" var="i">
-        <heading alt="WaypointAlt(WP_p1)" course="90 * $i" until="stage_time > 3"/>
+        <heading alt="WaypointAlt(WP_p1)" course="45 * $i" until="stage_time > 3"/>
       </for>
-      <deroute block="Standby"/>
+      <deroute block="Prepare"/>
     </block>
-    <block name="circle CAM" pre_call="nav_set_heading_towards_waypoint(WP_CAM)">
-      <circle radius="nav_radius" wp="CAM"/>
+    <block name="Test Circle" pre_call="nav_set_heading_towards_waypoint(WP_CAM)">
+      <circle radius="5" wp="CAM" until="stage_time>60"/>
+      <deroute block="Prepare"/>
     </block>
     <block name="land here" strip_button="Land Here" strip_icon="land-right.png">
       <call_once fun="NavSetWaypointHere(WP_TD)"/>
@@ -127,7 +137,7 @@
     </block>
     <block name="DatalinkLoss">
       <call_once fun="NavSetWaypointHere(WP_TD)"/>
-      <stay until="stage_time>60" wp="TD"/>
+      <stay until="stage_time>15" wp="TD"/>
       <deroute block="ComeBackAndLand"/>
     </block>
   </blocks>
