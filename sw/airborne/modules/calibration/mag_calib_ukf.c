@@ -35,7 +35,6 @@
 #include "generated/airframe.h"
 #include "subsystems/ahrs/ahrs_magnetic_field_model.h"
 #include "subsystems/datalink/telemetry.h"
-#include "TRICAL.h"
 
 //
 // Try to print warnings to user for bad configuration
@@ -124,7 +123,7 @@ struct Int32Vect3 calibrated_mag;
 
 float AHRS_align_tolerance_norm = 0.40;
 
-static TRICAL_instance_t mag_calib;
+TRICAL_instance_t mag_calib;
 static abi_event mag_ev;
 static abi_event h_ev;
 
@@ -142,8 +141,8 @@ void mag_calib_ukf_init(void)
   TRICAL_noise_set(&mag_calib, MAG_CALIB_UKF_NOISE_RMS);
   mag_calib_hotstart_read();
 #ifdef MAG_CALIB_UKF_INITIAL_STATE
-  float initial_state[12] = MAG_CALIB_UKF_INITIAL_STATE;
-  memcpy(&mag_calib.state, &initial_state, 12 * sizeof(float));
+  float initial_state[9] = MAG_CALIB_UKF_INITIAL_STATE;
+  memcpy(&mag_calib.state, &initial_state, 9 * sizeof(float));
 #endif
   AbiBindMsgIMU_MAG_INT32(MAG_CALIB_UKF_ABI_BIND_ID, &mag_ev, mag_calib_ukf_run);
   AbiBindMsgGEO_MAG(ABI_BROADCAST, &h_ev, mag_calib_update_field);    ///< GEO_MAG_SENDER_ID is defined in geo_mag.c so unknown
@@ -171,41 +170,6 @@ void mag_calib_ukf_run(uint8_t sender_id, uint32_t stamp, struct Int32Vect3 *mag
       measurement[0] = MAG_FLOAT_OF_BFP(mag->x);
       measurement[1] = MAG_FLOAT_OF_BFP(mag->y);
       measurement[2] = MAG_FLOAT_OF_BFP(mag->z);
-      /** Rotate the local magnetic field by our current attitude **/
-//      struct FloatQuat *body_quat = stateGetNedToBodyQuat_f();
-//      struct FloatVect3 expected_measurement;
-//      float_quat_vmult(&expected_measurement, body_quat, &H);
-//      /// See if the AHRS has already aligned with magnetometer
-//      TRICAL_measurement_calibrate(&mag_calib, measurement, calibrated_measurement);
-//      struct FloatVect3 AHRS_calibrated_difference;
-//      AHRS_calibrated_difference.x = expected_measurement.x - calibrated_measurement[0];
-//      AHRS_calibrated_difference.y = expected_measurement.y - calibrated_measurement[1];
-//      AHRS_calibrated_difference.z = expected_measurement.z - calibrated_measurement[2];
-//      float dn = float_vect3_norm(&AHRS_calibrated_difference);
-//      VERBOSE_PRINT("AHRS diff: %0.4f, %0.4f, %0.4f (%0.4f)\n", AHRS_calibrated_difference.x, AHRS_calibrated_difference.y, AHRS_calibrated_difference.z, dn);
-//      float expected_mag_field[3];
-//      if(dn > AHRS_align_tolerance_norm){
-//          //< The AHRS has not yet aligned to the magnetometer value. For now use only the norm of the measurement to calibrate
-//          VERBOSE_PRINT("Using norm only for magnetometer calibration\n");
-//          expected_mag_field[0] = calibrated_measurement[0];
-//          expected_mag_field[1] = calibrated_measurement[1];
-//          expected_mag_field[2] = calibrated_measurement[2];
-          /*
-          float cm_norm = sqrtf(powf(calibrated_measurement[0], 2.0) + powf(calibrated_measurement[1], 2.0) + powf(calibrated_measurement[2], 2.0));
-          if(cm_norm > 0.01){
-              expected_mag_field[0] /= cm_norm;
-              expected_mag_field[1] /= cm_norm;
-              expected_mag_field[2] /= cm_norm;
-          }
-          */
-//      }
-//      else{
-//          //< The AHRS has aligned, to a certain degree of accuracy, with the magnetometer. Use full attitude to calibrate magnetometer
-//          VERBOSE_PRINT("Using full attitude for magnetometer calibration\n");
-//          expected_mag_field[0] = expected_measurement.x;
-//          expected_mag_field[1] = expected_measurement.y;
-//          expected_mag_field[2] = expected_measurement.z;
-//      }
       /** Update magnetometer UKF **/
       TRICAL_estimate_update(&mag_calib, measurement);//, expected_mag_field);
       TRICAL_measurement_calibrate(&mag_calib, measurement, calibrated_measurement);
@@ -220,7 +184,6 @@ void mag_calib_ukf_run(uint8_t sender_id, uint32_t stamp, struct Int32Vect3 *mag
       /** Debug print */
       VERBOSE_PRINT("magnetometer measurement (x: %4.2f  y: %4.2f  z: %4.2f) norm: %4.2f\n", measurement[0], measurement[1], measurement[2], hypot(hypot(measurement[0], measurement[1]), measurement[2]));
       VERBOSE_PRINT("magnetometer bias_f      (x: %4.2f  y: %4.2f  z: %4.2f)\n", mag_calib.state[0], mag_calib.state[1],  mag_calib.state[2]);
-      VERBOSE_PRINT("expected measurement     (x: %4.2f  y: %4.2f  z: %4.2f) norm: %4.2f\n", expected_mag_field[0], expected_mag_field[1], expected_mag_field[2], hypot(hypot(expected_mag_field[0], expected_mag_field[1]), expected_mag_field[2]));
       VERBOSE_PRINT("calibrated   measurement (x: %4.2f  y: %4.2f  z: %4.2f) norm: %4.2f\n\n", calibrated_measurement[0], calibrated_measurement[1], calibrated_measurement[2], hypot(hypot(calibrated_measurement[0], calibrated_measurement[1]), calibrated_measurement[2]));
       /** Forward calibrated data */
       AbiSendMsgIMU_MAG_INT32(MAG_CALIB_UKF_ID, stamp, &calibrated_mag);
@@ -243,7 +206,7 @@ void mag_calib_update_field(uint8_t __attribute__((unused)) sender_id, struct Fl
 
 void mag_calib_send_state(void)
 {
-  DOWNLINK_SEND_PAYLOAD_FLOAT(DefaultChannel, DefaultDevice, 12, mag_calib.state);
+  DOWNLINK_SEND_PAYLOAD_FLOAT(DefaultChannel, DefaultDevice, 9, mag_calib.state);
 }
 
 void mag_calib_hotstart_read(void)
@@ -252,17 +215,15 @@ void mag_calib_hotstart_read(void)
   snprintf(hotstart_file_name, 512, "%s", STRINGIFY(MAG_CALIB_UKF_HOTSTART_SAVE_FILE));
   fp = fopen(hotstart_file_name, "r");
   if (fp != NULL) {
-    fread(mag_calib.state, sizeof(float), 12, fp);
+    fread(mag_calib.state, sizeof(float), 9, fp);
     fclose(fp);
     VERBOSE_PRINT("Loaded initial state from disk:\n"
-                  "bias  {%4.2f, %4.2f, %4.2f}\n"
-                  "scale {%4.2f, %4.2f, %4.2f}\n"
+                  "State {%4.2f, %4.2f, %4.2f}\n"
                   "      {%4.2f, %4.2f, %4.2f}\n"
                   "      {%4.2f, %4.2f, %4.2f}\n",
                   mag_calib.state[0], mag_calib.state[1],  mag_calib.state[2],
                   mag_calib.state[3], mag_calib.state[4],  mag_calib.state[5],
-                  mag_calib.state[6], mag_calib.state[7],  mag_calib.state[8],
-                  mag_calib.state[9], mag_calib.state[10], mag_calib.state[11]
+                  mag_calib.state[6], mag_calib.state[7],  mag_calib.state[8]
                  );
   }
 #endif
@@ -273,17 +234,15 @@ void mag_calib_hotstart_write(void)
 #if USE_MAGNETOMETER && MAG_CALIB_UKF_HOTSTART
   fp = fopen(hotstart_file_name, "w");
   if (fp != NULL) {
-    fwrite(mag_calib.state, sizeof(float), 12, fp);
+    fwrite(mag_calib.state, sizeof(float), 9, fp);
     fclose(fp);
     VERBOSE_PRINT("Wrote current state to disk:\n"
-                  "bias  {%4.2f, %4.2f, %4.2f}\n"
-                  "scale {%4.2f, %4.2f, %4.2f}\n"
+                  "State {%4.2f, %4.2f, %4.2f}\n"
                   "      {%4.2f, %4.2f, %4.2f}\n"
                   "      {%4.2f, %4.2f, %4.2f}\n",
                   mag_calib.state[0], mag_calib.state[1],  mag_calib.state[2],
                   mag_calib.state[3], mag_calib.state[4],  mag_calib.state[5],
-                  mag_calib.state[6], mag_calib.state[7],  mag_calib.state[8],
-                  mag_calib.state[9], mag_calib.state[10], mag_calib.state[11]
+                  mag_calib.state[6], mag_calib.state[7],  mag_calib.state[8]
                  );
   }
 #endif

@@ -31,10 +31,13 @@
 #define MAG_CALIB_UKF_H
 
 #include "std.h"
+#include "TRICAL.h"
 
 // setting to request state reset
 extern bool mag_calib_ukf_reset_state;
 extern bool mag_calib_ukf_send_state;
+
+extern TRICAL_instance_t mag_calib;
 
 void mag_calib_ukf_init(void);
 void mag_calib_hotstart_write(void);

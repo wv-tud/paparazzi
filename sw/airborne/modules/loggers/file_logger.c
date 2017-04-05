@@ -32,6 +32,7 @@
 #include "subsystems/imu.h"
 #include "firmwares/rotorcraft/stabilization.h"
 #include "firmwares/rotorcraft/stabilization/stabilization_indi.h"
+#include "modules/calibration/mag_calib_ukf.h"
 #include "firmwares/rotorcraft/guidance/guidance_indi.h"
 #include "state.h"
 #include "subsystems/actuators.h"
@@ -64,7 +65,7 @@ void file_logger_start(void)
   if (file_logger != NULL) {
     fprintf(
       file_logger,
-      "counter,RAW_mag_x, RAW_mag_y, RAW_mag_z, SCALED_mag_x, SCALED_mag_y, SCALED_mag_z, psi\n"
+      "counter,RAW_mag_x, RAW_mag_y, RAW_mag_z, SCALED_mag_x, SCALED_mag_y, SCALED_mag_z, psi, state_0, state_1, state_2, state_3, state_4, state_5, state_6, state_7, state_8\n"
       // INDI LOG: "counter,pos_NED_x, pos_NED_y, pos_NED_z, filt_accel_ned_x, filt_accel_ned_y, filt_accel_ned_z, quat_i, quat_x, quat_y, quat_z,  sp_quat_i, sp_quat_x, sp_quat_y, sp_quat_z, sp_accel_x, sp_accel_y, sp_accel_z, accel_ned_x, accel_ned_y, accel_ned_z, speed_ned_x, speed_ned_y, speed_ned_z, imu_accel_unscaled_x, imu_accel_unscaled_y, imu_accel_unscaled_z, body_rates_p, body_rates_q, body_rates_r, actuaros_pprz_0, actuaros_pprz_1, actuaros_pprz_2, actuaros_pprz_3\n"
     );
   }
@@ -87,7 +88,7 @@ void file_logger_periodic(void)
   }
   static uint32_t counter = 0;
   struct FloatEulers* eulers = stateGetNedToBodyEulers_f();
-  fprintf(file_logger, "%d,%d,%d,%d,%f,%f,%f,%f\n",
+  fprintf(file_logger, "%d,%d,%d,%d,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f\n",
             counter,
             imu.mag_unscaled.x,
             imu.mag_unscaled.y,
@@ -95,7 +96,16 @@ void file_logger_periodic(void)
             MAG_FLOAT_OF_BFP(imu.mag.x),
             MAG_FLOAT_OF_BFP(imu.mag.y),
             MAG_FLOAT_OF_BFP(imu.mag.z),
-            eulers->psi);
+            eulers->psi,
+			mag_calib.state[0],
+			mag_calib.state[1],
+			mag_calib.state[2],
+			mag_calib.state[3],
+			mag_calib.state[4],
+			mag_calib.state[5],
+			mag_calib.state[6],
+			mag_calib.state[7],
+			mag_calib.state[8]);
 /*  INDI LOG
   struct Int32Quat * quat       = stateGetNedToBodyQuat_i();
   struct NedCoor_f * pos        = stateGetPositionNed_f();
