@@ -25,6 +25,11 @@ ifndef HARD_FLOAT
     TOOLCHAIN=$(shell find -L /usr/local -maxdepth 4 -iname "arm-none-linux-gnueabi-gcc" | sed 's|-gcc||' | head -n 1)
     ifneq ($(TOOLCHAIN),)
       PREFIX=$(TOOLCHAIN)
+    else
+      TOOLCHAIN=$(shell find -L /usr/bin -maxdepth 4 -iname "arm-linux-gnueabi-gcc" | sed 's|-gcc||' | head -n 1)
+      ifneq ($(TOOLCHAIN),)
+        PREFIX=$(TOOLCHAIN)
+      endif
     endif
   endif
 endif
