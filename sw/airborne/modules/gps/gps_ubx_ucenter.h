@@ -69,8 +69,6 @@ extern void gps_ubx_ucenter_periodic(void);
 extern void gps_ubx_ucenter_event(void);
 extern int gps_ubx_ucenter_get_status(void);
 
-extern int gps_ubx_ucenter_get_status(void);
-
 #endif
 
 

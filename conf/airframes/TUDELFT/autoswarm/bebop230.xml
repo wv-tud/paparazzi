@@ -1,19 +1,19 @@
 <!DOCTYPE airframe SYSTEM "../../airframe.dtd">
 
-<airframe name="bebop2_avoider">
-
+<airframe name="bebop2_swarm">
 	<firmware name="rotorcraft">
 		<target name="ap" board="bebop2" />
-
+ 		<!--  swarmhub -->
 		<configure name="HOST" value="192.168.40.$(AC_ID)" />
 		<configure name="MODEM_HOST" value="192.168.40.255" /> 
-
+		<!--  Baro, Sonar, RTK -->
 		<configure name="USE_BARO_BOARD" value="TRUE" />
 		<configure name="USE_BARO" value="TRUE" />
 		<configure name="USE_SONAR" value="TRUE" />
 		<define name="USE_GPS_UBX_RTCM" value="TRUE" />
+		<!--  Use magneto calib with ICQ AHRS -->
 		<define name="AHRS_ICQ_MAG_ID" value="MAG_CALIB_UKF_ID" />
-		<!-- 
+		<!-- Still to be tested
 		<configure name="USE_HFF" value="true" />
 		<configure name="HFF_ACCEL_NOISE" value="0.75" /> 
 		<configure name="VFF_EXTENDED_ACCEL_NOISE" value="0.75" /> 
@@ -30,27 +30,25 @@
 		<define name="MT9F002_GAIN_GREEN2" value="8.0" />
 		<define name="MT9F002_GAIN_RED" value="7.0" />
 		<define name="MT9F002_GAIN_BLUE" value="8.0" />
-
 		<!-- Subsystem section -->
 		<module name="telemetry" type="transparent_udp" />
 		<module name="radio_control" type="datalink" />
 		<module name="motor_mixing" />
 		<module name="actuators" type="bebop" />
-		<module name="imu" type="bebop">
-			<define name="UKF_CALIBRATE_FIELD_SENSOR" value="TRUE" />
-		</module>
+		<module name="imu" type="bebop"/>
 		<module name="gps" type="ublox" />
 		<module name="stabilization" type="indi_simple" />
 		<module name="guidance" type="indi" />
 		<module name="ahrs" type="int_cmpl_quat">
-			<configure name="USE_MAGNETOMETER" value="TRUE" /> <!-- TURN ON OUTSIDE -->
+			<!--  Use either magnetometer (outside) or GPS heading (inside) -->
+			<configure name="USE_MAGNETOMETER" value="TRUE" />
 			<define name="AHRS_USE_GPS_HEADING" value="FALSE" />
 		</module>
 		<module name="ins" type="extended" />
 	</firmware>
-
 	<!-- Modules -->
 	<modules main_freq="512">
+		<module name="gps_ubx_ucenter"/>
 		<module name="bebop_accel_calib_flat" />
 		<module name="mag_calib_ukf" />
 		<module name="geo_mag" />
@@ -60,7 +58,6 @@
 			<define name="FILE_LOGGER_PATH" value="/data/ftp/internal_000" />
 		</module>
 		<module name="nav_rotorcraft_shake_throw">
-			<define name="NAV_RC_SHAKE_THROW_DEBUG_NO_FLIGHT" value="TRUE" />
 			<define name="NAV_RC_SHAKE_THROW_GOTO_BLOCK" value="Launched" />
 			<define name="NAV_RC_SHAKE_THROW_RESET_BLOCK" value="Landed" />
 		</module>
@@ -71,18 +68,12 @@
 		<module name="autoswarm">
 			<define name="AS_GLOBAL_ATTRACTOR" value="2" />
 		</module>
-
 		<!-- Vision pipeline -->
 		<module name="video_thread" />
 		<module name="cv_image_pose" />
-		<module name="cv_ae_awb">
-			<define name="CV_AE_AWB_VERBOSE" value="FALSE" />
-			<define name="CV_AE_MIDDLE_INDEX" value="127" /> <!-- Colour filter works better in slightly underexposed image -->
-		</module>
-		<module name="cv_bebop_camera_stabilization">
-		</module>
-		<module name="cv_active_random_filter">
-		</module>
+		<module name="cv_ae_awb"/>
+		<module name="cv_bebop_camera_stabilization"/>
+		<module name="cv_active_random_filter"/>
 		<module name="video_rtp_stream">
 			<configure name="VIEWVIDEO_HOST" value="192.168.40.222" />
 			<configure name="VIEWVIDEO_BROADCAST" value="FALSE" />
@@ -94,7 +85,6 @@
 			<define name="VIEWVIDEO_STREAM_VIDEO" value="TRUE" />
 		</module>
 	</modules>
-
 	<!-- Misc. settings -->
 	<commands>
 		<axis name="PITCH" failsafe_value="0" />
@@ -114,7 +104,7 @@
 		<define name="HOTSTART" value="TRUE" />
 		<define name="HOTSTART_SAVE_FILE" value="/data/ftp/internal_000/mag_ukf_calib.txt" />
 		<define name="NORM" value="1.0f" />
-		<define name="NOISE_RMS" value="3e-1f" />
+		<define name="NOISE_RMS" value="1e-2f" />
 		<define name="VERBOSE" value="FALSE" />
 	</section>
 
@@ -148,10 +138,10 @@
 	<include href="conf/airframes/TUDELFT/calibrations/bebop2_$AC_ID.xml" />
 
 	<section name="AHRS" prefix="AHRS_">
-		<!-- values used if no GPS fix, on 3D fix is update by geo_mag module -->
 		<define name="HEADING_UPDATE_GPS_MIN_SPEED" value="0" />
 		<!-- For vibrating airframes -->
 		<define name="GRAVITY_HEURISTIC_FACTOR" value="0" />
+		<!-- values used if no GPS fix, on 3D fix is update by geo_mag module -->
 		<!-- local magnetic field (Delft) -->
 		<!-- http://wiki.paparazziuav.org/wiki/Subsystem/ahrs#Local_Magnetic_Field -->
 		<define name="H_X" value="0.3892503" />
@@ -162,7 +152,7 @@
 	<section name="INS" prefix="INS_">
 		<define name="SONAR_MAX_RANGE" value="2.2" />
 		<define name="SONAR_UPDATE_ON_AGL" value="FALSE" />
-		<define name="USE_GPS_ALT" value="0" />     <!-- Use height from the optitrack -->
+		<define name="USE_GPS_ALT" value="1" />     <!-- Use height from the optitrack -->
 		<!-- <define name="VFF_R_GPS" value="0.01" /> -->   <!-- The optitrack has high accuracy -->
 	</section>
 
@@ -284,7 +274,7 @@
 		<define name="MILLIAMP_AT_FULL_THROTTLE" value="8700" />
 		<define name="CATASTROPHIC_BAT_LEVEL" value="9.9" unit="V" />
 		<define name="CRITIC_BAT_LEVEL" value="11.0" unit="V" />
-		<define name="LOW_BAT_LEVEL" value="11.1" unit="V" />
+		<define name="LOW_BAT_LEVEL" value="11.2" unit="V" />
 		<define name="MAX_BAT_LEVEL" value="12.4" unit="V" />
 	</section>
 </airframe>
