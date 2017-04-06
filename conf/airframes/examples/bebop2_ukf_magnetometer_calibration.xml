@@ -5,8 +5,7 @@
   <firmware name="rotorcraft">
     <target name="ap" board="bebop2">
       <define name="STABILIZATION_INDI_G2_R" value="0.20"/>
-      
-           <!--  TODO: After first flights try to find optimum value -->
+     
       <!-- PERIODIC_FREQUENCY should be least equal or greater than AHRS_PROPAGATE_FREQUENCY -->
       <configure name="PERIODIC_FREQUENCY" value="512"/> <!--  unit="Hz" -->
       <configure name="AHRS_PROPAGATE_FREQUENCY" value="500"/><!--  unit="Hz" -->
@@ -15,9 +14,15 @@
       <configure name="NAVIGATION_FREQUENCY" value="64"/> <!--  unit="Hz" -->
       <!--  <configure name="CONTROL_FREQUENCY" value="500"/>--> <!--  unit="Hz" -->
       <configure name="TELEMETRY_FREQUENCY" value="60"/> <!--  unit="Hz" -->
-      <configure name="MODULES_FREQUENCY" value="512"/> <!--  unit="Hz" --> 
-       
+      <configure name="MODULES_FREQUENCY" value="512"/> <!--  unit="Hz" -->     
     </target>
+    
+    <!-- amount of time it take for the bat to trigger check -->
+    <!-- to avoid bat low spike detection when strong pullup withch draws short sudden power-->    
+    <define name="BAT_CHECKER_DELAY" value="20" unit="s/10"/> <!-- in tenth of seconds-->
+
+    <!-- Only one main batter so CATASTROPHIC_BATTERY kill should be somewhat delayed -->
+    <define name="CATASTROPHIC_BATTERY_KILL_DELAY" value="30" unit="s/10"/> <!-- in tenth of seconds for engine kill -->
 
     <target name="nps" board="pc">
       <module name="fdm" type="jsbsim"/>
@@ -32,7 +37,7 @@
     <configure name="USE_BARO_BOARD" value="TRUE" />
     <configure name="USE_BARO" value="TRUE" />
     <configure name="USE_SONAR" value="TRUE" />
-    <define name="GPS_TIMEOUT" value="1" />
+    <define name="GPS_TIMEOUT" value="2" />
 	  <!-- Subsystem section -->
     <module name="telemetry" type="transparent_udp"/>
     <module name="radio_control" type="datalink"/>
@@ -42,14 +47,15 @@
     <module name="gps" type="ublox"/>
     <module name="stabilization" type="indi_simple"/>
     <module name="guidance" type="indi"/>
+    
     <module name="ahrs" type="int_cmpl_quat">
       <configure name="AHRS_USE_MAGNETOMETER" value="TRUE"/>
-      <define name="AHRS_MAG_UPDATE_ALL_AXES" value="TRUE" />
+      <define name="AHRS_MAG_UPDATE_ALL_AXES" value="FALSE" />
       <define name="AHRS_USE_GPS_HEADING" value="FALSE" />
       <define name="AHRS_GRAVITY_UPDATE_COORDINATED_TURN" value="FALSE" />
       <define name="AHRS_PROPAGATE_LOW_PASS_RATES" value="FALSE" />
-    <!--  <define name="AHRS_GRAVITY_HEURISTIC_FACTOR" value="0" />
-      <define name="AHRS_FC_IMU_ID" value="ABI_BROADCAST" />
+      <define name="AHRS_GRAVITY_HEURISTIC_FACTOR" value="0" />
+      <!-- <define name="AHRS_FC_IMU_ID" value="ABI_BROADCAST" />
       <define name="AHRS_FC_MAG_ID" value="ABI_BROADCAST" />
       <define name="AHRS_FC_GPS_ID" value="GPS_MULTI_ID" />-->
     </module>
@@ -61,7 +67,7 @@
     <module name="mag_calib_ukf"/>
     <module name="accel_calib_ukf"/>
     <module name="air_data"/>
-    <!--  <module name="send_imu_mag_current"/>-->
+    <module name="send_imu_mag_current"/>
     <module name="gps" type="ubx_ucenter"/>
     <module name="logger_file">
       <define name="FILE_LOGGER_PATH" value="/data/ftp/internal_000"/>
@@ -139,23 +145,17 @@
   <!-- http://wiki.paparazziuav.org/wiki/Subsystem/ahrs#Local_Magnetic_Field -->
   <section name="AHRS" prefix="AHRS_">
     <!-- values used if no GPS fix, on 3D fix is update by geo_mag module -->
-    <!-- Toulouse -->
-    <!--define name="H_X" value="0.513081"/>
-    <define name="H_Y" value="-0.00242783"/>
-    <define name="H_Z" value="0.858336"/-->
-    <!-- Delft las update 20170406 -->
+    <!-- NL - last update 20170406 -->
     <define name="H_X" value="0.395143"/>
     <define name="H_Y" value="-0.0148235"/>
     <define name="H_Z" value="0.9185"/>
-
   </section>
 
   <section name="INS" prefix="INS_">
-    <define name="SONAR_MAX_RANGE" value="2.2"/>
-    <define name="SONAR_UPDATE_ON_AGL" value="TRUE"/>
-    <define name="USE_GPS_ALT" value="1" />
+    <define name="SONAR_MAX_RANGE" value="2.2" unit="m" />
+    <define name="SONAR_UPDATE_ON_AGL" value="TRUE" />
+    <define name="USE_GPS_ALT" value="TRUE" />
   </section>
-
 
   <section name="RC_SETPOINT" prefix="STABILIZATION_ATTITUDE_">
     <!-- setpoint limits for attitude stabilization rc flight -->
@@ -217,29 +217,31 @@
     <define name="USE_ADAPTIVE" value="FALSE"/>
     <define name="ADAPTIVE_MU" value="0.0001"/>
   </section>
+  
+  <section name="GUIDANCE_INDI" prefix="GUIDANCE_INDI_">
+     <define name="SPECIFIC_FORCE_GAIN" value="-300.0"/>
+  </section>
 
   <section name="GUIDANCE_V" prefix="GUIDANCE_V_">
     <define name="HOVER_KP" value="350"/>
     <define name="HOVER_KD" value="85"/>
     <define name="HOVER_KI" value="20"/>
-    <define name="NOMINAL_HOVER_THROTTLE" value="0.655"/>
+    <define name="NOMINAL_HOVER_THROTTLE" value="0.655" unit="%"/>
     <define name="ADAPT_THROTTLE_ENABLED" value="TRUE"/>
   </section>
 
   <section name="GUIDANCE_H" prefix="GUIDANCE_H_">
     <!-- Good weather -->
-    <define name="MAX_BANK" value="20" unit="deg"/>
-    <define name="REF_MAX_SPEED" value="2" unit="m/s"/>
-    <!-- Bad weather -->
-    <!-- define name="MAX_BANK" value="32" unit="deg"/ -->
+    <define name="MAX_BANK" value="28" unit="deg"/>
+    <define name="REF_MAX_SPEED" value="3" unit="m/s"/>
     <define name="PGAIN" value="120"/>
     <define name="DGAIN" value="100"/>
     <define name="IGAIN" value="30"/>
   </section>
 
   <section name="NAVIGATION" prefix="NAV_">
-    <define name="CLIMB_VSPEED" value="4.5"/>
-    <define name="DESCEND_VSPEED" value="-1.0"/>
+    <define name="CLIMB_VSPEED" value="4.5" unit="m/s"/>
+    <define name="DESCEND_VSPEED" value="-1.5" unit="m/s"/>
   </section>
 
   <section name="SIMULATOR" prefix="NPS_">
@@ -258,10 +260,15 @@
   </section>
 
   <section name="BAT">
-    <define name="MILLIAMP_AT_FULL_THROTTLE" value="8700"/>
-    <define name="CATASTROPHIC_BAT_LEVEL" value="9.9" unit="V"/>
-    <define name="CRITIC_BAT_LEVEL" value="11.0" unit="V"/>
-    <define name="LOW_BAT_LEVEL" value="11.1" unit="V"/>
+    <define name="MILLIAMP_AT_FULL_THROTTLE" value="20000"/>
+    <define name="CATASTROPHIC_BAT_LEVEL" value="9.3" unit="V"/>
+    <define name="CRITIC_BAT_LEVEL" value="10.4" unit="V"/>
+    <define name="LOW_BAT_LEVEL" value="10.7" unit="V"/>
     <define name="MAX_BAT_LEVEL" value="12.4" unit="V"/>
   </section>
+  
+  <section name="GCS">
+    <define name="AC_ICON" value="quadrotor_xi"/>
+  </section>
+  
 </airframe>
