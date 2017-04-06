@@ -107,13 +107,22 @@ static void send_filter_status(struct transport_tx *trans, struct link_device *d
 #endif
 
 
-/** ABI binding for IMU data.
- * Used for gyro, accel ABI messages.
+/** ABI binding for Gyro data.
+ * Used for gyro ABI messages.
  */
 #ifndef AHRS_ICQ_IMU_ID
 #define AHRS_ICQ_IMU_ID ABI_BROADCAST
 #endif
 PRINT_CONFIG_VAR(AHRS_ICQ_IMU_ID)
+
+/** ABI binding for Accel data.
+ * Used for accel ABI messages.
+ */
+#ifndef AHRS_ICQ_ACCEL_ID
+#define AHRS_ICQ_ACCEL_ID ABI_BROADCAST
+#endif
+PRINT_CONFIG_VAR(AHRS_ICQ_IMU_ID)
+
 /** ABI binding for magnetometer data.
  * Used for IMU_MAG_INT32 ABI messages.
  */
@@ -278,7 +287,7 @@ void ahrs_icq_register(void)
    * Subscribe to scaled IMU measurements and attach callbacks
    */
   AbiBindMsgIMU_GYRO_INT32(AHRS_ICQ_IMU_ID, &gyro_ev, gyro_cb);
-  AbiBindMsgIMU_ACCEL_INT32(AHRS_ICQ_IMU_ID, &accel_ev, accel_cb);
+  AbiBindMsgIMU_ACCEL_INT32(AHRS_ICQ_ACCEL_ID, &accel_ev, accel_cb);
   AbiBindMsgIMU_MAG_INT32(AHRS_ICQ_MAG_ID, &mag_ev, mag_cb);
   AbiBindMsgIMU_LOWPASSED(ABI_BROADCAST, &aligner_ev, aligner_cb);
   AbiBindMsgBODY_TO_IMU_QUAT(ABI_BROADCAST, &body_to_imu_ev, body_to_imu_cb);

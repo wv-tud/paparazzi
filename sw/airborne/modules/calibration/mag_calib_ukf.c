@@ -147,7 +147,6 @@ void mag_calib_ukf_run(uint8_t sender_id, uint32_t stamp, struct Int32Vect3 *mag
 {
   float measurement[3] = {0.0f, 0.0f, 0.0f};
   float calibrated_measurement[3] = {0.0f, 0.0f, 0.0f};
-
   if (sender_id != MAG_CALIB_UKF_ID) {
     /** See if we need to reset the state **/
     if (mag_calib_ukf_send_state) {
@@ -164,7 +163,7 @@ void mag_calib_ukf_run(uint8_t sender_id, uint32_t stamp, struct Int32Vect3 *mag
       measurement[1] = MAG_FLOAT_OF_BFP(mag->y);
       measurement[2] = MAG_FLOAT_OF_BFP(mag->z);
       /** Update magnetometer UKF **/
-      TRICAL_estimate_update(&mag_calib, measurement);//, expected_mag_field);
+      TRICAL_estimate_update(&mag_calib, measurement);
       TRICAL_measurement_calibrate(&mag_calib, measurement, calibrated_measurement);
       /** Save calibrated result **/
       calibrated_mag.x = (int32_t) MAG_BFP_OF_REAL(calibrated_measurement[0]);
@@ -173,7 +172,6 @@ void mag_calib_ukf_run(uint8_t sender_id, uint32_t stamp, struct Int32Vect3 *mag
       imu.mag.x = calibrated_mag.x;
       imu.mag.y = calibrated_mag.y;
       imu.mag.z = calibrated_mag.z;
-
       /** Debug print */
       VERBOSE_PRINT("magnetometer measurement (x: %4.2f  y: %4.2f  z: %4.2f) norm: %4.2f\n", measurement[0], measurement[1], measurement[2], hypot(hypot(measurement[0], measurement[1]), measurement[2]));
       VERBOSE_PRINT("magnetometer bias_f      (x: %4.2f  y: %4.2f  z: %4.2f)\n", mag_calib.state[0], mag_calib.state[1],  mag_calib.state[2]);
