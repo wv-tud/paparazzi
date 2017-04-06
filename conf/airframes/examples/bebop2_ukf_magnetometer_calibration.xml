@@ -5,6 +5,18 @@
   <firmware name="rotorcraft">
     <target name="ap" board="bebop2">
       <define name="STABILIZATION_INDI_G2_R" value="0.20"/>
+      
+           <!--  TODO: After first flights try to find optimum value -->
+      <!-- PERIODIC_FREQUENCY should be least equal or greater than AHRS_PROPAGATE_FREQUENCY -->
+      <configure name="PERIODIC_FREQUENCY" value="512"/> <!--  unit="Hz" -->
+      <configure name="AHRS_PROPAGATE_FREQUENCY" value="500"/><!--  unit="Hz" -->
+      <configure name="AHRS_CORRECT_FREQUENCY" value="500"/> <!--  unit="Hz" -->
+      
+      <configure name="NAVIGATION_FREQUENCY" value="64"/> <!--  unit="Hz" -->
+      <!--  <configure name="CONTROL_FREQUENCY" value="500"/>--> <!--  unit="Hz" -->
+      <configure name="TELEMETRY_FREQUENCY" value="60"/> <!--  unit="Hz" -->
+      <configure name="MODULES_FREQUENCY" value="512"/> <!--  unit="Hz" --> 
+       
     </target>
 
     <target name="nps" board="pc">
@@ -31,8 +43,15 @@
     <module name="stabilization" type="indi_simple"/>
     <module name="guidance" type="indi"/>
     <module name="ahrs" type="int_cmpl_quat">
-      <configure name="USE_MAGNETOMETER" value="TRUE"/>
-      <define name="AHRS_USE_GPS_HEADING" value="FALSE"/>
+      <configure name="AHRS_USE_MAGNETOMETER" value="TRUE"/>
+      <define name="AHRS_MAG_UPDATE_ALL_AXES" value="TRUE" />
+      <define name="AHRS_USE_GPS_HEADING" value="FALSE" />
+      <define name="AHRS_GRAVITY_UPDATE_COORDINATED_TURN" value="FALSE" />
+      <define name="AHRS_PROPAGATE_LOW_PASS_RATES" value="FALSE" />
+      <define name="AHRS_GRAVITY_HEURISTIC_FACTOR" value="0" />
+      <define name="AHRS_FC_IMU_ID" value="ABI_BROADCAST" />
+      <define name="AHRS_FC_MAG_ID" value="ABI_BROADCAST" />
+      <define name="AHRS_FC_GPS_ID" value="GPS_MULTI_ID" />
     </module>
     <module name="ins" type="extended"/>
   </firmware>
@@ -42,7 +61,7 @@
     <module name="mag_calib_ukf"/>
     <module name="accel_calib_ukf"/>
     <module name="air_data"/>
-    <module name="send_imu_mag_current"/>
+    <!--  <module name="send_imu_mag_current"/>-->
     <module name="gps" type="ubx_ucenter"/>
     <module name="logger_file">
       <define name="FILE_LOGGER_PATH" value="/data/ftp/internal_000"/>
@@ -85,7 +104,7 @@
     <define name="TRIM_ROLL" value="0"/>
     <define name="TRIM_PITCH" value="0"/>
     <define name="TRIM_YAW" value="0"/>
-    <define name="REVERSE" value="TRUE"/>
+    <define name="REVERSE" value="TRUE"/><!-- Bebop2 prop turn revers as of Bebop1 -->
     <define name="TYPE" value="QUAD_X"/>
   </section>
 
@@ -107,27 +126,28 @@
     <define name="ACCEL_X_NEUTRAL" value="0"/>
     <define name="ACCEL_Y_NEUTRAL" value="0"/>
     <define name="ACCEL_Z_NEUTRAL" value="0"/>
+   <!--     <define name="ACCEL_X_SENS" value="4.90862760829" integer="16"/>
+   <define name="ACCEL_Y_SENS" value="4.9043976463"  integer="16"/>
+   <define name="ACCEL_Z_SENS" value="4.82837916573" integer="16"/>-->
     <!-- Magneto calibration -->
-    <define name="MAG_X_SENS" value="8" integer="16"/>
-    <define name="MAG_Y_SENS" value="8" integer="16"/>
-    <define name="MAG_Z_SENS" value="8" integer="16"/>
+    <define name="MAG_X_SENS" value="7.99" integer="16"/>
+    <define name="MAG_Y_SENS" value="7.99" integer="16"/>
+    <define name="MAG_Z_SENS" value="7.99" integer="16"/>
   </section>
 
   <!-- local magnetic field -->
   <!-- http://wiki.paparazziuav.org/wiki/Subsystem/ahrs#Local_Magnetic_Field -->
   <section name="AHRS" prefix="AHRS_">
-      <!-- For vibrating airframes -->
-      <define name="GRAVITY_HEURISTIC_FACTOR" value="0" />
     <!-- values used if no GPS fix, on 3D fix is update by geo_mag module -->
     <!-- Toulouse -->
     <!--define name="H_X" value="0.513081"/>
     <define name="H_Y" value="-0.00242783"/>
     <define name="H_Z" value="0.858336"/-->
-    <!-- Delft -->
-    <define name="H_X" value="0.3892503"/>
-    <define name="H_Y" value="0.0017972"/>
-    <define name="H_Z" value="0.9211303"/>
-    <define name="MAG_UPDATE_ALL_AXES" value="TRUE" />
+    <!-- Delft las update 20170406 -->
+    <define name="H_X" value="0.395143"/>
+    <define name="H_Y" value="-0.0148235"/>
+    <define name="H_Z" value="0.9185"/>
+
   </section>
 
   <section name="INS" prefix="INS_">
