@@ -283,6 +283,5 @@
         <arg flag="-c" constant="1"/>
       </program>
     </session>
-    </session>
   </section>
 </control_panel>
