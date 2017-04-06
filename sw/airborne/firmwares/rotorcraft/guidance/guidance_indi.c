@@ -140,6 +140,14 @@ void guidance_indi_run(bool in_flight, int32_t heading) {
   float speed_sp_y = pos_y_err * guidance_indi_pos_gain;
   float speed_sp_z = pos_z_err * guidance_indi_pos_gain;
 
+#ifdef GUIDANCE_H_REF_MAX_SPEED
+  float speed_n = sqrt( pow( speed_sp_x, 2.0 ) + pow( speed_sp_y, 2.0 ) );
+  if(speed_n > GUIDANCE_H_REF_MAX_SPEED){
+	  speed_sp_x *= GUIDANCE_H_REF_MAX_SPEED / speed_n;
+	  speed_sp_y *= GUIDANCE_H_REF_MAX_SPEED / speed_n;
+  }
+#endif
+
   sp_accel.x = (speed_sp_x - stateGetSpeedNed_f()->x) * guidance_indi_speed_gain;
   sp_accel.y = (speed_sp_y - stateGetSpeedNed_f()->y) * guidance_indi_speed_gain;
   sp_accel.z = (speed_sp_z - stateGetSpeedNed_f()->z) * guidance_indi_speed_gain;
