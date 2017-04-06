@@ -15,6 +15,8 @@
     </target>
     
     <define name="AHRS_ICQ_MAG_ID" value="MAG_CALIB_UKF_ID" />
+    <define name="AHRS_ICQ_ACCEL_ID" value="ACCEL_CALIB_UKF_ID" />
+    
     <configure name="USE_BARO_BOARD" value="TRUE" />
     <configure name="USE_BARO" value="TRUE" />
     <configure name="USE_SONAR" value="TRUE" />
@@ -27,6 +29,7 @@
     <module name="imu" type="bebop" />
     <module name="gps" type="ublox"/>
     <module name="stabilization" type="indi_simple"/>
+    <module name="guidance" type="indi"/>
     <module name="ahrs" type="int_cmpl_quat">
       <configure name="USE_MAGNETOMETER" value="TRUE"/>
       <define name="AHRS_USE_GPS_HEADING" value="FALSE"/>
@@ -37,6 +40,7 @@
   <modules>
     <module name="geo_mag"/>
     <module name="mag_calib_ukf"/>
+    <module name="accel_calib_ukf"/>
     <module name="air_data"/>
     <module name="send_imu_mag_current"/>
     <module name="gps" type="ubx_ucenter"/>
@@ -63,9 +67,18 @@
     <define name="HOTSTART" value="TRUE"/>
     <define name="HOTSTART_SAVE_FILE" value="/data/ftp/internal_000/mag_ukf_calib.txt"/>
     <define name="NORM" value="1.0f"/>
-    <define name="NOISE_RMS" value="5e-2f"/>
+    <define name="NOISE_RMS" value="15e-2f"/>
     <!-- <define name="INITIAL_STATE" value="0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0" type="float[]" /> -->
-    <define name="VERBOSE" value="TRUE"/>
+    <define name="VERBOSE" value="FALSE"/>
+  </section>
+  
+  <section name="ACCEL_CALIB_UKF" prefix="ACCEL_CALIB_UKF_">
+    <define name="HOTSTART" value="TRUE"/>
+    <define name="HOTSTART_SAVE_FILE" value="/data/ftp/internal_000/accel_ukf_calib.txt"/>
+    <define name="NORM" value="1.0f"/>
+    <define name="NOISE_RMS" value="7e-1f"/>
+    <!-- <define name="INITIAL_STATE" value="0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0" type="float[]" />  -->
+    <define name="VERBOSE" value="FALSE"/>
   </section>
 
   <section name="MIXING" prefix="MOTOR_MIXING_">
@@ -114,7 +127,7 @@
     <define name="H_X" value="0.3892503"/>
     <define name="H_Y" value="0.0017972"/>
     <define name="H_Z" value="0.9211303"/>
-    <!-- <define name="MAG_UPDATE_ALL_AXES" value="TRUE" /> -->
+    <define name="MAG_UPDATE_ALL_AXES" value="TRUE" />
   </section>
 
   <section name="INS" prefix="INS_">
