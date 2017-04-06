@@ -67,8 +67,8 @@
     <define name="HOTSTART" value="TRUE"/>
     <define name="HOTSTART_SAVE_FILE" value="/data/ftp/internal_000/mag_ukf_calib.txt"/>
     <define name="NORM" value="1.0f"/>
-    <define name="NOISE_RMS" value="15e-2f"/>
-    <!-- <define name="INITIAL_STATE" value="0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0" type="float[]" /> -->
+    <define name="NOISE_RMS" value="0.15f"/>
+    <define name="INITIAL_STATE" value="0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0" type="float[]" />
     <define name="VERBOSE" value="FALSE"/>
   </section>
   
@@ -76,8 +76,8 @@
     <define name="HOTSTART" value="TRUE"/>
     <define name="HOTSTART_SAVE_FILE" value="/data/ftp/internal_000/accel_ukf_calib.txt"/>
     <define name="NORM" value="1.0f"/>
-    <define name="NOISE_RMS" value="30e-2f"/>
-    <!-- <define name="INITIAL_STATE" value="0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0" type="float[]" />  -->
+    <define name="NOISE_RMS" value="0.30f"/>
+    <define name="INITIAL_STATE" value="0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0" type="float[]" />
     <define name="VERBOSE" value="FALSE"/>
   </section>
 
