@@ -31,15 +31,24 @@
 
 #include "subsystems/imu.h"
 #include "firmwares/rotorcraft/stabilization.h"
-#include "firmwares/rotorcraft/stabilization/stabilization_indi.h"
-#include "modules/calibration/mag_calib_ukf.h"
+//#include "firmwares/rotorcraft/stabilization/stabilization_indi.h"
+//#include "modules/calibration/mag_calib_ukf.h"
 #include "firmwares/rotorcraft/guidance/guidance_indi.h"
 #include "state.h"
 #include "subsystems/actuators.h"
+#include "generated/modules.h"
 
 /** Set the default File logger path to the USB drive */
 #ifndef FILE_LOGGER_PATH
 #define FILE_LOGGER_PATH /data/video/usb
+#endif
+
+#ifndef FILE_LOGGER_DATETIME_NAME
+#define FILE_LOGGER_DATETIME_NAME 0
+#endif
+
+#if FILE_LOGGER_DATETIME_NAME
+#include <time.h>
 #endif
 
 /** The file pointer */
@@ -52,22 +61,41 @@ void file_logger_start(void)
   char filename[512];
 
   // Check for available files
+#if FILE_LOGGER_DATETIME_NAME
+  time_t timer;
+  char date_buffer[26];
+  struct tm* tm_info;
+  timer = time(NULL);
+  tm_info = localtime(&timer);
+  strftime(date_buffer, 26, "%Y_%m_%d__%H_%M_%S", tm_info);
+  sprintf(filename, "%s/%s_%05d.csv", STRINGIFY(FILE_LOGGER_PATH), date_buffer, counter);
+  while ((file_logger = fopen(filename, "r"))) {
+    fclose(file_logger);
+    counter++;
+    sprintf(filename, "%s/%s_%05d.csv", STRINGIFY(FILE_LOGGER_PATH), date_buffer, counter);
+  }
+  file_logger = fopen(filename, "w");
+#else
   sprintf(filename, "%s/%05d.csv", STRINGIFY(FILE_LOGGER_PATH), counter);
   while ((file_logger = fopen(filename, "r"))) {
     fclose(file_logger);
-
     counter++;
     sprintf(filename, "%s/%05d.csv", STRINGIFY(FILE_LOGGER_PATH), counter);
   }
-
   file_logger = fopen(filename, "w");
-
+#endif
+  uint8_t max_retries = 10;
+  uint8_t cur_try = 0;
+  while(file_logger == NULL && cur_try < max_retries){
+	  cur_try++;
+  }
   if (file_logger != NULL) {
     fprintf(
       file_logger,
       "counter,RAW_mag_x, RAW_mag_y, RAW_mag_z, SCALED_mag_x, SCALED_mag_y, SCALED_mag_z, psi, state_0, state_1, state_2, state_3, state_4, state_5, state_6, state_7, state_8\n"
       // INDI LOG: "counter,pos_NED_x, pos_NED_y, pos_NED_z, filt_accel_ned_x, filt_accel_ned_y, filt_accel_ned_z, quat_i, quat_x, quat_y, quat_z,  sp_quat_i, sp_quat_x, sp_quat_y, sp_quat_z, sp_accel_x, sp_accel_y, sp_accel_z, accel_ned_x, accel_ned_y, accel_ned_z, speed_ned_x, speed_ned_y, speed_ned_z, imu_accel_unscaled_x, imu_accel_unscaled_y, imu_accel_unscaled_z, body_rates_p, body_rates_q, body_rates_r, actuaros_pprz_0, actuaros_pprz_1, actuaros_pprz_2, actuaros_pprz_3\n"
     );
+    logger_file_file_logger_periodic_status = MODULES_RUN;
   }
 }
 
@@ -78,6 +106,7 @@ void file_logger_stop(void)
     fclose(file_logger);
     file_logger = NULL;
   }
+  logger_file_file_logger_periodic_status = MODULES_IDLE;
 }
 
 /** Log the values to a csv file */

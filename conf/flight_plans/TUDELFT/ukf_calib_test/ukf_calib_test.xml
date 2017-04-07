@@ -1,6 +1,6 @@
 <!DOCTYPE flight_plan SYSTEM "../../flight_plan.dtd">
 
-<flight_plan alt="3.0" ground_alt="0.0" lat0="51 59 27.6" lon0="4 22 42.0" max_dist_from_home="75" name="UKF Magnetometer Calibration test" security_height="3.0">
+<flight_plan alt="5.0" ground_alt="0.0" lat0="51 59 27.6" lon0="4 22 42.0" max_dist_from_home="75" name="UKF Magnetometer Calibration test" security_height="3.0">
   <header>
     #include "autopilot.h"
     #include "subsystems/datalink/datalink.h"
@@ -13,11 +13,11 @@
     <waypoint name="HOME" x="0.0" y="0.0"/>
     <waypoint name="CLIMB" x="0.0" y="0.0"/>
     <waypoint name="STDBY" x="-2.0" y="-5.0"/>
-    <waypoint name="p1" x="-5.0" y="10.0"/>
-    <waypoint name="p2" x="-5.0" y="20.0"/>
-    <waypoint name="p3" x="5.0" y="20.0"/>
-    <waypoint name="p4" x="5.0" y="10.0"/>
-    <waypoint name="CAM" x="0.0" y="15.0"/>
+    <waypoint name="p1" y="-5.0" x="10.0"/>
+    <waypoint name="p2" y="-5.0" x="20.0"/>
+    <waypoint name="p3" y="5.0" x="20.0"/>
+    <waypoint name="p4" y="5.0" x="10.0"/>
+    <waypoint name="CAM" y="0.0" x="15.0"/>
     <waypoint name="TD" x="0.0" y="0.0"/>
   </waypoints>
   <exceptions>
@@ -51,6 +51,8 @@
     <block name="Geo init">
       <while cond="LessThan(NavBlockTime(), 10)"/>
       <call_once fun="NavSetGroundReferenceHere()"/>
+      <call_once fun="file_logger_stop()"/>
+      <call_once fun="file_logger_start()"/>
     </block>
     <block name="Holding point">
       <call_once fun="NavKillThrottle()"/>
@@ -58,7 +60,6 @@
     </block>
     <block name="Start Engine">
       <call_once fun="NavResurrect()"/>
-      <call_once fun="file_logger_start()"/>
       <attitude pitch="0" roll="0" throttle="0" until="FALSE" vmode="throttle"/>
     </block>
     <block name="Takeoff" strip_button="Takeoff" strip_icon="takeoff.png">
@@ -71,17 +72,15 @@
       <!--  Turn adaptive indi off -->
       <set var="indi.adaptive" value="FALSE"/>
     </block>
-    <block name="Init magneto" strip_button="Standby">
-      <!--  Let the INDI stabilization adjust a bit -->
+    <!-- <block name="Init magneto" strip_button="Standby">
       <set var="indi.adaptive" value="TRUE"/>
       <heading course="0" vmode="alt" alt="WaypointAlt(WP_STDBY)" pitch="0" until="stage_time > 0.25"/>
       <for from="1" to="20" var="i">
         <heading course="0 + 18 * $i" vmode="alt" alt="WaypointAlt(WP_STDBY)" pitch="0" until="stage_time > 0.1"/>
       </for>
       <heading course="0" vmode="alt" alt="WaypointAlt(WP_STDBY)" pitch="0" until="stage_time > 0.25"/>
-      <!--  Turn adaptive indi off -->
       <set var="indi.adaptive" value="FALSE"/>
-    </block>
+    </block> -->
     <block name="Standby" strip_button="Standby" strip_icon="home.png">
       <call_once fun="NavSetWaypointHere(WP_STDBY)"/>
       <stay wp="STDBY"/>

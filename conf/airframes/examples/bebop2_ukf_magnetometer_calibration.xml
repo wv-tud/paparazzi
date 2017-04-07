@@ -71,6 +71,7 @@
     <module name="gps" type="ubx_ucenter"/>
     <module name="logger_file">
       <define name="FILE_LOGGER_PATH" value="/data/ftp/internal_000"/>
+      <define name="FILE_LOGGER_DATETIME_NAME" value="TRUE"/>
     </module>
   </modules>
 
