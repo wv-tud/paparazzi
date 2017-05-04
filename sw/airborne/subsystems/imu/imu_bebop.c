@@ -87,7 +87,7 @@ void imu_bebop_init(void)
   //the magnetometer of the bebop2 is located on the gps board,
   //which is under a slight angle
   struct FloatEulers imu_to_mag_eulers =
-  { 0.0, RadOfDeg(9.5), M_PI };
+  { 0.0, RadOfDeg(12.5), M_PI };
   orientationSetEulers_f(&imu_to_mag_bebop, &imu_to_mag_eulers);
 #endif
 }

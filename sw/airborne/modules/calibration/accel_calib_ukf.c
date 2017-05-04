@@ -86,7 +86,7 @@ static void accel_calib_ukf_run(uint8_t sender_id, uint32_t stamp, struct Int32V
 PRINT_CONFIG_VAR(ACCEL_CALIB_UKF_ABI_BIND_ID)
 
 #ifndef ACCEL_CALIB_UKF_NORM
-#define ACCEL_CALIB_UKF_NORM 1.0f
+#define ACCEL_CALIB_UKF_NORM 9.81f
 #endif
 PRINT_CONFIG_VAR(ACCEL_CALIB_UKF_NORM)
 
@@ -106,8 +106,14 @@ PRINT_CONFIG_VAR(ACCEL_CALIB_UKF_HOTSTART)
 #endif
 PRINT_CONFIG_VAR(ACCEL_CALIB_UKF_HOTSTART_SAVE_FILE)
 
+#ifndef ACCEL_CALIB_UKF_CLEAN_START
+#define ACCEL_CALIB_UKF_CLEAN_START FALSE
+#endif
+PRINT_CONFIG_VAR(ACCEL_CALIB_UKF_CLEAN_START)
+
 #if ACCEL_CALIB_UKF_VERBOSE || ACCEL_CALIB_UKF_HOTSTART
 #include <stdio.h>
+#define PRINT(string,...) fprintf(stderr, "[ACCEL_CALIB_UKF->%s()] " string,__FUNCTION__ , ##__VA_ARGS__)
 #endif
 #if ACCEL_CALIB_UKF_VERBOSE
 #define VERBOSE_PRINT(string,...) fprintf(stderr, "[ACCEL_CALIB_UKF->%s()] " string,__FUNCTION__ , ##__VA_ARGS__)
@@ -125,7 +131,7 @@ static abi_event accel_ev;
 
 #if ACCEL_CALIB_UKF_HOTSTART
 static FILE *fp;
-static char hotstart_file_name[512];
+static char accel_hotstart_file_name[512];
 #endif
 
 void accel_calib_ukf_init(void)
@@ -134,9 +140,12 @@ void accel_calib_ukf_init(void)
   TRICAL_norm_set(&accel_calib, ACCEL_CALIB_UKF_NORM);
   TRICAL_noise_set(&accel_calib, ACCEL_CALIB_UKF_NOISE_RMS);
   accel_calib_hotstart_read();
+#if ACCEL_CALIB_UKF_CLEAN_START
+  TRICAL_reset(&accel_calib);
+#endif
 #ifdef ACCEL_CALIB_UKF_INITIAL_STATE
-  float initial_state[9] = ACCEL_CALIB_UKF_INITIAL_STATE;
-  memcpy(&accel_calib.state, &initial_state, 9 * sizeof(float));
+  float initial_state[TRICAL_STATE_DIM] = ACCEL_CALIB_UKF_INITIAL_STATE;
+  memcpy(&accel_calib.state, &initial_state, TRICAL_STATE_DIM * sizeof(float));
 #endif
   AbiBindMsgIMU_ACCEL_INT32(ACCEL_CALIB_UKF_ABI_BIND_ID, &accel_ev, accel_calib_ukf_run);
   VERBOSE_PRINT("Initial state:\n"
@@ -153,6 +162,8 @@ void accel_calib_ukf_init(void)
  */
 void accel_calib_ukf_run(uint8_t sender_id, uint32_t stamp, struct Int32Vect3 *accel)
 {
+  static uint16_t runCount = 0;
+  runCount++;
   float measurement[3] 				= {0.0f, 0.0f, 0.0f};
   float calibrated_measurement[3] 	= {0.0f, 0.0f, 0.0f};
   if (sender_id != ACCEL_CALIB_UKF_ID && !autopilot.in_flight  && !autopilot.motors_on) {
@@ -170,18 +181,18 @@ void accel_calib_ukf_run(uint8_t sender_id, uint32_t stamp, struct Int32Vect3 *a
       measurement[0] = ACCEL_FLOAT_OF_BFP(accel->x);
       measurement[1] = ACCEL_FLOAT_OF_BFP(accel->y);
       measurement[2] = ACCEL_FLOAT_OF_BFP(accel->z);
-      measurement[0] /= 9.81;
+      /*measurement[0] /= 9.81;
       measurement[1] /= 9.81;
-      measurement[2] /= 9.81;
+      measurement[2] /= 9.81;*/
       TRICAL_measurement_calibrate(&accel_calib, measurement, calibrated_measurement);
-      if(fabs(sqrt(pow(calibrated_measurement[0], 2.0) + pow(calibrated_measurement[1], 2.0) + pow(calibrated_measurement[2], 2.0)) - 1) < 0.05){
+      if(runCount < 250 || fabs(sqrt(pow(calibrated_measurement[0], 2.0) + pow(calibrated_measurement[1], 2.0) + pow(calibrated_measurement[2], 2.0)) - ACCEL_CALIB_UKF_NORM) < 0.05 * ACCEL_CALIB_UKF_NORM){
     	  /** Update accelerometer UKF **/
     	  TRICAL_estimate_update(&accel_calib, measurement);
     	  TRICAL_measurement_calibrate(&accel_calib, measurement, calibrated_measurement);
       }
-      calibrated_measurement[0] *= 9.81;
+      /*calibrated_measurement[0] *= 9.81;
       calibrated_measurement[1] *= 9.81;
-      calibrated_measurement[2] *= 9.81;
+      calibrated_measurement[2] *= 9.81;*/
       /** Save calibrated result **/
       calibrated_accel.x = (int32_t) ACCEL_BFP_OF_REAL(calibrated_measurement[0]);
       calibrated_accel.y = (int32_t) ACCEL_BFP_OF_REAL(calibrated_measurement[1]);
@@ -201,48 +212,53 @@ void accel_calib_ukf_run(uint8_t sender_id, uint32_t stamp, struct Int32Vect3 *a
 
 void accel_calib_send_state(void)
 {
-  DOWNLINK_SEND_PAYLOAD_FLOAT(DefaultChannel, DefaultDevice, 9, accel_calib.state);
+  DOWNLINK_SEND_PAYLOAD_FLOAT(DefaultChannel, DefaultDevice, TRICAL_STATE_DIM, accel_calib.state);
 }
 
 void accel_calib_hotstart_read(void)
 {
 #if ACCEL_CALIB_UKF_HOTSTART
-  snprintf(hotstart_file_name, 512, "%s", STRINGIFY(ACCEL_CALIB_UKF_HOTSTART_SAVE_FILE));
-  fp = fopen(hotstart_file_name, "r");
+  snprintf(accel_hotstart_file_name, 512, "%s", STRINGIFY(ACCEL_CALIB_UKF_HOTSTART_SAVE_FILE));
+  fp = fopen(accel_hotstart_file_name, "r");
   if (fp != NULL) {
-    fread(accel_calib.state, sizeof(float), 9, fp);
+    fread(accel_calib.state, sizeof(float), TRICAL_STATE_DIM, fp);
+    fread(accel_calib.state_covariance, sizeof(float), TRICAL_STATE_DIM * TRICAL_STATE_DIM, fp);
     fclose(fp);
-    VERBOSE_PRINT("Loaded initial state from disk:\n"
+    PRINT("Loaded initial state from disk:\n"
                   "State {%4.2f, %4.2f, %4.2f}\n"
                   "      {%4.2f, %4.2f, %4.2f}\n"
-                  "      {%4.2f, %4.2f, %4.2f}\n",
+                  "      {%4.2f, %4.2f, %4.2f}\n"
+    		      "Cov   {%4.2f, %4.2f, ...., %4.2f}\n",
                   accel_calib.state[0], accel_calib.state[1],  accel_calib.state[2],
                   accel_calib.state[3], accel_calib.state[4],  accel_calib.state[5],
-                  accel_calib.state[6], accel_calib.state[7],  accel_calib.state[8]
+                  accel_calib.state[6], accel_calib.state[7],  accel_calib.state[8],
+				  accel_calib.state_covariance[0],accel_calib.state_covariance[1],accel_calib.state_covariance[TRICAL_STATE_DIM * TRICAL_STATE_DIM-1]
                  );
     if(isnan(accel_calib.state[0]) || isnan(accel_calib.state[1]) || isnan(accel_calib.state[2]) || isnan(accel_calib.state[3]) ||
     		isnan(accel_calib.state[4]) || isnan(accel_calib.state[5]) || isnan(accel_calib.state[6]) || isnan(accel_calib.state[7]) || isnan(accel_calib.state[8])){
     	accel_calib_ukf_reset_state = true;
     }
   }
-
 #endif
 }
 
 void accel_calib_hotstart_write(void)
 {
 #if ACCEL_CALIB_UKF_HOTSTART
-  fp = fopen(hotstart_file_name, "w");
+  fp = fopen(accel_hotstart_file_name, "w");
   if (fp != NULL) {
-    fwrite(accel_calib.state, sizeof(float), 9, fp);
+    fwrite(accel_calib.state, sizeof(float), TRICAL_STATE_DIM, fp);
+    fwrite(accel_calib.state_covariance, sizeof(float), TRICAL_STATE_DIM * TRICAL_STATE_DIM, fp);
     fclose(fp);
-    VERBOSE_PRINT("Wrote current state to disk:\n"
+    PRINT("Wrote current state to disk:\n"
                   "State {%4.2f, %4.2f, %4.2f}\n"
                   "      {%4.2f, %4.2f, %4.2f}\n"
-                  "      {%4.2f, %4.2f, %4.2f}\n",
+                  "      {%4.2f, %4.2f, %4.2f}\n"
+    		      "Cov   {%4.2f, %4.2f, ...., %4.2f}\n",
                   accel_calib.state[0], accel_calib.state[1],  accel_calib.state[2],
                   accel_calib.state[3], accel_calib.state[4],  accel_calib.state[5],
-                  accel_calib.state[6], accel_calib.state[7],  accel_calib.state[8]
+                  accel_calib.state[6], accel_calib.state[7],  accel_calib.state[8],
+				  accel_calib.state_covariance[0],accel_calib.state_covariance[1],accel_calib.state_covariance[TRICAL_STATE_DIM * TRICAL_STATE_DIM-1]
                  );
   }
 #endif
