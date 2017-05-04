@@ -183,16 +183,20 @@ void mag_calib_ukf_run(uint8_t sender_id, uint32_t stamp, struct Int32Vect3 *mag
       imu.mag.y = calibrated_mag.y;
       imu.mag.z = calibrated_mag.z;
       /** Debug print */
-      VERBOSE_PRINT("magnetometer measurement (x: %4.2f  y: %4.2f  z: %4.2f) norm: %4.2f\n", measurement[0], measurement[1], measurement[2], hypot(hypot(measurement[0], measurement[1]), measurement[2]));
-      VERBOSE_PRINT("magnetometer bias_f      (x: %4.2f  y: %4.2f  z: %4.2f)\n", mag_calib.state[0], mag_calib.state[1],  mag_calib.state[2]);
-      VERBOSE_PRINT("calibrated   measurement (x: %4.2f  y: %4.2f  z: %4.2f) norm: %4.2f\n\n", calibrated_measurement[0], calibrated_measurement[1], calibrated_measurement[2], hypot(hypot(calibrated_measurement[0], calibrated_measurement[1]), calibrated_measurement[2]));
+      VERBOSE_PRINT("magnetometer measurement (x: %4.2f  y: %4.2f  z: %4.2f) norm: %4.2f\n", measurement[0], measurement[1],
+                    measurement[2], hypot(hypot(measurement[0], measurement[1]), measurement[2]));
+      VERBOSE_PRINT("magnetometer bias_f      (x: %4.2f  y: %4.2f  z: %4.2f)\n", mag_calib.state[0], mag_calib.state[1],
+                    mag_calib.state[2]);
+      VERBOSE_PRINT("calibrated   measurement (x: %4.2f  y: %4.2f  z: %4.2f) norm: %4.2f\n\n", calibrated_measurement[0],
+                    calibrated_measurement[1], calibrated_measurement[2], hypot(hypot(calibrated_measurement[0], calibrated_measurement[1]),
+                        calibrated_measurement[2]));
       struct Int32Eulers e;
       ahrs_int_get_euler_from_accel_mag(&e, &imu.accel, &imu.mag);
       if (ahrs_icq.heading_aligned) {
-    	  ahrs_icq_update_heading(e.psi);
+        ahrs_icq_update_heading(e.psi);
       } else {
-    	  /* hard reset the heading if this is the first measurement */
-    	  ahrs_icq_realign_heading(e.psi);
+        /* hard reset the heading if this is the first measurement */
+        ahrs_icq_realign_heading(e.psi);
       }
       /** Forward calibrated data */
       AbiSendMsgIMU_MAG_INT32(MAG_CALIB_UKF_ID, stamp, &calibrated_mag);
@@ -215,18 +219,20 @@ void mag_calib_hotstart_read(void)
     fread(mag_calib.state_covariance, sizeof(float), TRICAL_STATE_DIM * TRICAL_STATE_DIM, fp);
     fclose(fp);
     PRINT("Loaded initial state from disk:\n"
-                  "State {%4.2f, %4.2f, %4.2f}\n"
-                  "      {%4.2f, %4.2f, %4.2f}\n"
-                  "      {%4.2f, %4.2f, %4.2f}\n"
-    			  "Cov   {%4.2f, %4.2f, ...., %4.2f}\n",
-                  mag_calib.state[0], mag_calib.state[1],  mag_calib.state[2],
-                  mag_calib.state[3], mag_calib.state[4],  mag_calib.state[5],
-				  mag_calib.state[6], mag_calib.state[7],  mag_calib.state[8],
-				  mag_calib.state_covariance[0],mag_calib.state_covariance[1],mag_calib.state_covariance[TRICAL_STATE_DIM * TRICAL_STATE_DIM-1]
-    );
-    if(isnan(mag_calib.state[0]) || isnan(mag_calib.state[1]) || isnan(mag_calib.state[2]) || isnan(mag_calib.state[3]) ||
-    		isnan(mag_calib.state[4]) || isnan(mag_calib.state[5]) || isnan(mag_calib.state[6]) || isnan(mag_calib.state[7]) || isnan(mag_calib.state[8])){
-    	mag_calib_ukf_reset_state = true;
+          "State {%4.2f, %4.2f, %4.2f}\n"
+          "      {%4.2f, %4.2f, %4.2f}\n"
+          "      {%4.2f, %4.2f, %4.2f}\n"
+          "Cov   {%4.2f, %4.2f, ...., %4.2f}\n",
+          mag_calib.state[0], mag_calib.state[1],  mag_calib.state[2],
+          mag_calib.state[3], mag_calib.state[4],  mag_calib.state[5],
+          mag_calib.state[6], mag_calib.state[7],  mag_calib.state[8],
+          mag_calib.state_covariance[0], mag_calib.state_covariance[1],
+          mag_calib.state_covariance[TRICAL_STATE_DIM * TRICAL_STATE_DIM - 1]
+         );
+    if (isnan(mag_calib.state[0]) || isnan(mag_calib.state[1]) || isnan(mag_calib.state[2]) || isnan(mag_calib.state[3]) ||
+        isnan(mag_calib.state[4]) || isnan(mag_calib.state[5]) || isnan(mag_calib.state[6]) || isnan(mag_calib.state[7])
+        || isnan(mag_calib.state[8])) {
+      mag_calib_ukf_reset_state = true;
     }
   }
 
@@ -242,15 +248,16 @@ void mag_calib_hotstart_write(void)
     fwrite(mag_calib.state_covariance, sizeof(float), TRICAL_STATE_DIM * TRICAL_STATE_DIM, fp);
     fclose(fp);
     PRINT("Wrote current state to disk:\n"
-                  "State {%4.2f, %4.2f, %4.2f}\n"
-                  "      {%4.2f, %4.2f, %4.2f}\n"
-                  "      {%4.2f, %4.2f, %4.2f}\n"
-				  "Cov   {%4.2f, %4.2f, ...., %4.2f}\n",
-                  mag_calib.state[0], mag_calib.state[1],  mag_calib.state[2],
-                  mag_calib.state[3], mag_calib.state[4],  mag_calib.state[5],
-                  mag_calib.state[6], mag_calib.state[7],  mag_calib.state[8],
-				  mag_calib.state_covariance[0], mag_calib.state_covariance[1], mag_calib.state_covariance[TRICAL_STATE_DIM * TRICAL_STATE_DIM-1]
-                 );
+          "State {%4.2f, %4.2f, %4.2f}\n"
+          "      {%4.2f, %4.2f, %4.2f}\n"
+          "      {%4.2f, %4.2f, %4.2f}\n"
+          "Cov   {%4.2f, %4.2f, ...., %4.2f}\n",
+          mag_calib.state[0], mag_calib.state[1],  mag_calib.state[2],
+          mag_calib.state[3], mag_calib.state[4],  mag_calib.state[5],
+          mag_calib.state[6], mag_calib.state[7],  mag_calib.state[8],
+          mag_calib.state_covariance[0], mag_calib.state_covariance[1],
+          mag_calib.state_covariance[TRICAL_STATE_DIM * TRICAL_STATE_DIM - 1]
+         );
   }
 #endif
 }
