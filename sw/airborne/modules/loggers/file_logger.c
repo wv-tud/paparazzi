@@ -92,7 +92,8 @@ void file_logger_start(void)
   if (file_logger != NULL) {
     fprintf(
       file_logger,
-      "counter,RAW_mag_x, RAW_mag_y, RAW_mag_z, SCALED_mag_x, SCALED_mag_y, SCALED_mag_z, psi, state_0, state_1, state_2, state_3, state_4, state_5, state_6, state_7, state_8\n"
+      "counter,magneto_psi,euler_psi,rc_p,rc_q,rc_r,hrb_p, hrb_q, hrb_r\n"
+      //"counter,RAW_mag_x, RAW_mag_y, RAW_mag_z, SCALED_mag_x, SCALED_mag_y, SCALED_mag_z, psi, state_0, state_1, state_2, state_3, state_4, state_5, state_6, state_7, state_8\n"
       // INDI LOG: "counter,pos_NED_x, pos_NED_y, pos_NED_z, filt_accel_ned_x, filt_accel_ned_y, filt_accel_ned_z, quat_i, quat_x, quat_y, quat_z,  sp_quat_i, sp_quat_x, sp_quat_y, sp_quat_z, sp_accel_x, sp_accel_y, sp_accel_z, accel_ned_x, accel_ned_y, accel_ned_z, speed_ned_x, speed_ned_y, speed_ned_z, imu_accel_unscaled_x, imu_accel_unscaled_y, imu_accel_unscaled_z, body_rates_p, body_rates_q, body_rates_r, actuaros_pprz_0, actuaros_pprz_1, actuaros_pprz_2, actuaros_pprz_3\n"
     );
     logger_file_file_logger_periodic_status = MODULES_RUN;
@@ -117,6 +118,17 @@ void file_logger_periodic(void)
   }
   static uint32_t counter = 0;
   struct FloatEulers* eulers = stateGetNedToBodyEulers_f();
+  fprintf(file_logger, "%d,%f,%f,%d,%d,%d,%d,%d,%d\n",
+            counter,
+            magneto_psi_f,
+            eulers->psi,
+            ahrs_icq.rate_correction.p,
+            ahrs_icq.rate_correction.q,
+            ahrs_icq.rate_correction.r,
+            ahrs_icq.high_rez_bias.p,
+            ahrs_icq.high_rez_bias.q,
+            ahrs_icq.high_rez_bias.r);
+  /* MAGNETO LOG
   fprintf(file_logger, "%d,%d,%d,%d,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f\n",
             counter,
             imu.mag_unscaled.x,
@@ -135,6 +147,7 @@ void file_logger_periodic(void)
 			mag_calib.state[6],
 			mag_calib.state[7],
 			mag_calib.state[8]);
+			*/
 /*  INDI LOG
   struct Int32Quat * quat       = stateGetNedToBodyQuat_i();
   struct NedCoor_f * pos        = stateGetPositionNed_f();

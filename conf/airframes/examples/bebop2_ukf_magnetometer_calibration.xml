@@ -49,14 +49,14 @@
     <module name="guidance" type="indi"/>
     
     <module name="ahrs" type="int_cmpl_quat">
-      <define name="AHRS_MAG_OMEGA" value="0.1"/>
+      <define name="AHRS_MAG_OMEGA" value="0.2"/>
       <define name="AHRS_ACCEL_ZETA" value="0.9"/>
       <define name="AHRS_BIAS_UPDATE_HEADING_THRESHOLD" value="2.5"/>
       <configure name="AHRS_USE_MAGNETOMETER" value="TRUE"/>
       <define name="AHRS_MAG_UPDATE_ALL_AXES" value="TRUE" />
       <define name="AHRS_USE_GPS_HEADING" value="FALSE" />
       <define name="AHRS_GRAVITY_UPDATE_COORDINATED_TURN" value="FALSE" />
-      <define name="AHRS_PROPAGATE_LOW_PASS_RATES" value="FALSE" />
+      <!-- <define name="AHRS_PROPAGATE_LOW_PASS_RATES" value="FALSE" />  -->
       <define name="AHRS_GRAVITY_HEURISTIC_FACTOR" value="0" />
       <!-- <define name="AHRS_FC_IMU_ID" value="ABI_BROADCAST" />
       <define name="AHRS_FC_MAG_ID" value="ABI_BROADCAST" />
@@ -67,8 +67,8 @@
 
   <modules>
     <module name="geo_mag"/>
+    <module name="bebop_accel_calib_flat"/>
     <module name="mag_calib_ukf"/>
-    <module name="accel_calib_ukf"/>
     <module name="air_data"/>
     <module name="send_imu_mag_current"/>
     <module name="gps" type="ubx_ucenter"/>
@@ -98,13 +98,6 @@
     <define name="CLEAN_START" value="FALSE"/>
     <define name="VERBOSE" value="FALSE"/>
   </section>
-  
-  <section name="ACCEL_CALIB_UKF" prefix="ACCEL_CALIB_UKF_">
-    <define name="HOTSTART" value="TRUE"/>
-    <define name="HOTSTART_SAVE_FILE" value="/data/ftp/internal_000/accel_ukf_calib.txt"/>
-    <define name="CLEAN_START" value="FALSE"/>
-    <define name="VERBOSE" value="FALSE"/>
-  </section>
 
   <section name="MIXING" prefix="MOTOR_MIXING_">
     <define name="TRIM_ROLL" value="0"/>
@@ -129,9 +122,9 @@
   </section>
 
   <section name="IMU" prefix="IMU_">
-    <define name="ACCEL_X_NEUTRAL" value="0"/>
-    <define name="ACCEL_Y_NEUTRAL" value="0"/>
-    <define name="ACCEL_Z_NEUTRAL" value="0"/>
+    <define name="ACCEL_X_NEUTRAL" value="54"/> <!--  Bebop 43 X: 52  Y: 16  Z:  228 -->
+    <define name="ACCEL_Y_NEUTRAL" value="15"/>
+    <define name="ACCEL_Z_NEUTRAL" value="225"/>
    <!--     <define name="ACCEL_X_SENS" value="4.90862760829" integer="16"/>
    <define name="ACCEL_Y_SENS" value="4.9043976463"  integer="16"/>
    <define name="ACCEL_Z_SENS" value="4.82837916573" integer="16"/>-->

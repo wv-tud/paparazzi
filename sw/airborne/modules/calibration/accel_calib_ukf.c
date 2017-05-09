@@ -91,7 +91,7 @@ PRINT_CONFIG_VAR(ACCEL_CALIB_UKF_ABI_BIND_ID)
 PRINT_CONFIG_VAR(ACCEL_CALIB_UKF_NORM)
 
 #ifndef ACCEL_CALIB_UKF_NOISE_RMS
-#define ACCEL_CALIB_UKF_NOISE_RMS 3e-1f
+#define ACCEL_CALIB_UKF_NOISE_RMS 3.0f
 #endif
 PRINT_CONFIG_VAR(ACCEL_CALIB_UKF_NOISE_RMS)
 
@@ -181,20 +181,25 @@ void accel_calib_ukf_run(uint8_t sender_id, uint32_t stamp, struct Int32Vect3 *a
       measurement[0] = ACCEL_FLOAT_OF_BFP(accel->x);
       measurement[1] = ACCEL_FLOAT_OF_BFP(accel->y);
       measurement[2] = ACCEL_FLOAT_OF_BFP(accel->z);
-      /*measurement[0] /= 9.81;
-      measurement[1] /= 9.81;
-      measurement[2] /= 9.81;*/
       TRICAL_measurement_calibrate(&accel_calib, measurement, calibrated_measurement);
       if (runCount < 250
           || fabs(sqrt(pow(calibrated_measurement[0], 2.0) + pow(calibrated_measurement[1], 2.0) + pow(calibrated_measurement[2],
-                       2.0)) - ACCEL_CALIB_UKF_NORM) < 0.05 * ACCEL_CALIB_UKF_NORM) {
+                       2.0)) - ACCEL_CALIB_UKF_NORM) < 0.25 * ACCEL_CALIB_UKF_NORM) {
         /** Update accelerometer UKF **/
-        TRICAL_estimate_update(&accel_calib, measurement);
+        TRICAL_estimate_update(&accel_calib, measurement); // Norm only
+        /* Full 3x3 support:
+          static struct FloatVect3 A  = { .x = 0, .y = 0, .z =  -9.81f};
+          float expected_acc_field[3] = {0.0f, 0.0f, 0.0f};
+          struct FloatQuat *body_quat = stateGetNedToBodyQuat_f();
+          struct FloatVect3 expected_measurement;
+          float_quat_vmult(&expected_measurement, body_quat, &A);
+          expected_acc_field[0] = expected_measurement.x;
+          expected_acc_field[1] = expected_measurement.y;
+          expected_acc_field[2] = expected_measurement.z;
+          TRICAL_estimate_update(&accel_calib, measurement, calibrated_measurement); // Full 3x3
+         */
         TRICAL_measurement_calibrate(&accel_calib, measurement, calibrated_measurement);
       }
-      /*calibrated_measurement[0] *= 9.81;
-      calibrated_measurement[1] *= 9.81;
-      calibrated_measurement[2] *= 9.81;*/
       /** Save calibrated result **/
       calibrated_accel.x = (int32_t) ACCEL_BFP_OF_REAL(calibrated_measurement[0]);
       calibrated_accel.y = (int32_t) ACCEL_BFP_OF_REAL(calibrated_measurement[1]);

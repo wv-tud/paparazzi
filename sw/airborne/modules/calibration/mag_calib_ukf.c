@@ -36,6 +36,7 @@
 #include "subsystems/ahrs/ahrs_magnetic_field_model.h"
 #include "subsystems/datalink/telemetry.h"
 #include "subsystems/ahrs/ahrs_int_utils.h"
+#include "subsystems/ahrs/ahrs_aligner.h"
 
 //
 // Try to print warnings to user for bad configuration
@@ -75,6 +76,7 @@
 
 // ABI callback declarations
 static void mag_calib_ukf_run(uint8_t sender_id, uint32_t stamp, struct Int32Vect3 *mag);
+static void mag_calib_update_field(uint8_t __attribute__((unused)) sender_id, struct FloatVect3 *h);
 
 // Verbose mode is only available on Linux-based autopilots
 #ifndef MAG_CALIB_UKF_VERBOSE
@@ -127,8 +129,15 @@ bool mag_calib_ukf_reset_state = false;
 bool mag_calib_ukf_send_state = false;
 struct Int32Vect3 calibrated_mag;
 
+float angle_diff_f;
+float magneto_psi_f;
+
+
+
 TRICAL_instance_t mag_calib;
 static abi_event mag_ev;
+static abi_event h_ev;
+static struct FloatVect3 H = { .x = AHRS_H_X, .y = AHRS_H_Y, .z =  AHRS_H_Z};
 
 #if MAG_CALIB_UKF_HOTSTART
 static FILE *fp;
@@ -149,12 +158,15 @@ void mag_calib_ukf_init(void)
   memcpy(&mag_calib.state, &initial_state, TRICAL_STATE_DIM * sizeof(float));
 #endif
   AbiBindMsgIMU_MAG_INT32(MAG_CALIB_UKF_ABI_BIND_ID, &mag_ev, mag_calib_ukf_run);
+  AbiBindMsgGEO_MAG(ABI_BROADCAST, &h_ev, mag_calib_update_field);
 }
 
 /** Callback function run for every new mag measurement
  */
 void mag_calib_ukf_run(uint8_t sender_id, uint32_t stamp, struct Int32Vect3 *mag)
 {
+  static uint32_t runCount = 0;
+  static int32_t avg_heading;
   float measurement[3] = {0.0f, 0.0f, 0.0f};
   float calibrated_measurement[3] = {0.0f, 0.0f, 0.0f};
   if (sender_id != MAG_CALIB_UKF_ID) {
@@ -169,11 +181,22 @@ void mag_calib_ukf_run(uint8_t sender_id, uint32_t stamp, struct Int32Vect3 *mag
     }
     /** Update magnetometer UKF and calibrate measurement **/
     if (mag->x != 0 || mag->y != 0 || mag->z != 0) {
+      runCount++;
       measurement[0] = MAG_FLOAT_OF_BFP(mag->x);
       measurement[1] = MAG_FLOAT_OF_BFP(mag->y);
       measurement[2] = MAG_FLOAT_OF_BFP(mag->z);
       /** Update magnetometer UKF **/
-      TRICAL_estimate_update(&mag_calib, measurement);
+      TRICAL_estimate_update(&mag_calib, measurement); // Norm only
+      /* Full 3x3 support:
+        float expected_mag_field[3] = {0.0f, 0.0f, 0.0f};
+        struct FloatQuat *body_quat = stateGetNedToBodyQuat_f();
+        struct FloatVect3 expected_measurement;
+        float_quat_vmult(&expected_measurement, body_quat, &H);
+        expected_mag_field[0] = expected_measurement.x;
+        expected_mag_field[1] = expected_measurement.y;
+        expected_mag_field[2] = expected_measurement.z;
+        TRICAL_estimate_update(&mag_calib, measurement), expected_mag_field);
+      */
       TRICAL_measurement_calibrate(&mag_calib, measurement, calibrated_measurement);
       /** Save calibrated result **/
       calibrated_mag.x = (int32_t) MAG_BFP_OF_REAL(calibrated_measurement[0]);
@@ -192,15 +215,29 @@ void mag_calib_ukf_run(uint8_t sender_id, uint32_t stamp, struct Int32Vect3 *mag
                         calibrated_measurement[2]));
       struct Int32Eulers e;
       ahrs_int_get_euler_from_accel_mag(&e, &imu.accel, &imu.mag);
-      if (ahrs_icq.heading_aligned) {
+      magneto_psi_f = ANGLE_FLOAT_OF_BFP(e.psi);
+      if(runCount < 50){
+        avg_heading += e.psi;
+      }else if(runCount == 50){
+        ahrs_icq_realign_heading(avg_heading / ((float) runCount));
+      }else {
         ahrs_icq_update_heading(e.psi);
-      } else {
-        /* hard reset the heading if this is the first measurement */
-        ahrs_icq_realign_heading(e.psi);
       }
       /** Forward calibrated data */
       AbiSendMsgIMU_MAG_INT32(MAG_CALIB_UKF_ID, stamp, &calibrated_mag);
     }
+  }
+}
+
+void mag_calib_update_field(uint8_t __attribute__((unused)) sender_id, struct FloatVect3 *h)
+{
+  double n = float_vect3_norm(h);
+  if (n > 0.01) {
+    H.x = (float)(h->x / n);
+    H.y = (float)(h->y / n);
+    H.z = (float)(h->z / n);
+    ahrs_int_set_H(&H);
+    PRINT("Updating local magnetic field from geo_mag module (Hx: %4.4f, Hy: %4.4f, Hz: %4.4f)\n", H.x, H.y, H.z);
   }
 }
 
