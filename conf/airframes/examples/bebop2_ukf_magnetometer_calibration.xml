@@ -68,6 +68,7 @@
   <modules>
     <module name="geo_mag"/>
     <module name="bebop_accel_calib_flat"/>
+    <module name="nav_rotorcraft_shake_throw"/>
     <module name="mag_calib_ukf"/>
     <module name="air_data"/>
     <module name="send_imu_mag_current"/>
@@ -91,6 +92,13 @@
     <servo name="BOTTOM_RIGHT" no="2" min="2500" neutral="2500" max="12000"/>
     <servo name="BOTTOM_LEFT" no="3" min="2500" neutral="2500" max="12000"/>
   </servos>
+  
+  <section name="NAV_RC_SHAKE_THROW" prefix="NAV_RC_SHAKE_THROW_">
+      <define name="GOTO_BLOCK" value="Standby"/>
+      <define name="RESET_BLOCK" value="Landed"/>
+      <define name="DEBUG_NO_FLIGHT" value="FALSE"/>
+      <define name="LAUNCH_REQUIREMENTS" value="GpsFixValid() && autopilot_get_mode() == AP_MODE_NAV"/>
+  </section>
   
   <section name="MAG_CALIB_UKF" prefix="MAG_CALIB_UKF_">
     <define name="HOTSTART" value="TRUE"/>
