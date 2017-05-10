@@ -25,6 +25,7 @@
 
 #include "active_random_filter.h"
 #include "modules/computer_vision/cv_image_pose.h"
+#include "modules/computer_vision/cv_ae_awb.h"
 #include "modules/autoswarm/autoswarm.h"
 #include "bebop_camera_stabilization.h"
 #include <vector>
@@ -1802,8 +1803,10 @@ void mod_video(Mat& sourceFrame, Mat& frameGrey){
 	putText(sourceFrame, text, Point(10,sourceFrame.rows-60), FONT_HERSHEY_PLAIN, 1, Scalar(0,255,255), 1);
 #endif
 #if ARF_SHOW_CAM_INFO
-	sprintf(text,"R:%4.1f B:%4.1f G1:%4.1f G2:%4.1f Exp: %4.1f / %4.1f", mt9f002.gain_red, mt9f002.gain_blue, mt9f002.gain_green1, mt9f002.gain_green2, mt9f002.real_exposure, mt9f002.target_exposure);
-	putText(sourceFrame, text, Point(10 , 40), FONT_HERSHEY_PLAIN, 1, Scalar(0,255,255), 1);
+	sprintf(text,"Exp: %2.3f / %2.3f  (%d / %d)", mt9f002.real_exposure, mt9f002.target_exposure, current_level, middle_index);
+	putText(sourceFrame, text, Point(10 , 20), FONT_HERSHEY_PLAIN, 1, Scalar(0,255,255), 1);
+	sprintf(text,"R:%4.1f B:%4.1f G1:%4.1f G2:%4.1f", mt9f002.gain_red, mt9f002.gain_blue, mt9f002.gain_green1, mt9f002.gain_green2);
+	putText(sourceFrame, text, Point(10 , 50), FONT_HERSHEY_PLAIN, 1, Scalar(0,255,255), 1);
 #endif
 #if ARF_SHOW_TOTV
 #ifdef __linux__

@@ -8,6 +8,7 @@
 #include <sys/mman.h>
 #include <sys/ioctl.h>
 
+#include "boards/bebop.h"
 #include "libisp.h"
 #include "libisp_config.h"
 

@@ -23,6 +23,7 @@
  * Auto exposure and Auto white balancing for the Bebop 1 and 2
  */
 
+#include "modules/computer_vision/cv.h"
 #include "modules/computer_vision/cv_ae_awb.h"
 #include "lib/isp/libisp.h"
 #include <stdio.h>
@@ -56,7 +57,7 @@
 #endif
 
 #ifndef CV_AE_MIDDLE_INDEX
-#define CV_AE_MIDDLE_INDEX 85
+#define CV_AE_MIDDLE_INDEX 100
 #endif
 
 #ifndef CV_AE_DARK_IGNORE
@@ -97,11 +98,16 @@ uint8_t middle_index        = CV_AE_MIDDLE_INDEX;
 uint8_t dark_index          = 73; // 16 --> 89
 uint8_t bright_index        = 73; // 163 --> 236
 
+uint8_t current_level      = 0;
+
 #include "boards/bebop/mt9f002.h"
 struct image_t* cv_ae_awb_periodic(struct image_t* img);
 struct image_t* cv_ae_awb_periodic(struct image_t* img) {
     struct isp_yuv_stats_t yuv_stats;
     if(isp_get_statistics_yuv(&yuv_stats) == 0 && yuv_stats.nb_valid_Y != 0) {
+/*
+ *      Auto-exposure (Histogram median centering)
+ */
         // Calculate the CDF based on the histogram
         uint32_t cdf[MAX_HIST_Y];
         cdf[MIN_HIST_Y-1] = 0;
@@ -109,26 +115,30 @@ struct image_t* cv_ae_awb_periodic(struct image_t* img) {
         for(int i = MIN_HIST_Y; i < MAX_HIST_Y; i++) {
             cdf[i] = cdf[i-1] + yuv_stats.ae_histogram_Y[i];
         }
-        float adjustment                = 1.0f;
-
-        uint32_t total_pixels = ( cdf[MIN_HIST_Y + dark_index] * dark_ignore ) + ( cdf[MAX_HIST_Y - 1 - bright_index] - cdf[MIN_HIST_Y + dark_index] ) + ( cdf[MAX_HIST_Y - 1] - cdf[MAX_HIST_Y - 1 - bright_index] );
-        uint32_t median_pixels = (uint32_t) round( total_pixels / 2.0f );
-        uint32_t current_pixels = cdf[MIN_HIST_Y + dark_index] * dark_ignore;
-        uint32_t current_level = dark_index;
-        while (current_pixels < median_pixels) {
+        float adjustment = 1.0f;
+        // Create three buckets
+        uint32_t dark_pixels   = (1 - dark_ignore) * cdf[MIN_HIST_Y + dark_index];
+        uint32_t normal_pixels = cdf[MAX_HIST_Y - 1 - bright_index] - cdf[MIN_HIST_Y + dark_index];
+        uint32_t bright_pixels = (1 - bright_ignore) * ( cdf[MAX_HIST_Y - 1] - cdf[MAX_HIST_Y - 1 - bright_index] );
+        // Start at the normal pixels
+        uint32_t current_pixels = dark_pixels;
+        current_level = dark_index + MIN_HIST_Y;
+        // Find the level that contains the median
+        while (current_pixels < (uint32_t) round( (dark_pixels + normal_pixels + bright_pixels) / 2.0f ) && current_level < 255) {
             current_level++;
-            current_pixels += yuv_stats.ae_histogram_Y[MIN_HIST_Y + current_level];
+            current_pixels += yuv_stats.ae_histogram_Y[current_level];
         }
-        // that level is supposed to be in the middle of the bright_pixels bins
-        adjustment = middle_index / ( (float) MIN_HIST_Y + current_level );
-        VERBOSE_PRINT("des_middle_index: %d,  actual_middle: %d,  adjustment: %f\n", middle_index, current_level, adjustment);
+        // that level is supposed to be 'middle_index'
+        adjustment = middle_index / ( (float) current_level );
+        Bound(adjustment, 1/16.0f, 16.0f);
+        VERBOSE_PRINT("Middle: target %d, actual %d\n", middle_index, current_level);
         // Calculate exposure
-        Bound(adjustment, 1/16.0f, 16.0);
-        float desiredExposure       = mt9f002.real_exposure * adjustment;
-        mt9f002.target_exposure     = desiredExposure;
+        mt9f002.target_exposure = mt9f002.real_exposure * adjustment;
         mt9f002_set_exposure(&mt9f002);
-        VERBOSE_PRINT("Desired exposure: %5.2f ms (real: %5.2f ms)\r\n", desiredExposure, mt9f002.real_exposure);
-        // Calculate AWB (Robust Automatic White Balance Algorithm using Gray Color Points in Images - Huo et al.)
+        VERBOSE_PRINT("Exposure: target %5.2f ms, real %5.2f ms (%f)\n", mt9f002.target_exposure, mt9f002.real_exposure, adjustment);
+/*
+ *      Auto white-balance (Robust Automatic White Balance Algorithm using Gray Color Points in Images - Huo et al.)
+ */
         if(yuv_stats.awb_nb_grey_pixels > 0){
             float avgU          = (((float) yuv_stats.awb_sum_U) / ((float) yuv_stats.awb_nb_grey_pixels) - 128);
             float avgV          = (((float) yuv_stats.awb_sum_V) / ((float) yuv_stats.awb_nb_grey_pixels) - 128);
@@ -137,7 +147,7 @@ struct image_t* cv_ae_awb_periodic(struct image_t* img) {
             if(fabs(avgU) > (fabs(avgV) + awb_fTolerance) || ( fabs( fabs( avgU ) - fabs( avgV ) ) < awb_fTolerance && fabs( avgU ) > awb_fTolerance ) ){
                 // filter output: avgU
                 float error = awb_targetAWB - avgU;
-                VERBOSE_PRINT("Adjust blue gain (error: %f)  blue_gain = %f + %f * %d\n", error, mt9f002.gain_blue, awb_mu, awb_muK(error));
+                VERBOSE_PRINT("Adjust blue gain (error: %f)  blue_gain = %f + %f * %d\n", error, mt9f002.gain_blue, awb_mu, (int) awb_muK(error));
                 mt9f002.gain_blue   *= 1 + awb_mu * awb_muK(error);
                 if(mt9f002.gain_blue > CV_AE_AWB_MAX_GAINS || mt9f002.gain_blue < CV_AE_AWB_MIN_GAINS){
                     mt9f002.gain_red    *= 1 - awb_mu * awb_muK(error);
@@ -147,7 +157,7 @@ struct image_t* cv_ae_awb_periodic(struct image_t* img) {
             }else if((fabs(avgU) + awb_fTolerance) < fabs(avgV)){
                 // filter output: avgV
                 float error = awb_targetAWB - avgV;
-                VERBOSE_PRINT("Adjust red gain (error: %f)  red_gain = %f + %f * %d\n", error, mt9f002.gain_red, awb_mu, awb_muK(error));
+                VERBOSE_PRINT("Adjust red gain (error: %f)  red_gain = %f + %f * %d\n", error, mt9f002.gain_red, awb_mu, (int) awb_muK(error));
                 mt9f002.gain_red    *= 1 + awb_mu * awb_muK(error);
                 if(mt9f002.gain_red > CV_AE_AWB_MAX_GAINS || mt9f002.gain_red < CV_AE_AWB_MIN_GAINS){
                     mt9f002.gain_blue   *= 1 - awb_mu * awb_muK(error);
@@ -157,6 +167,9 @@ struct image_t* cv_ae_awb_periodic(struct image_t* img) {
             }else{
                 VERBOSE_PRINT("White balance achieved\n");
             }
+/*
+ *          Gain scheduling
+ */
             if((mt9f002.target_exposure > 37.5) && !gains_maxed)
             {
                 // Let's try to decrease the exposure to be able to account for darker conditions better

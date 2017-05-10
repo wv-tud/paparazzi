@@ -26,8 +26,6 @@
 #ifndef CV_AE_AWB_H
 #define CV_AE_AWB_H
 
-#include "modules/computer_vision/cv.h"
-
 extern float setting_target_bright;
 extern float setting_max_saturated;
 extern float awb_fTolerance;
@@ -39,6 +37,8 @@ extern float   dark_ignore;
 extern uint8_t dark_index;
 extern uint8_t bright_index;
 extern uint8_t  middle_index;
+
+extern uint8_t current_level;
 
 extern void cv_ae_awb_init(void);
 
