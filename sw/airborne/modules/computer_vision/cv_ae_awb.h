@@ -26,19 +26,16 @@
 #ifndef CV_AE_AWB_H
 #define CV_AE_AWB_H
 
-extern float setting_target_bright;
-extern float setting_max_saturated;
-extern float awb_fTolerance;
-extern float awb_targetAWB;
-extern float awb_mu;
-extern float   bright_ignore;
-extern float   dark_ignore;
+extern float awb_avgU;
+extern float awb_avgV;
+extern uint32_t awb_nb_pixels;
 
-extern uint8_t dark_index;
-extern uint8_t bright_index;
-extern uint8_t  middle_index;
-
-extern uint8_t current_level;
+extern uint8_t ae_dark_bins;
+extern uint8_t ae_bright_bins;
+extern uint8_t ae_middle_index;
+extern float ae_bright_ignore;
+extern float ae_dark_ignore;
+extern float ae_current_level;
 
 extern void cv_ae_awb_init(void);
 

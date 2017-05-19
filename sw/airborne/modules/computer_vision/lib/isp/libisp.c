@@ -212,6 +212,20 @@ int isp_request_statistics_yuv_window( uint16_t x_start, uint16_t x_end, uint16_
     return 0;
 }
 
+void isp_set_lsc_gains(uint32_t red, uint32_t green, uint32_t blue){
+  isp_config.lens_shading_correction.gain.gain_r = red;
+  isp_config.lens_shading_correction.gain.gain_g = green;
+  isp_config.lens_shading_correction.gain.gain_b = blue;
+  avi_isp_lens_shading_correction_set_registers(&isp_ctx, &isp_config.lens_shading_correction);
+}
+
+void isp_get_lsc_gains(uint32_t *red, uint32_t *green, uint32_t *blue){
+  avi_isp_lens_shading_correction_get_registers(&isp_ctx, &isp_config.lens_shading_correction);
+  *red = isp_config.lens_shading_correction.gain.gain_r;
+  *green = isp_config.lens_shading_correction.gain.gain_g;
+  *blue = isp_config.lens_shading_correction.gain.gain_b;
+}
+
 int isp_set_statistics_yuv_window( void ){
     //printf("[YUV-STAT] Setting window: [%d %d],[%d %d]\n", requestWindow[0], requestWindow[1], requestWindow[2], requestWindow[3]);
     isp_config.statistics_yuv.window_pos_x.window_x_start   = requestWindow[0];

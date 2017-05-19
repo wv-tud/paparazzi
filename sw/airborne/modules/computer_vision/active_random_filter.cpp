@@ -1721,7 +1721,7 @@ void mod_video(Mat& sourceFrame, Mat& frameGrey){
 	char text[200];
 #if ARF_MEASURE_FPS
     sprintf(text,"%5.2f %5.d %8.2fs", ARF_FPS,(runCount), curT / 1000000.0);
-    putText(sourceFrame, text, Point(10,sourceFrame.rows-40), FONT_HERSHEY_PLAIN, 1, Scalar(0,255,255), 1);
+    putText(sourceFrame, text, Point(10,sourceFrame.rows-20), FONT_HERSHEY_PLAIN, 1, Scalar(0,255,255), 1);
 #endif // CAM_STAB_MEASURE_FPS
 	if(ARF_FLOOD_STYLE != ARF_FLOOD_CW){
 #if ARF_DRAW_BOXES
@@ -1803,10 +1803,12 @@ void mod_video(Mat& sourceFrame, Mat& frameGrey){
 	putText(sourceFrame, text, Point(10,sourceFrame.rows-60), FONT_HERSHEY_PLAIN, 1, Scalar(0,255,255), 1);
 #endif
 #if ARF_SHOW_CAM_INFO
-	sprintf(text,"Exp: %2.3f / %2.3f  (%d / %d)", mt9f002.real_exposure, mt9f002.target_exposure, current_level, middle_index);
+	sprintf(text,"Exp: %2.3f / %2.3f  (%3.1f / %d)", mt9f002.real_exposure, mt9f002.target_exposure, ae_current_level, ae_middle_index);
 	putText(sourceFrame, text, Point(10 , 20), FONT_HERSHEY_PLAIN, 1, Scalar(0,255,255), 1);
-	sprintf(text,"R:%4.1f B:%4.1f G1:%4.1f G2:%4.1f", mt9f002.gain_red, mt9f002.gain_blue, mt9f002.gain_green1, mt9f002.gain_green2);
-	putText(sourceFrame, text, Point(10 , 50), FONT_HERSHEY_PLAIN, 1, Scalar(0,255,255), 1);
+	sprintf(text,"R:%4.1f B:%4.1f G:%4.1f", mt9f002.gain_red, mt9f002.gain_blue, mt9f002.gain_green1);
+	putText(sourceFrame, text, Point(10 , 40), FONT_HERSHEY_PLAIN, 1, Scalar(0,255,255), 1);
+	sprintf(text,"avgU:%5.2f avgV:%5.2f (%d)", awb_avgU, awb_avgV, awb_nb_pixels);
+	putText(sourceFrame, text, Point(10 , 60), FONT_HERSHEY_PLAIN, 1, Scalar(0,255,255), 1);
 #endif
 #if ARF_SHOW_TOTV
 #ifdef __linux__

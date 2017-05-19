@@ -101,6 +101,8 @@ int configure_isp(struct v4l2_device *dev);
 int isp_get_statistics_yuv(struct isp_yuv_stats_t *yuv_stats);
 int isp_request_statistics_yuv_window( uint16_t x_start, uint16_t x_end, uint16_t y_start, uint16_t y_end, uint16_t x_odd_inc, uint16_t y_odd_inc );
 int isp_set_statistics_yuv_window( void );
+void isp_set_lsc_gains(uint32_t red, uint32_t green, uint32_t blue);
+void isp_get_lsc_gains(uint32_t *red, uint32_t *green, uint32_t *blue);
 
 /* Registers access */
 #define EXPAND_AS_PROTOTYPE(_node)                                        \
