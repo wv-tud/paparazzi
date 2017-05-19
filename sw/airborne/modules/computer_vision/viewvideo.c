@@ -107,10 +107,18 @@ PRINT_CONFIG_VAR(VIEWVIDEO_NICE_LEVEL)
 
 #ifndef VIEWVIDEO_WRITE_VIDEO
 #define VIEWVIDEO_WRITE_VIDEO 0
-#else
+#endif
+
 #ifndef VIEWVIDEO_VIDEO_FILE
 #define VIEWVIDEO_VIDEO_FILE test
 #endif
+
+#ifndef VIEWVIDEO_DATETIME_NAME
+#define VIEWVIDEO_DATETIME_NAME 1
+#endif
+
+#if VIEWVIDEO_DATETIME_NAME
+#include <time.h>
 #endif
 
 #ifndef VIEWVIDEO_STREAM_VIDEO
@@ -280,12 +288,27 @@ void viewvideo_start_recording( void ){
     char video_name[512];
     uint32_t counter = 0;
     // Check for available files
-    sprintf(video_name, "%s/%s.h264", STRINGIFY(VIEWVIDEO_SHOT_PATH), STRINGIFY(VIEWVIDEO_VIDEO_FILE));
-    while ((video_file = fopen(video_name, "r"))) {
-        fclose(video_file);
-        counter++;
-        sprintf(video_name, "%s/%s_%05d.h264", STRINGIFY(VIEWVIDEO_SHOT_PATH), STRINGIFY(VIEWVIDEO_VIDEO_FILE), counter);
-    }
+#if VIEWVIDEO_DATETIME_NAME
+  time_t timer;
+  char date_buffer[26];
+  struct tm* tm_info;
+  timer = time(NULL);
+  tm_info = localtime(&timer);
+  strftime(date_buffer, 26, "%Y_%m_%d__%H_%M_%S", tm_info);
+  sprintf(video_name, "%s/%s_%s_%05d.h264", STRINGIFY(VIEWVIDEO_SHOT_PATH), STRINGIFY(VIEWVIDEO_VIDEO_FILE), date_buffer, counter);
+  while ((video_file = fopen(video_name, "r"))) {
+    fclose(video_file);
+    counter++;
+    sprintf(video_name, "%s/%s_%s_%05d.h264", STRINGIFY(VIEWVIDEO_SHOT_PATH), STRINGIFY(VIEWVIDEO_VIDEO_FILE), date_buffer, counter);
+  }
+#else
+  sprintf(video_name, "%s/%s.h264", STRINGIFY(VIEWVIDEO_SHOT_PATH), STRINGIFY(VIEWVIDEO_VIDEO_FILE));
+  while ((video_file = fopen(video_name, "r"))) {
+    fclose(video_file);
+    counter++;
+    sprintf(video_name, "%s/%s_%05d.h264", STRINGIFY(VIEWVIDEO_SHOT_PATH), STRINGIFY(VIEWVIDEO_VIDEO_FILE), counter);
+  }
+#endif
     int tries       = 0;
     int maxtries    = 5;
     do {
