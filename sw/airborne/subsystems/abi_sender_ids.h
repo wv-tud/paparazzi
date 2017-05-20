@@ -298,4 +298,8 @@
 #define MAG_CALIB_UKF_ID 20
 #endif
 
+#ifndef ACCEL_CALIB_UKF_ID
+#define ACCEL_CALIB_UKF_ID 21
+#endif
+
 #endif /* ABI_SENDER_IDS_H */

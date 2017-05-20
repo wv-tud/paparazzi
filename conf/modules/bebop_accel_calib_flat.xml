@@ -22,7 +22,6 @@
     <file name="bebop_accel_calib_flat.h"/>
   </header>
   <init fun="bebop_accel_calib_init()"/>
-  <periodic fun="bebop_accel_calib_run()" freq="512"/>
   <makefile>
     <file name="bebop_accel_calib_flat.c"/>
   </makefile>

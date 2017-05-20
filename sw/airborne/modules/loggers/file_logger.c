@@ -30,7 +30,10 @@
 #include "std.h"
 
 #include "subsystems/imu.h"
+#include "firmwares/rotorcraft/stabilization.h"
+#include "firmwares/rotorcraft/guidance/guidance_indi.h"
 #include "state.h"
+#include "subsystems/actuators.h"
 #include "generated/modules.h"
 
 /** Set the default File logger path to the USB drive */
@@ -39,7 +42,7 @@
 #endif
 
 #ifndef FILE_LOGGER_DATETIME_NAME
-#define FILE_LOGGER_DATETIME_NAME 1
+#define FILE_LOGGER_DATETIME_NAME 0
 #endif
 
 #if FILE_LOGGER_DATETIME_NAME
@@ -82,7 +85,7 @@ void file_logger_start(void)
   uint8_t max_retries = 10;
   uint8_t cur_try = 0;
   while(file_logger == NULL && cur_try < max_retries){
-    cur_try++;
+	  cur_try++;
   }
   if (file_logger != NULL) {
     fprintf(
@@ -102,6 +105,7 @@ void file_logger_stop(void)
     fclose(file_logger);
     file_logger = NULL;
   }
+  logger_file_file_logger_periodic_status = MODULES_IDLE;
 }
 
 /** Log the values to a csv file */
@@ -112,7 +116,18 @@ void file_logger_periodic(void)
   }
   static uint32_t counter = 0;
   struct FloatEulers* eulers = stateGetNedToBodyEulers_f();
-  fprintf(file_logger, "%d,%d,%d,%d,%f,%f,%f,%f\n",
+  fprintf(file_logger, "%d,%f,%f,%d,%d,%d,%d,%d,%d\n",
+            counter,
+            magneto_psi_f,
+            eulers->psi,
+            ahrs_icq.rate_correction.p,
+            ahrs_icq.rate_correction.q,
+            ahrs_icq.rate_correction.r,
+            ahrs_icq.high_rez_bias.p,
+            ahrs_icq.high_rez_bias.q,
+            ahrs_icq.high_rez_bias.r);
+  /* MAGNETO LOG
+  fprintf(file_logger, "%d,%d,%d,%d,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f\n",
             counter,
             imu.mag_unscaled.x,
             imu.mag_unscaled.y,
@@ -120,7 +135,17 @@ void file_logger_periodic(void)
             MAG_FLOAT_OF_BFP(imu.mag.x),
             MAG_FLOAT_OF_BFP(imu.mag.y),
             MAG_FLOAT_OF_BFP(imu.mag.z),
-            eulers->psi);
+            eulers->psi,
+			mag_calib.state[0],
+			mag_calib.state[1],
+			mag_calib.state[2],
+			mag_calib.state[3],
+			mag_calib.state[4],
+			mag_calib.state[5],
+			mag_calib.state[6],
+			mag_calib.state[7],
+			mag_calib.state[8]);
+			*/
 /*  INDI LOG
   struct Int32Quat * quat       = stateGetNedToBodyQuat_i();
   struct NedCoor_f * pos        = stateGetPositionNed_f();

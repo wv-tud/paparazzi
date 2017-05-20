@@ -31,16 +31,18 @@
 #include <stdbool.h>
 #include <stdio.h>
 #include "subsystems/datalink/telemetry.h"
+#include "subsystems/abi.h"
 
 #ifndef BEBOP_ACCEL_CALIB_AUTOSTART
 #define BEBOP_ACCEL_CALIB_AUTOSTART 0
 #endif
 
 #ifndef BEBOP_ACCEL_CALIB_MEASURE_TIME
-#define BEBOP_ACCEL_CALIB_MEASURE_TIME 30.0
+#define BEBOP_ACCEL_CALIB_MEASURE_TIME 30.0f
 #endif
 
-uint32_t runCount = 0;
+void bebop_accel_calib_run( uint8_t __attribute__ ((unused)) sender_id, uint32_t __attribute__ ((unused)) stamp, struct Int32Vect3* __attribute__ ((unused)) accel );
+
 int32_t accel_x_tot = 0;
 int32_t accel_y_tot = 0;
 int32_t accel_z_tot = 0;
@@ -53,35 +55,45 @@ int32_t z_ideal;
 
 bool  settings_calibration_running  = BEBOP_ACCEL_CALIB_AUTOSTART;
 float settings_calibration_time     = BEBOP_ACCEL_CALIB_MEASURE_TIME;
-
+static abi_event bebop_accel_ev;
 
 void bebop_accel_calib_init( void ) {
     z_ideal = (int32_t) round( ACCEL_BFP_OF_REAL( -9.81 ) * MPU60X0_ACCEL_SENS_FRAC[BEBOP_ACCEL_RANGE][1] / (IMU_ACCEL_Z_SIGN * MPU60X0_ACCEL_SENS_FRAC[BEBOP_ACCEL_RANGE][0]));
+    AbiBindMsgIMU_ACCEL_INT32(ABI_BROADCAST, &bebop_accel_ev, bebop_accel_calib_run);
 }
 
 #warning Do not fly with this module activated!!
 
-void bebop_accel_calib_run( void ) {
+void bebop_accel_calib_run( uint8_t __attribute__ ((unused)) sender_id, uint32_t stamp, struct Int32Vect3* __attribute__ ((unused)) accel ) {
+  static uint32_t runCount = 0;
+  static uint32_t prevStamp = 0;
   if(!autopilot.motors_on && settings_calibration_running){
       if( imu.accel_neutral.x || imu.accel_neutral.y || imu.accel_neutral.z){
           imu.accel_neutral.x = 0;
           imu.accel_neutral.y = 0;
           imu.accel_neutral.z = 0;
       }
-      if(runCount == settings_calibration_time * PERIODIC_FREQUENCY){
+      if(runCount != 0){
+        settings_calibration_time -= (stamp - prevStamp) / 1000000.0;
+      }
+      prevStamp = stamp;
+      if(settings_calibration_time < 0.0){
           bebop_set_accel_neutral();
           settings_calibration_running = false;
+          settings_calibration_time = BEBOP_ACCEL_CALIB_MEASURE_TIME;
+          runCount = 0;
           char data[200];
-          snprintf(data, 200, "bebob %d ACCEL_NEUTRAL (X: %d  Y: %d  Z:  %d)", AC_ID, accel_x_avg, accel_y_avg, accel_z_avg - z_ideal);
+          snprintf(data, 200, "bebob %d ACC (X %d,  Y %d,  Z  %d)", AC_ID, accel_x_avg, accel_y_avg, accel_z_avg - z_ideal);
           DOWNLINK_SEND_INFO_MSG(DefaultChannel, DefaultDevice, strlen(data), data);
+      } else {
+        accel_x_tot += imu.accel_unscaled.x;
+        accel_y_tot += imu.accel_unscaled.y;
+        accel_z_tot += imu.accel_unscaled.z;
+        runCount++;
+        accel_x_avg = (int32_t) round( accel_x_tot / ((double) runCount) );
+        accel_y_avg = (int32_t) round( accel_y_tot / ((double) runCount) );
+        accel_z_avg = (int32_t) round( accel_z_tot / ((double) runCount) );
       }
-      accel_x_tot           += imu.accel_unscaled.x;
-      accel_y_tot           += imu.accel_unscaled.y;
-      accel_z_tot           += imu.accel_unscaled.z;
-      runCount++;
-      accel_x_avg = (int32_t) round( accel_x_tot / ((double) runCount) );
-      accel_y_avg = (int32_t) round( accel_y_tot / ((double) runCount) );
-      accel_z_avg = (int32_t) round( accel_z_tot / ((double) runCount) );
   }
 }
 

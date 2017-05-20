@@ -23,10 +23,6 @@
  * Shake and throw launch for rotorcraft
  */
 
-#ifndef NAV_RC_SHAKE_THROW_DEBUG_NO_FLIGHT
-#define NAV_RC_SHAKE_THROW_DEBUG_NO_FLIGHT 0
-#endif
-
 #include "modules/nav/nav_rotorcraft_shake_throw.h"
 #include "state.h"
 #include "subsystems/gps.h"
@@ -38,17 +34,25 @@
 #include "generated/flight_plan.h"
 #include "autopilot.h"
 
+#ifndef NAV_RC_SHAKE_THROW_DEBUG_NO_FLIGHT
+#define NAV_RC_SHAKE_THROW_DEBUG_NO_FLIGHT 0
+#endif
+PRINT_CONFIG_VAR(NAV_RC_SHAKE_THROW_DEBUG_NO_FLIGHT)
+
 #ifndef NAV_RC_SHAKE_THROW_GOTO_BLOCK
 #define NAV_RC_SHAKE_THROW_GOTO_BLOCK Standby
 #endif
+PRINT_CONFIG_VAR(NAV_RC_SHAKE_THROW_GOTO_BLOCK)
 
 #ifndef NAV_RC_SHAKE_THROW_RESET_BLOCK
 #define NAV_RC_SHAKE_THROW_RESET_BLOCK Landed
 #endif
+PRINT_CONFIG_VAR(NAV_RC_SHAKE_THROW_RESET_BLOCK)
 
 #ifndef NAV_RC_SHAKE_THROW_LAUNCH_REQUIREMENTS
 #define NAV_RC_SHAKE_THROW_LAUNCH_REQUIREMENTS GpsFixValid() && autopilot_get_mode() == AP_MODE_NAV
 #endif
+PRINT_CONFIG_VAR(NAV_RC_SHAKE_THROW_LAUNCH_REQUIREMENTS)
 
 enum nav_rotorcraft_shake_throw_status_ {
     NAV_RC_ST_UNINIT,
@@ -176,7 +180,7 @@ void nav_rotorcraft_shake_throw_run( void ) {
         ///< Nothing to be done
         break;
     }
-    /// Check for the cancel flip
+    /// Check for the start/cancel flip
     if(nav_rotorcraft_shake_throw_upside_down()){
         if(cancel_timer >= nav_rotorcraft_shake_throw_cancel_time){
             NavKillThrottle();
