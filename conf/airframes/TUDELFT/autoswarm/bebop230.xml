@@ -2,7 +2,24 @@
 
 <airframe name="bebop2_swarm">
 	<firmware name="rotorcraft">
-		<target name="ap" board="bebop2" />
+		<target name="ap" board="bebop2">
+			<!-- PERIODIC_FREQUENCY should be least equal or greater than AHRS_PROPAGATE_FREQUENCY -->
+			<configure name="PERIODIC_FREQUENCY" value="512" /> <!-- unit="Hz" -->
+			<configure name="AHRS_PROPAGATE_FREQUENCY" value="500" /><!-- unit="Hz" -->
+			<configure name="AHRS_CORRECT_FREQUENCY" value="500" /> <!-- unit="Hz" -->
+
+			<configure name="NAVIGATION_FREQUENCY" value="64" /> <!-- unit="Hz" -->
+			<!-- <configure name="CONTROL_FREQUENCY" value="500"/> --> <!-- unit="Hz" -->
+			<configure name="TELEMETRY_FREQUENCY" value="60" /> <!-- unit="Hz" -->
+			<configure name="MODULES_FREQUENCY" value="512" /> <!-- unit="Hz" -->     
+		</target>
+		<!-- amount of time it take for the bat to trigger check -->
+    	<!-- to avoid bat low spike detection when strong pullup withch draws short sudden power-->    
+    	<define name="BAT_CHECKER_DELAY" value="20" unit="s/10"/> <!-- in tenth of seconds-->
+
+    	<!-- Only one main batter so CATASTROPHIC_BATTERY kill should be somewhat delayed -->
+    	<define name="CATASTROPHIC_BATTERY_KILL_DELAY" value="30" unit="s/10"/> <!-- in tenth of seconds for engine kill -->
+    
  		<!--  swarmhub 
 		<configure name="HOST" value="192.168.40.$(AC_ID)" />
 		<configure name="MODEM_HOST" value="192.168.40.255" />
@@ -40,9 +57,18 @@
 		<module name="stabilization" type="indi_simple" />
 		<module name="guidance" type="indi" />
 		<module name="ahrs" type="int_cmpl_quat">
-			<!--  Use either magnetometer (outside) or GPS heading (inside) -->
-			<configure name="USE_MAGNETOMETER" value="TRUE" />
-			<define name="AHRS_USE_GPS_HEADING" value="FALSE" />
+			<define name="AHRS_MAG_OMEGA" value="0.2"/>
+      		<define name="AHRS_MAG_ZETA" value="0.9"/>
+      		<define name="AHRS_BIAS_UPDATE_HEADING_THRESHOLD" value="2.5"/>
+      		<configure name="AHRS_USE_MAGNETOMETER" value="TRUE"/>
+      		<define name="AHRS_MAG_UPDATE_ALL_AXES" value="TRUE" />
+      		<define name="AHRS_USE_GPS_HEADING" value="FALSE" />
+      		<define name="AHRS_GRAVITY_UPDATE_COORDINATED_TURN" value="FALSE" />
+      		<!-- <define name="AHRS_PROPAGATE_LOW_PASS_RATES" value="FALSE" />  -->
+      		<define name="AHRS_GRAVITY_HEURISTIC_FACTOR" value="0" />
+      		<!-- <define name="AHRS_FC_IMU_ID" value="ABI_BROADCAST" />
+      		<define name="AHRS_FC_MAG_ID" value="ABI_BROADCAST" />
+      		<define name="AHRS_FC_GPS_ID" value="GPS_MULTI_ID" />-->
 		</module>
 		<module name="ins" type="extended" />
 	</firmware>
@@ -57,10 +83,7 @@
 		<module name="logger_file">
 			<define name="FILE_LOGGER_PATH" value="/data/ftp/internal_000" />
 		</module>
-		<module name="nav_rotorcraft_shake_throw">
-			<define name="NAV_RC_SHAKE_THROW_GOTO_BLOCK" value="Launched" />
-			<define name="NAV_RC_SHAKE_THROW_RESET_BLOCK" value="Landed" />
-		</module>
+		<module name="nav_rotorcraft_shake_throw"/>
 		<!-- Modules for swarming -->
 		<module name="pose_history">
 			<define name="POSE_HISTORY_SIZE" value="128" />
@@ -103,12 +126,18 @@
 	</servos>
 
 	<section name="MAG_CALIB_UKF" prefix="MAG_CALIB_UKF_">
-		<define name="HOTSTART" value="TRUE" />
-		<define name="HOTSTART_SAVE_FILE" value="/data/ftp/internal_000/mag_ukf_calib.txt" />
-		<define name="NORM" value="1.0f" />
-		<define name="NOISE_RMS" value="1e-2f" />
-		<define name="VERBOSE" value="FALSE" />
+		<define name="HOTSTART" value="TRUE"/>
+    	<define name="HOTSTART_SAVE_FILE" value="/data/ftp/internal_000/mag_ukf_calib.txt"/>
+    	<define name="CLEAN_START" value="FALSE"/>
+    	<define name="VERBOSE" value="FALSE"/>
 	</section>
+	
+	<section name="NAV_RC_SHAKE_THROW" prefix="NAV_RC_SHAKE_THROW_">
+      <define name="GOTO_BLOCK" value="Standby"/>
+      <define name="RESET_BLOCK" value="Landed"/>
+      <define name="DEBUG_NO_FLIGHT" value="TRUE"/>
+      <define name="LAUNCH_REQUIREMENTS" value="GpsFixValid() && autopilot_get_mode() == AP_MODE_NAV"/>
+  	</section>
 
 	<section name="BEBOP_ACCEL_CALIB_FLAT" prefix="BEBOP_ACCEL_CALIB_">
 		<define name="AUTOSTART" value="FALSE" />
