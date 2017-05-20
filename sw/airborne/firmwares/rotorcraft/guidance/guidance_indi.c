@@ -42,6 +42,7 @@
 #include "stabilization/stabilization_attitude_ref_quat_int.h"
 #include "firmwares/rotorcraft/stabilization.h"
 #include "stdio.h"
+#include "filters/low_pass_filter.h"
 #include "subsystems/abi.h"
 
 // The acceleration reference is calculated with these gains. If you use GPS,
@@ -146,8 +147,8 @@ static void guidance_indi_calcG(struct FloatMat33 *Gmat);
  * Call upon entering indi guidance
  */
 void guidance_indi_enter(void) {
-  thrust_in = 0.0;
-  thrust_act = 0;
+  thrust_in = stabilization_cmd[COMMAND_THRUST];
+  thrust_act = thrust_in;
 
   float tau = 1.0/(2.0*M_PI*filter_cutoff);
 
@@ -168,13 +169,13 @@ void guidance_indi_enter(void) {
 #endif
 
 #if GUIDANCE_INDI_FILTER_ORDER == 2
-  init_butterworth_2_low_pass(&roll_filt,   tau_p, sample_time, 0.0);
-  init_butterworth_2_low_pass(&pitch_filt,  tau_q, sample_time, 0.0);
-  init_butterworth_2_low_pass(&thrust_filt, tau_r, sample_time, 0.0);
+  init_butterworth_2_low_pass(&roll_filt,   tau_p, sample_time, stateGetNedToBodyEulers_f()->phi);
+  init_butterworth_2_low_pass(&pitch_filt,  tau_q, sample_time, stateGetNedToBodyEulers_f()->theta);
+  init_butterworth_2_low_pass(&thrust_filt, tau_r, sample_time, thrust_in);
 #else
-  init_butterworth_4_low_pass(&roll_filt,   tau_p, sample_time, 0.0);
-  init_butterworth_4_low_pass(&pitch_filt,  tau_q, sample_time, 0.0);
-  init_butterworth_4_low_pass(&thrust_filt, tau_r, sample_time, 0.0);
+  init_butterworth_4_low_pass(&roll_filt,   tau_p, sample_time, stateGetNedToBodyEulers_f()->phi);
+  init_butterworth_4_low_pass(&pitch_filt,  tau_q, sample_time, stateGetNedToBodyEulers_f()->theta);
+  init_butterworth_4_low_pass(&thrust_filt, tau_r, sample_time, thrust_in);
 #endif
 }
 
