@@ -254,7 +254,7 @@ struct image_t *viewvideo_function(struct image_t *img)
 
 
       if (size == 0)
-        fprintf(stderr, "%s:%d warning, no data to write\n",__FILE__,__LINE__);
+        ;//fprintf(stderr, "%s:%d warning, no data to write\n",__FILE__,__LINE__);
       else {
     	printf_debug("Got frame of size: %d\r\n", size);
     	printf_debug("Byte: %2X %2X %2X %2X %2X\n", h264Buffer[0],h264Buffer[1], h264Buffer[2], h264Buffer[3], h264Buffer[4]);

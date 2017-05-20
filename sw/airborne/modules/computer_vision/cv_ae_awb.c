@@ -48,37 +48,37 @@ PRINT_CONFIG_VAR(CV_AE_AWB_VERBOSE)
 #endif
 
 #ifndef CV_AE_AWB_MIN_GAINS
-#define CV_AE_AWB_MIN_GAINS 0.5
+#define CV_AE_AWB_MIN_GAINS 1.0
 #endif
 PRINT_CONFIG_VAR(CV_AE_AWB_MIN_GAINS)
 
 #ifndef CV_AE_AWB_MAX_GAINS
-#define CV_AE_AWB_MAX_GAINS 64.0
+#define CV_AE_AWB_MAX_GAINS 63.5
 #endif
 PRINT_CONFIG_VAR(CV_AE_AWB_MAX_GAINS)
 
 #ifndef CV_AE_MIDDLE_INDEX
-#define CV_AE_MIDDLE_INDEX 95
+#define CV_AE_MIDDLE_INDEX 100
 #endif
 PRINT_CONFIG_VAR(CV_AE_MIDDLE_INDEX)
 
 #ifndef CV_AE_DARK_IGNORE
-#define CV_AE_DARK_IGNORE 0.5
+#define CV_AE_DARK_IGNORE 0.2
 #endif
 PRINT_CONFIG_VAR(CV_AE_DARK_IGNORE)
 
 #ifndef CV_AE_BRIGHT_IGNORE
-#define CV_AE_BRIGHT_IGNORE 0.25
+#define CV_AE_BRIGHT_IGNORE 0.8
 #endif
 PRINT_CONFIG_VAR(CV_AE_BRIGHT_IGNORE)
 
 #ifndef CV_AE_DARK_BINS
-#define CV_AE_DARK_BINS 65
+#define CV_AE_DARK_BINS 73
 #endif
 PRINT_CONFIG_VAR(CV_AE_DARK_BINS)
 
 #ifndef CV_AE_BRIGHT_BINS
-#define CV_AE_BRIGHT_BINS 65
+#define CV_AE_BRIGHT_BINS 73
 #endif
 PRINT_CONFIG_VAR(CV_AE_BRIGHT_BINS)
 
@@ -89,17 +89,17 @@ PRINT_CONFIG_VAR(CV_AE_AWB_GAIN_SCHEDULING)
 
 #if CV_AE_AWB_GAIN_SCHEDULING
 #ifndef CV_AE_AWB_GAIN_SCHEDULING_TARGET
-#define CV_AE_AWB_GAIN_SCHEDULING_TARGET 15.0
+#define CV_AE_AWB_GAIN_SCHEDULING_TARGET 10.0
 #endif
 PRINT_CONFIG_VAR(CV_AE_AWB_GAIN_SCHEDULING_TARGET)
 
 #ifndef CV_AE_AWB_GAIN_SCHEDULING_TOLERANCE
-#define CV_AE_AWB_GAIN_SCHEDULING_TOLERANCE 2.5
+#define CV_AE_AWB_GAIN_SCHEDULING_TOLERANCE 7.5
 #endif
 PRINT_CONFIG_VAR(CV_AE_AWB_GAIN_SCHEDULING_TOLERANCE)
 
 #ifndef CV_AE_AWB_GAIN_SCHEDULING_STEP
-#define CV_AE_AWB_GAIN_SCHEDULING_STEP 0.0025
+#define CV_AE_AWB_GAIN_SCHEDULING_STEP 0.01
 #endif
 PRINT_CONFIG_VAR(CV_AE_AWB_GAIN_SCHEDULING_STEP)
 
@@ -109,7 +109,7 @@ PRINT_CONFIG_VAR(CV_AE_AWB_GAIN_SCHEDULING_STEP)
 PRINT_CONFIG_VAR(CV_AE_AWB_GAIN_SCHEDULING_MARGIN)
 #endif
 
-#define MAX_HIST_Y 256-20
+#define MAX_HIST_Y 256 - 20
 #define MIN_HIST_Y 16
 
 float   ae_bright_ignore = CV_AE_BRIGHT_IGNORE;
@@ -131,11 +131,13 @@ bool gs_gains_minned     = FALSE;
 struct image_t *cv_ae_awb_periodic(struct image_t *img);
 struct image_t *cv_ae_awb_periodic(struct image_t *img)
 {
-  struct isp_yuv_stats_t yuv_stats;
-  if (isp_get_statistics_yuv(&yuv_stats) == 0 && yuv_stats.nb_valid_Y != 0) {
+  static struct isp_yuv_stats_t yuv_stats;
+  if (isp_get_statistics_yuv(&yuv_stats) == 0) {
     /*
      *      Auto-exposure (Histogram median centering)
      */
+    static float prev_real_exposure = 0.0;
+    static uint8_t prev_exposure_stuck = 0;
     // Calculate the cummulative histogram based on the histogram
     uint32_t cdf[MAX_HIST_Y];
     cdf[MIN_HIST_Y - 1] = 0;
@@ -147,8 +149,8 @@ struct image_t *cv_ae_awb_periodic(struct image_t *img)
     uint8_t bright_index = MAX_HIST_Y - ae_bright_bins;
     // Calculate the median number of pixels ignoring the dark_ignore % and bright-ignore %
     uint32_t median_pixels = (uint32_t) round(((1 - ae_dark_ignore) * cdf[dark_index] +
-                             (cdf[bright_index - 1] - cdf[dark_index]) + (1 - ae_bright_ignore) * (cdf[MAX_HIST_Y - 1] - cdf[bright_index - 1])) /
-                             2.0f);
+        (cdf[bright_index - 1] - cdf[dark_index]) + (1 - ae_bright_ignore) * (cdf[MAX_HIST_Y - 1] - cdf[bright_index - 1])) /
+        2.0f);
     // Find the level that contains the median
     uint32_t current_pixels = 0;
     ae_current_level = MIN_HIST_Y - 1.0;
@@ -170,81 +172,90 @@ struct image_t *cv_ae_awb_periodic(struct image_t *img)
       ae_current_level -= (current_pixels - median_pixels) / ((float) yuv_stats.ae_histogram_Y[(uint8_t) ae_current_level]);
     }
     // that level is supposed to be 'middle_index'
-    float adjustment = pow(ae_middle_index / ae_current_level, 0.125);
+    float adjustment = 1 + 0.2 * (pow(ae_middle_index / ae_current_level, 0.75) - 1);
     Bound(adjustment, 1 / 16.0f, 16.0f);
     // Calculate exposure based on adjustment
-    mt9f002.target_exposure = mt9f002.target_exposure * adjustment;
-    Bound(mt9f002.target_exposure, 1 / 128.0f, 45.0f);
+    mt9f002.target_exposure = mt9f002.real_exposure * adjustment;
+    Bound(mt9f002.target_exposure, 1 / 128.0f, 40.0f);
+    // Sometimes the exposure seems to freeze and it isn't updated. Try this hack to fix it
+    // 10 consecutive YUV statistics leading to the exact same real_exposure is highly unlikely
+    if(prev_real_exposure == mt9f002.real_exposure && prev_exposure_stuck < 10){
+      prev_exposure_stuck++;
+    }else if(prev_real_exposure == mt9f002.real_exposure && prev_exposure_stuck >= 10){
+      // Bump the target exposure in order to unfreeze the exposure
+      if(mt9f002.real_exposure < mt9f002.target_exposure){
+        mt9f002.target_exposure *= 1.25;
+      }else{
+        mt9f002.target_exposure /= 1.25;
+      }
+    }else{
+      prev_exposure_stuck = 0;
+    }
+    prev_real_exposure = mt9f002.real_exposure;
     mt9f002_set_exposure(&mt9f002);
     // Verbose prints
     VERBOSE_PRINT("AE lvl: target %d, actual %3.2f (%d pixels)\n", ae_middle_index, ae_current_level, yuv_stats.nb_valid_Y);
     VERBOSE_PRINT("AE exp: target %5.2f ms, real %5.2f ms (%f)\n", mt9f002.target_exposure, mt9f002.real_exposure,
-                  adjustment);
+        adjustment);
     /*
      *      Auto white-balance (Robust Automatic White Balance Algorithm using Gray Color Points in Images - Huo et al.)
      */
-    if (yuv_stats.awb_nb_grey_pixels > 0) {
-      awb_nb_pixels     = yuv_stats.awb_nb_grey_pixels;
-      awb_avgU          = (yuv_stats.awb_sum_U) / ((float) yuv_stats.awb_nb_grey_pixels) - 128.0;
-      awb_avgV          = (yuv_stats.awb_sum_V) / ((float) yuv_stats.awb_nb_grey_pixels) - 128.0;
-      VERBOSE_PRINT("avgU = %d / %d - 128.0 = %f\n", yuv_stats.awb_sum_U, yuv_stats.awb_nb_grey_pixels, awb_avgU);
-      VERBOSE_PRINT("avgV = %d / %d - 128.0 = %f\n", yuv_stats.awb_sum_V, yuv_stats.awb_nb_grey_pixels, awb_avgV);
-      // |B| = |Y| + |U|  &&   |R| = |Y| + |V|
-      // ideal:
-      // |U| = |V| = 0  &&  |B| = |R| = |Y|
-      // so:
-      // gain_blue *= |Y| / (|Y| + |U|)  --> ^0.25 in order to make less agressive updates
-      // gain_red  *= |Y| / (|Y| + |V|)  --> ^0.25 in order to make less agressive updates
-      mt9f002.gain_blue *= pow(yuv_stats.awb_sum_Y / ((float)(yuv_stats.awb_sum_Y + yuv_stats.awb_sum_U - 128 *
-                               yuv_stats.awb_nb_grey_pixels)), 0.25);
-      mt9f002.gain_red  *= pow(yuv_stats.awb_sum_Y / ((float)(yuv_stats.awb_sum_Y + yuv_stats.awb_sum_V - 128 *
-                               yuv_stats.awb_nb_grey_pixels)), 0.25);
-      /*
-       *          Gain scheduling
-       */
+    awb_nb_pixels     = yuv_stats.awb_nb_grey_pixels;
+    awb_avgU          = (yuv_stats.awb_sum_U) / ((float) yuv_stats.awb_nb_grey_pixels) - 128.0;
+    awb_avgV          = (yuv_stats.awb_sum_V) / ((float) yuv_stats.awb_nb_grey_pixels) - 128.0;
+    VERBOSE_PRINT("avgU = %d / %d - 128.0 = %f\n", yuv_stats.awb_sum_U, yuv_stats.awb_nb_grey_pixels, awb_avgU);
+    VERBOSE_PRINT("avgV = %d / %d - 128.0 = %f\n", yuv_stats.awb_sum_V, yuv_stats.awb_nb_grey_pixels, awb_avgV);
+    // |B| = |Y| + |U|  &&   |R| = |Y| + |V|
+    // ideal:
+    // |U| = |V| = 0  &&  |B| = |R| = |Y|
+    // so:
+    // gain_blue *= |Y| / (|Y| + |U|)  --> ^0.25 in order to make less agressive updates
+    // gain_red  *= |Y| / (|Y| + |V|)  --> ^0.25 in order to make less agressive updates
+    mt9f002.gain_blue *= pow(yuv_stats.awb_sum_Y / ((float)(yuv_stats.awb_sum_Y + yuv_stats.awb_sum_U - 128 *
+        yuv_stats.awb_nb_grey_pixels)), 0.5);
+    mt9f002.gain_red  *= pow(yuv_stats.awb_sum_Y / ((float)(yuv_stats.awb_sum_Y + yuv_stats.awb_sum_V - 128 *
+        yuv_stats.awb_nb_grey_pixels)), 0.5);
+    /*
+     *          Gain scheduling
+     */
 #if CV_AE_AWB_GAIN_SCHEDULING
-      // Let's try to center the exposure, that way we'll be able to account for fast changes in lightness
-      if (!gs_gains_maxed
-          && (mt9f002.target_exposure > (CV_AE_AWB_GAIN_SCHEDULING_TARGET + CV_AE_AWB_GAIN_SCHEDULING_TOLERANCE)
-              || (mt9f002.target_exposure > CV_AE_AWB_GAIN_SCHEDULING_TARGET && gs_adjustDir == 1))) {
-        gs_gains_minned = FALSE;
-        gs_adjustDir = +1;
-      } else if (!gs_gains_minned
-                 && (mt9f002.target_exposure < (CV_AE_AWB_GAIN_SCHEDULING_TARGET - CV_AE_AWB_GAIN_SCHEDULING_TOLERANCE)
-                     || (mt9f002.target_exposure < CV_AE_AWB_GAIN_SCHEDULING_TARGET && gs_adjustDir == -1))) {
-        gs_gains_maxed = FALSE;
-        gs_adjustDir = -1;
-      } else {
-        gs_adjustDir = 0;
-      }
-      mt9f002.gain_blue     *= 1 + gs_adjustDir * CV_AE_AWB_GAIN_SCHEDULING_STEP;
-      mt9f002.gain_red      *= 1 + gs_adjustDir * CV_AE_AWB_GAIN_SCHEDULING_STEP;
-      mt9f002.gain_green1   *= 1 + gs_adjustDir * CV_AE_AWB_GAIN_SCHEDULING_STEP;
-      mt9f002.gain_green2   *= 1 + gs_adjustDir * CV_AE_AWB_GAIN_SCHEDULING_STEP;
-#endif
-      Bound(mt9f002.gain_blue,    CV_AE_AWB_MIN_GAINS, CV_AE_AWB_MAX_GAINS);
-      Bound(mt9f002.gain_red,     CV_AE_AWB_MIN_GAINS, CV_AE_AWB_MAX_GAINS);
-      Bound(mt9f002.gain_green1,  CV_AE_AWB_MIN_GAINS, CV_AE_AWB_MAX_GAINS);
-      Bound(mt9f002.gain_green2,  CV_AE_AWB_MIN_GAINS, CV_AE_AWB_MAX_GAINS);
-      // Check to see if gains have reached max level
-      if (mt9f002.gain_blue >= CV_AE_AWB_MAX_GAINS / CV_AE_AWB_GAIN_SCHEDULING_MARGIN
-          || mt9f002.gain_red >= CV_AE_AWB_MAX_GAINS / CV_AE_AWB_GAIN_SCHEDULING_MARGIN
-          || mt9f002.gain_green1 >= CV_AE_AWB_MAX_GAINS / CV_AE_AWB_GAIN_SCHEDULING_MARGIN) {
-        gs_gains_maxed = TRUE;
-      }
-      // Check to see if gains have reached min level
-      if (mt9f002.gain_blue <= CV_AE_AWB_MIN_GAINS * CV_AE_AWB_GAIN_SCHEDULING_MARGIN
-          || mt9f002.gain_red <= CV_AE_AWB_MIN_GAINS * CV_AE_AWB_GAIN_SCHEDULING_MARGIN
-          || mt9f002.gain_green1 <= CV_AE_AWB_MIN_GAINS * CV_AE_AWB_GAIN_SCHEDULING_MARGIN) {
-        gs_gains_minned = TRUE;
-      }
-      // Set gains
-      mt9f002_set_gains(&mt9f002);
+    // Let's try to center the exposure, that way we'll be able to account for fast changes in lightness
+    if (!gs_gains_maxed
+        && mt9f002.target_exposure > (CV_AE_AWB_GAIN_SCHEDULING_TARGET + CV_AE_AWB_GAIN_SCHEDULING_TOLERANCE)) {
+      gs_gains_minned = FALSE;
+      gs_adjustDir = +1;
+    } else if (!gs_gains_minned
+        && mt9f002.target_exposure < (CV_AE_AWB_GAIN_SCHEDULING_TARGET - CV_AE_AWB_GAIN_SCHEDULING_TOLERANCE)) {
+      gs_gains_maxed = FALSE;
+      gs_adjustDir = -1;
     } else {
-      VERBOSE_PRINT("Error: 0 nb_grey_pixels\n");
+      gs_adjustDir = 0;
     }
+    mt9f002.gain_blue     *= 1 + gs_adjustDir * CV_AE_AWB_GAIN_SCHEDULING_STEP;
+    mt9f002.gain_red      *= 1 + gs_adjustDir * CV_AE_AWB_GAIN_SCHEDULING_STEP;
+    mt9f002.gain_green1   *= 1 + gs_adjustDir * CV_AE_AWB_GAIN_SCHEDULING_STEP;
+    mt9f002.gain_green2   *= 1 + gs_adjustDir * CV_AE_AWB_GAIN_SCHEDULING_STEP;
+#endif
+    Bound(mt9f002.gain_blue,    CV_AE_AWB_MIN_GAINS, CV_AE_AWB_MAX_GAINS);
+    Bound(mt9f002.gain_red,     CV_AE_AWB_MIN_GAINS, CV_AE_AWB_MAX_GAINS);
+    Bound(mt9f002.gain_green1,  CV_AE_AWB_MIN_GAINS, CV_AE_AWB_MAX_GAINS);
+    Bound(mt9f002.gain_green2,  CV_AE_AWB_MIN_GAINS, CV_AE_AWB_MAX_GAINS);
+    // Check to see if gains have reached max level
+    if (mt9f002.gain_blue >= CV_AE_AWB_MAX_GAINS / CV_AE_AWB_GAIN_SCHEDULING_MARGIN
+        || mt9f002.gain_red >= CV_AE_AWB_MAX_GAINS / CV_AE_AWB_GAIN_SCHEDULING_MARGIN
+        || mt9f002.gain_green1 >= CV_AE_AWB_MAX_GAINS / CV_AE_AWB_GAIN_SCHEDULING_MARGIN) {
+      gs_gains_maxed = TRUE;
+    }
+    // Check to see if gains have reached min level
+    if (mt9f002.gain_blue <= CV_AE_AWB_MIN_GAINS * CV_AE_AWB_GAIN_SCHEDULING_MARGIN
+        || mt9f002.gain_red <= CV_AE_AWB_MIN_GAINS * CV_AE_AWB_GAIN_SCHEDULING_MARGIN
+        || mt9f002.gain_green1 <= CV_AE_AWB_MIN_GAINS * CV_AE_AWB_GAIN_SCHEDULING_MARGIN) {
+      gs_gains_minned = TRUE;
+    }
+    // Set gains
+    mt9f002_set_gains(&mt9f002);
   } else {
-    VERBOSE_PRINT("Error: 0 valid Y pixels\n");
+    VERBOSE_PRINT("Error: no YUV stats\n");
   }
   return NULL;
 }

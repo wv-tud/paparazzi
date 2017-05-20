@@ -169,7 +169,7 @@ static double               prev_v_d[3]     = {0.0, 0.0, 0.0};  ///< Previous to
 
 #ifdef __linux__
 double                      lastTotV[3]     = {0.0, 0.0, 0.0};  ///< Used for plotting totV on frame
-pthread_mutex_t             totV_mutex;
+//pthread_mutex_t             totV_mutex;
 #endif
 
 /// Optional variables declarations ///
@@ -264,12 +264,12 @@ void calculateVelocityResponse(struct NedCoor_f *pos, struct FloatEulers* eulerA
         limitNormHeading(eulerAngles, totV);                ///< Limit the velocity when heading change gets larger
     }
 #ifdef __linux__
-  pthread_mutex_lock(&totV_mutex);
+  //pthread_mutex_lock(&totV_mutex);
 #endif
     lastTotV[0] = cos(-eulerAngles->psi) * totV[0] - sin(-eulerAngles->psi) * totV[1];
     lastTotV[1] = sin(-eulerAngles->psi) * totV[0] + cos(-eulerAngles->psi) * totV[1];
 #ifdef __linux__
-  pthread_mutex_unlock(&totV_mutex);
+  //pthread_mutex_unlock(&totV_mutex);
 #endif
     return;
 }
@@ -283,7 +283,7 @@ void calculateVelocityResponse(struct NedCoor_f *pos, struct FloatEulers* eulerA
  */
 void calculateLocalVelocity(struct NedCoor_f *pos, double li[3]){
 #ifdef __linux__
-  pthread_mutex_lock(&neighbourMem_mutex);
+  //pthread_mutex_lock(&neighbourMem_mutex);
 #endif
     for (uint8_t i=0; i < neighbourMem_size; i++){
         double r    = hypot(pos->x - neighbourMem[i].x_w, pos->y - neighbourMem[i].y_w );                                                   ///< The range to this neighbour
@@ -304,7 +304,7 @@ void calculateLocalVelocity(struct NedCoor_f *pos, double li[3]){
         li[2] = 0.0;
     }
 #ifdef __linux__
-  pthread_mutex_unlock(&neighbourMem_mutex);
+  //pthread_mutex_unlock(&neighbourMem_mutex);
 #endif
     return;
 }
@@ -319,7 +319,7 @@ void calculateLocalVelocity(struct NedCoor_f *pos, double li[3]){
  */
 double calculateLocalGlobalCoeff(struct NedCoor_f *pos, double gi[3], double ci[3]){
 #ifdef __linux__
-    pthread_mutex_lock(&neighbourMem_mutex);
+    //pthread_mutex_lock(&neighbourMem_mutex);
 #endif
     double result = 1.0;
     if (neighbourMem_size > 0){
@@ -341,7 +341,7 @@ double calculateLocalGlobalCoeff(struct NedCoor_f *pos, double gi[3], double ci[
                 2.0 - sqrt( pow( (gi[0] + ci[0]) * ( 1 - c_gi_coef), 2.0 ) + pow( (gi[1] + ci[1]) * (1 - c_gi_coef), 2.0 ) ) / gi_n ) ), settings_as_loglo );   ///< Return local-global interaction coefficient
     }
 #ifdef __linux__
-    pthread_mutex_unlock(&neighbourMem_mutex);
+    //pthread_mutex_unlock(&neighbourMem_mutex);
 #endif
     return result;
 }
@@ -401,7 +401,7 @@ void calculateGlobalVelocity(struct NedCoor_f *pos, double gi[3], double ci[3]){
     double u        = 0.0;
     double v        = 0.0;
 #ifdef __linux__
-  pthread_mutex_lock(&neighbourMem_mutex);
+  //pthread_mutex_lock(&neighbourMem_mutex);
 #endif
     for (uint8_t i=0; i < neighbourMem_size; i++){
         double r    = hypot(pos->x - neighbourMem[i].x_w , pos->y - neighbourMem[i].y_w);  ///< The range to this neighbour
@@ -415,7 +415,7 @@ void calculateGlobalVelocity(struct NedCoor_f *pos, double gi[3], double ci[3]){
         }
     }
 #ifdef __linux__
-    pthread_mutex_unlock(&neighbourMem_mutex);
+    //pthread_mutex_unlock(&neighbourMem_mutex);
 #endif
     ci[0]           = u * cos(angle_gi) - v * sin(angle_gi);
     ci[1]           = u * sin(angle_gi) + v * cos(angle_gi);
@@ -578,7 +578,7 @@ bool amIhome(void){
 void autoswarm_write_log(){
 #if AS_WRITE_RESULTS                                                 // See if we want to write results
 #ifdef __linux__
-  pthread_mutex_lock(&neighbourMem_mutex);
+  //pthread_mutex_lock(&neighbourMem_mutex);
 #endif
     pFile         = fopen("/data/ftp/internal_000/results.txt","a");        // Open file for appending
     if (pFile == NULL){
@@ -591,7 +591,7 @@ void autoswarm_write_log(){
     }
     if (pFile != NULL) fclose(pFile);    // Close file
 #ifdef __linux__
-  pthread_mutex_unlock(&neighbourMem_mutex);
+  //pthread_mutex_unlock(&neighbourMem_mutex);
 #endif
 #endif
     if (AS_PRINT_WAYPOINT) printf("\n"); // Separate terminal output by newline

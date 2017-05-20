@@ -25,7 +25,7 @@ struct avi_isp_offsets
 	uint32_t chain_yuv;
 };
 
-#define AVI_ISP_STAT_YUV_MAX_WAIT 1
+#define AVI_ISP_STAT_YUV_MAX_WAIT 3
 uint8_t curWait = 0;
 
 /* IOCTL implemented in AVI drivers */
@@ -61,7 +61,7 @@ static const unsigned isp_bases[] = {
 	AVI_ISP_BAYER,
 	AVI_ISP_COLOR_CORRECTION,
 	AVI_ISP_VLFORMAT_40TO32,
-	0,	/* GAMMA conf */
+	AVI_ISP_GAMMA_CORRECTOR_CONF,
 	AVI_ISP_GAMMA_CORRECTOR_RY_LUT,
 	AVI_ISP_GAMMA_CORRECTOR_GU_LUT,
 	AVI_ISP_GAMMA_CORRECTOR_BV_LUT,
@@ -265,50 +265,68 @@ int isp_get_statistics_yuv(struct isp_yuv_stats_t *yuv_stats) {
     struct avi_isp_statistics_yuv_regs stats_yuv;
     avi_isp_statistics_yuv_get_registers(&isp_ctx, &stats_yuv);
 
-    if(!stats_yuv.measure_status.done){
-        curWait++;
-        if(curWait <= AVI_ISP_STAT_YUV_MAX_WAIT){
-            //printf("[YUV-STAT] Waiting for YUV stats (%d)\n", curWait);
-            isp_config.statistics_yuv.measure_req.clear = 0; // Clear current results
-        }
-        else{
-            //printf("[YUV-STAT] Waited %d frames for YUV stats, resetting now\n", curWait);
-            isp_config.statistics_yuv.measure_req.clear = 1; // Clear current results
-            isp_set_statistics_yuv_window();
-            curWait = 0;
-        }
-        avi_isp_statistics_yuv_set_registers(&isp_ctx, &isp_config.statistics_yuv);
-        return -1;
+    if(stats_yuv.measure_status.error){
+      //ERROR
+      printf("[YUV-STAT] Error requesting YUV stats\n");
+      isp_config.statistics_yuv.measure_req.clear = 1; // Clear current results
+      isp_config.statistics_yuv.measure_req.measure_req = 1;
+      curWait = 0;
+      isp_set_statistics_yuv_window();
+      avi_isp_statistics_yuv_set_registers(&isp_ctx, &isp_config.statistics_yuv);
+      return -1;
     }
-    else if(stats_yuv.measure_status.error){
-        printf("[YUV-STAT] Error requesting YUV stats\n");
-        isp_config.statistics_yuv.measure_req.clear = 1; // Clear current results?
+    else if(!stats_yuv.measure_status.done){
+      // NOT YET FINISHED
+      curWait++;
+      if(curWait <= AVI_ISP_STAT_YUV_MAX_WAIT){
+        //printf("[YUV-STAT] Waiting for YUV stats (%d)\n", curWait);
+        isp_config.statistics_yuv.measure_req.clear = 0;       // Clear current results
+        isp_config.statistics_yuv.measure_req.measure_req = 1; // Always requested
+      }
+      else{
+        printf("[YUV-STAT] Waited %d frames for YUV stats, resetting now\n", curWait);
+        isp_config.statistics_yuv.measure_req.clear = 1;       // Clear current results
+        isp_config.statistics_yuv.measure_req.measure_req = 1; // Always requested
+        isp_set_statistics_yuv_window();
+        curWait = 0;
+      }
+      avi_isp_statistics_yuv_set_registers(&isp_ctx, &isp_config.statistics_yuv);
+      return -1;
+    }
+    else{
+      // READY
+      isp_config.statistics_yuv.measure_req.clear = 0;        // GUESS: Results will be cleared when done
+      isp_config.statistics_yuv.measure_req.measure_req = 1;  // Always requested
+      if(!stats_yuv.awb_nb_grey_pixels.nb_grey_pixels || !stats_yuv.ae_nb_valid_y.nb_valid_y){
+        // SOMETHING WENT WRONG
+        printf("[YUV-STAT] Something went wrong %d %d, resetting now\n", stats_yuv.awb_nb_grey_pixels.nb_grey_pixels, stats_yuv.ae_nb_valid_y.nb_valid_y);
+        isp_config.statistics_yuv.measure_req.clear = 1;       // Clear current results
+        isp_config.statistics_yuv.measure_req.measure_req = 1; // Always requested
         curWait = 0;
         isp_set_statistics_yuv_window();
         avi_isp_statistics_yuv_set_registers(&isp_ctx, &isp_config.statistics_yuv);
         return -1;
-    }
-    else{
-        isp_config.statistics_yuv.measure_req.clear = 1; // Clear current results?
-    }
-    curWait = 0;
-    yuv_stats->awb_sum_Y = stats_yuv.awb_sum_y.awb_sum_y;
-    yuv_stats->awb_sum_U = stats_yuv.awb_sum_u.awb_sum_u;
-    yuv_stats->awb_sum_V = stats_yuv.awb_sum_v.awb_sum_v;
-    yuv_stats->awb_nb_grey_pixels = stats_yuv.awb_nb_grey_pixels.nb_grey_pixels;
-    yuv_stats->nb_valid_Y = stats_yuv.ae_nb_valid_y.nb_valid_y;
+      }else{
+        //printf("[YUV-STAT] got YUV stats at %d try\n", curWait);
+        curWait = 0;
+        yuv_stats->awb_sum_Y = stats_yuv.awb_sum_y.awb_sum_y;
+        yuv_stats->awb_sum_U = stats_yuv.awb_sum_u.awb_sum_u;
+        yuv_stats->awb_sum_V = stats_yuv.awb_sum_v.awb_sum_v;
+        yuv_stats->awb_nb_grey_pixels = stats_yuv.awb_nb_grey_pixels.nb_grey_pixels;
+        yuv_stats->nb_valid_Y = stats_yuv.ae_nb_valid_y.nb_valid_y;
 
-    // Histogram
-    struct avi_isp_statistics_yuv_ae_histogram_y_regs histogram;
-    avi_isp_statistics_yuv_ae_histogram_y_get_registers(&isp_ctx, &histogram);
-
-    for(i=0; i<256; ++i)
-    {
-        yuv_stats->ae_histogram_Y[i] = histogram.ae_histogram_y[i].histogram_y;
+        // Histogram
+        struct avi_isp_statistics_yuv_ae_histogram_y_regs histogram;
+        avi_isp_statistics_yuv_ae_histogram_y_get_registers(&isp_ctx, &histogram);
+        for(i=0; i<256; ++i)
+        {
+          yuv_stats->ae_histogram_Y[i] = histogram.ae_histogram_y[i].histogram_y;
+        }
+        isp_set_statistics_yuv_window();
+        avi_isp_statistics_yuv_set_registers(&isp_ctx, &isp_config.statistics_yuv);
+        return 0;
+      }
     }
-    isp_set_statistics_yuv_window();
-    avi_isp_statistics_yuv_set_registers(&isp_ctx, &isp_config.statistics_yuv);
-    return 0;
 }
 
 

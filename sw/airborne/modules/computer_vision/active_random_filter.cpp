@@ -158,7 +158,7 @@ uint8_t     ARF_SAMPLE_STYLE                    = ARF_STYLE_RANDOM;     ///< Sam
 double      ARF_CAM_RANGE                       = 4.0;                  ///< Maximum camera range of newly added objects
 uint16_t    ARF_RND_PIX_SAMPLE                  = 2500;                 ///< Random pixel sample size
 uint16_t    ARF_MAX_LAYERS                      = 5000;                 ///< Maximum recursive depth of CW flood
-double 	    ARF_MAX_CIRCLE_DEF 	                = 0.16;                ///< Maximum contour eccentricity
+double 	    ARF_MAX_CIRCLE_DEF 	                = 0.125;                ///< Maximum contour eccentricity
 double      ARF_MIN_CIRCLE_PERC                 = 0.45;                 ///< Minimum percentage of circle in view
 double      ARF_LARGE_SKIP_FACTOR               = 1.0 / 20.0;           ///< Percentage of length large contours are allowed to snap back to starting pos
 /** Automatically calculated tracking parameters **/
@@ -182,13 +182,13 @@ uint8_t     ARF_GREY_THRES                      = 0;
 #endif
 #if ARF_OBJECT == ARF_BALL
 /* Cyberzoo */
-uint8_t     ARF_Y_MIN                           = 25;                   ///< Minimum Y whilst searching and following contours
-uint8_t     ARF_Y_MAX                           = 250;                  ///< Maximum Y whilst searching and following contours
-uint8_t     ARF_U_MIN                           = 109;                  ///< Minimum U whilst searching and following contours
-uint8_t     ARF_U_MAX                           = 150;                  ///< Maximum U whilst searching and following contours
-uint8_t     ARF_V_MIN                           = 151;                  ///< Minimum V whilst searching and following contours
-uint8_t     ARF_V_MAX                           = 190;                  ///< Maximum V whilst searching and following contours
-uint8_t     ARF_GREY_THRES                      = 35;
+uint8_t     ARF_Y_MIN                           = 0;                   ///< Minimum Y whilst searching and following contours
+uint8_t     ARF_Y_MAX                           = 255;                  ///< Maximum Y whilst searching and following contours
+uint8_t     ARF_U_MIN                           = 95;                  ///< Minimum U whilst searching and following contours
+uint8_t     ARF_U_MAX                           = 170;                  ///< Maximum U whilst searching and following contours
+uint8_t     ARF_V_MIN                           = 150;                  ///< Minimum V whilst searching and following contours
+uint8_t     ARF_V_MAX                           = 195;                  ///< Maximum V whilst searching and following contours
+uint8_t     ARF_GREY_THRES                      = 10;
 /* FAKE LIGHT
 uint8_t     ARF_Y_MIN             = 0;
 uint8_t     ARF_Y_MAX             = 255;
@@ -247,7 +247,7 @@ static vector<Rect> 	    cropAreas;                                  ///< All th
 struct NedCoor_f*           pos;                                        ///< Current position of the UAV
 
 #ifdef __linux__
-pthread_mutex_t neighbourMem_mutex;
+//pthread_mutex_t neighbourMem_mutex;
 #endif
 
 #if ARF_OBJECT == ARF_BALL
@@ -390,7 +390,7 @@ void processCrops(Mat& frameGrey){
 
 void eraseMemory(void){
 #ifdef __linux__
-  pthread_mutex_lock(&neighbourMem_mutex);
+  //pthread_mutex_lock(&neighbourMem_mutex);
 #endif
     uint8_t index   = 0;
     uint8_t i       = 0;
@@ -404,7 +404,7 @@ void eraseMemory(void){
     }
     neighbourMem_size -= i - index;
 #ifdef __linux__
-  pthread_mutex_unlock(&neighbourMem_mutex);
+  //pthread_mutex_unlock(&neighbourMem_mutex);
 #endif
 }
 
@@ -430,7 +430,7 @@ void identifyObject(trackResults* trackRes){
     }
     if(identified){
 #ifdef __linux__
-  pthread_mutex_lock(&neighbourMem_mutex);
+  //pthread_mutex_lock(&neighbourMem_mutex);
 #endif
         VERBOSE_PRINT("Identified object %d at (%4d, %4d)p (%5.2f, %5.2f, %5.2f)w\n", neighbourMem[neighbourID].id, trackRes->x_p, trackRes->y_p, trackRes->x_w, trackRes->y_w, trackRes->z_w);
         neighbourMem[neighbourID].lastSeen    = runCount;
@@ -443,7 +443,7 @@ void identifyObject(trackResults* trackRes){
         neighbourMem[neighbourID].r_c         = trackRes->r_c;
         neighbourMem[neighbourID].r_b         = trackRes->r_b;
 #ifdef __linux__
-  pthread_mutex_unlock(&neighbourMem_mutex);
+  //pthread_mutex_unlock(&neighbourMem_mutex);
 #endif
     }
     else{
@@ -470,7 +470,7 @@ void identifyObject(trackResults* trackRes){
 #if ARF_OBJECT == ARF_GATE
 void identifyObject(gateResults* gateRes){
 #ifdef __linux__
-  pthread_mutex_lock(&neighbourMem_mutex);
+  //pthread_mutex_lock(&neighbourMem_mutex);
 #endif
     bool identified = FALSE;
     for(unsigned int i=0; i < neighbourMem_size; i++)
@@ -517,7 +517,7 @@ void identifyObject(gateResults* gateRes){
         maxId++;
     }
 #ifdef __linux__
-  pthread_mutex_unlock(&neighbourMem_mutex);
+  //pthread_mutex_unlock(&neighbourMem_mutex);
 #endif
     return;
 }
@@ -1812,12 +1812,12 @@ void mod_video(Mat& sourceFrame, Mat& frameGrey){
 #endif
 #if ARF_SHOW_TOTV
 #ifdef __linux__
-  pthread_mutex_lock(&totV_mutex);
+  //pthread_mutex_lock(&totV_mutex);
 #endif
     circle(sourceFrame, Point(sourceFrame.cols / 2.0, sourceFrame.rows / 2.0), 3, cvScalar(100,255), 1, 4);
 	arrowedLine(sourceFrame, Point(sourceFrame.cols / 2.0, sourceFrame.rows / 2.0), Point(sourceFrame.cols / 2.0 + 240.0 / settings_as_vmax * lastTotV[0], sourceFrame.rows / 2.0  + 240.0 / settings_as_vmax * lastTotV[1]), Scalar(100,255), 1, 4);
 #ifdef __linux__
-  pthread_mutex_unlock(&totV_mutex);
+  //pthread_mutex_unlock(&totV_mutex);
 #endif
 #endif
 	return;
@@ -1967,7 +1967,7 @@ bool trackRes_clear( void ){
 #if ARF_OBJECT == ARF_BALL
 bool neighbourMem_findMax( void ){
 #ifdef __linux__
-  pthread_mutex_lock(&neighbourMem_mutex);
+  //pthread_mutex_lock(&neighbourMem_mutex);
 #endif
     neighbourMem_maxVal = 0.0;
     neighbourMem_maxId  = 0;
@@ -1978,14 +1978,14 @@ bool neighbourMem_findMax( void ){
         }
     }
 #ifdef __linux__
-  pthread_mutex_unlock(&neighbourMem_mutex);
+  //pthread_mutex_unlock(&neighbourMem_mutex);
 #endif
     return true;
 }
 
 bool neighbourMem_add( memoryBlock newRes, uint8_t overwriteId){
 #ifdef __linux__
-  pthread_mutex_lock(&neighbourMem_mutex);
+  //pthread_mutex_lock(&neighbourMem_mutex);
 #endif
     bool result = TRUE;
     if(overwriteId < neighbourMem_size){
@@ -2007,7 +2007,7 @@ bool neighbourMem_add( memoryBlock newRes, uint8_t overwriteId){
         neighbourMem_size++;
     }
 #ifdef __linux__
-  pthread_mutex_unlock(&neighbourMem_mutex);
+  //pthread_mutex_unlock(&neighbourMem_mutex);
 #endif
     if(result && neighbourMem_size == ARF_MAX_OBJECTS){
         neighbourMem_findMax();
