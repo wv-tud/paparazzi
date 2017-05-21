@@ -30,6 +30,7 @@
 #include "math/pprz_algebra_int.h"
 #include "boards/bebop.h"
 #include "modules/computer_vision/lib/isp/libisp.h"
+#include "modules/computer_vision/bebop_camera_stabilization.h"
 
 #include <stdio.h>
 #include <unistd.h>
@@ -1045,6 +1046,7 @@ void mt9f002_init(struct mt9f002_t *mt)
   write_reg(mt, MT9F002_MODE_SELECT, 0x01, 1);
 }
 
+extern int16_t              fillHeight;                                 ///< Column from which the ISP is cropped relative to MIN
 void mt9f002_update_resolution(struct mt9f002_t *mt){
     /* Calculate binning/skipping/scaling for requested sensor domain and output resolution */
     mt9f002_calc_resolution(mt);
@@ -1059,5 +1061,5 @@ void mt9f002_update_resolution(struct mt9f002_t *mt){
     //isp_request_statistics_yuv_window(ALIGN(mt->offset_x,16), ALIGN(mt->offset_x + mt->sensor_width,16), ALIGN(mt->offset_y,16), ALIGN(mt->offset_y + mt->sensor_height,16));
     uint16_t x_odd_inc = 0; // 0: 518556  1: 64901  2: 14642 3: 3334
     uint16_t y_odd_inc = 0;
-    isp_request_statistics_yuv_window(0 , (uint16_t) mt->output_width, 0, mt->output_height, x_odd_inc, y_odd_inc);
+    isp_request_statistics_yuv_window(fillHeight , (uint16_t) mt->output_width, 0, mt->output_height, x_odd_inc, y_odd_inc);
 }

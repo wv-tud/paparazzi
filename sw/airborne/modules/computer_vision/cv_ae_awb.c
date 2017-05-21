@@ -58,7 +58,7 @@ PRINT_CONFIG_VAR(CV_AE_AWB_MIN_GAINS)
 PRINT_CONFIG_VAR(CV_AE_AWB_MAX_GAINS)
 
 #ifndef CV_AE_MIDDLE_INDEX
-#define CV_AE_MIDDLE_INDEX 100
+#define CV_AE_MIDDLE_INDEX 90
 #endif
 PRINT_CONFIG_VAR(CV_AE_MIDDLE_INDEX)
 
@@ -68,7 +68,7 @@ PRINT_CONFIG_VAR(CV_AE_MIDDLE_INDEX)
 PRINT_CONFIG_VAR(CV_AE_DARK_IGNORE)
 
 #ifndef CV_AE_BRIGHT_IGNORE
-#define CV_AE_BRIGHT_IGNORE 0.8
+#define CV_AE_BRIGHT_IGNORE 0.6
 #endif
 PRINT_CONFIG_VAR(CV_AE_BRIGHT_IGNORE)
 
@@ -141,8 +141,10 @@ struct image_t *cv_ae_awb_periodic(struct image_t *img)
     // Calculate the cummulative histogram based on the histogram
     uint32_t cdf[MAX_HIST_Y];
     cdf[MIN_HIST_Y - 1] = 0;
+    //printf("Histogram (%d)\n", yuv_stats.nb_valid_Y);
     for (int i = MIN_HIST_Y; i < MAX_HIST_Y; i++) {
       cdf[i] = cdf[i - 1] + yuv_stats.ae_histogram_Y[i];
+      //printf("%6d ",  yuv_stats.ae_histogram_Y[i]);
     }
     // Calculate the indices of the dark and bright bins
     uint8_t dark_index   = MIN_HIST_Y + ae_dark_bins;
@@ -151,6 +153,7 @@ struct image_t *cv_ae_awb_periodic(struct image_t *img)
     uint32_t median_pixels = (uint32_t) round(((1 - ae_dark_ignore) * cdf[dark_index] +
         (cdf[bright_index - 1] - cdf[dark_index]) + (1 - ae_bright_ignore) * (cdf[MAX_HIST_Y - 1] - cdf[bright_index - 1])) /
         2.0f);
+    //printf("\nL: %d  M: %d  D: %d  =  %d\n", cdf[dark_index], (cdf[bright_index - 1] - cdf[dark_index]), (cdf[MAX_HIST_Y - 1] - cdf[bright_index - 1]), cdf[dark_index] + (cdf[bright_index - 1] - cdf[dark_index]) + (cdf[MAX_HIST_Y - 1] - cdf[bright_index - 1]));
     // Find the level that contains the median
     uint32_t current_pixels = 0;
     ae_current_level = MIN_HIST_Y - 1.0;
@@ -171,8 +174,9 @@ struct image_t *cv_ae_awb_periodic(struct image_t *img)
       // Calculate decimal level
       ae_current_level -= (current_pixels - median_pixels) / ((float) yuv_stats.ae_histogram_Y[(uint8_t) ae_current_level]);
     }
+    //printf("\nMedian %d / %d - %0.3f\n\n", current_pixels, median_pixels, ae_current_level);
     // that level is supposed to be 'middle_index'
-    float adjustment = 1 + 0.2 * (pow(ae_middle_index / ae_current_level, 0.75) - 1);
+    float adjustment = 1 + 0.125 * (ae_middle_index / ae_current_level - 1);
     Bound(adjustment, 1 / 16.0f, 16.0f);
     // Calculate exposure based on adjustment
     mt9f002.target_exposure = mt9f002.real_exposure * adjustment;
@@ -212,9 +216,9 @@ struct image_t *cv_ae_awb_periodic(struct image_t *img)
     // gain_blue *= |Y| / (|Y| + |U|)  --> ^0.25 in order to make less agressive updates
     // gain_red  *= |Y| / (|Y| + |V|)  --> ^0.25 in order to make less agressive updates
     mt9f002.gain_blue *= pow(yuv_stats.awb_sum_Y / ((float)(yuv_stats.awb_sum_Y + yuv_stats.awb_sum_U - 128 *
-        yuv_stats.awb_nb_grey_pixels)), 0.5);
+        yuv_stats.awb_nb_grey_pixels)), 0.25);
     mt9f002.gain_red  *= pow(yuv_stats.awb_sum_Y / ((float)(yuv_stats.awb_sum_Y + yuv_stats.awb_sum_V - 128 *
-        yuv_stats.awb_nb_grey_pixels)), 0.5);
+        yuv_stats.awb_nb_grey_pixels)), 0.25);
     /*
      *          Gain scheduling
      */

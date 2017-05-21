@@ -295,7 +295,7 @@ int isp_get_statistics_yuv(struct isp_yuv_stats_t *yuv_stats) {
     }
     else{
       // READY
-      isp_config.statistics_yuv.measure_req.clear = 0;        // GUESS: Results will be cleared when done
+      isp_config.statistics_yuv.measure_req.clear = 1;        // GUESS: Results will be cleared when done
       isp_config.statistics_yuv.measure_req.measure_req = 1;  // Always requested
       if(!stats_yuv.awb_nb_grey_pixels.nb_grey_pixels || !stats_yuv.ae_nb_valid_y.nb_valid_y){
         // SOMETHING WENT WRONG

@@ -69,7 +69,7 @@ using namespace cv;
 #define ARF_SHOW_STATS      0                       ///< Show statistics on the performance of the contour detection
 
 #define ARF_MEASURE_FPS     1                       ///< Measure average FPS
-#define ARF_TIMEOUT         50                      ///< Frames from start
+#define ARF_TIMEOUT         150                      ///< Frames from start
 #define ARF_WRITE_LOG       0                       ///< Write tracking results to logfile
 
 #define ARF_USE_WORLDPOS    1                       ///< Use world coordinates
@@ -182,13 +182,13 @@ uint8_t     ARF_GREY_THRES                      = 0;
 #endif
 #if ARF_OBJECT == ARF_BALL
 /* Cyberzoo */
-uint8_t     ARF_Y_MIN                           = 0;                   ///< Minimum Y whilst searching and following contours
+uint8_t     ARF_Y_MIN                           = 50;                   ///< Minimum Y whilst searching and following contours
 uint8_t     ARF_Y_MAX                           = 255;                  ///< Maximum Y whilst searching and following contours
-uint8_t     ARF_U_MIN                           = 95;                  ///< Minimum U whilst searching and following contours
-uint8_t     ARF_U_MAX                           = 170;                  ///< Maximum U whilst searching and following contours
-uint8_t     ARF_V_MIN                           = 150;                  ///< Minimum V whilst searching and following contours
-uint8_t     ARF_V_MAX                           = 195;                  ///< Maximum V whilst searching and following contours
-uint8_t     ARF_GREY_THRES                      = 10;
+uint8_t     ARF_U_MIN                           = 128 - 45;             ///< Minimum U whilst searching and following contours
+uint8_t     ARF_U_MAX                           = 128 + 25;             ///< Maximum U whilst searching and following contours
+uint8_t     ARF_V_MIN                           = 128;                  ///< Minimum V whilst searching and following contours
+uint8_t     ARF_V_MAX                           = 255;                  ///< Maximum V whilst searching and following contours
+int8_t     ARF_GREY_THRES                       = 10;
 /* FAKE LIGHT
 uint8_t     ARF_Y_MIN             = 0;
 uint8_t     ARF_Y_MAX             = 255;
@@ -301,7 +301,6 @@ void active_random_filter(char* buff, uint16_t width, uint16_t height){
     Rect crop 	        = setISPvars( width, height); 	            // Calculate ISP related parameters
     if(runCount < ARF_TIMEOUT) {
         runCount++;
-        PRINT("Timeout %d\n", ARF_TIMEOUT - runCount);
         frameGrey.release();
         sourceFrame.release();
         return;
@@ -317,6 +316,27 @@ void active_random_filter(char* buff, uint16_t width, uint16_t height){
 #endif
 		identifyObject(&trackRes[r]);                               // Identify the spotted neighbours
 	}
+
+	/*
+	rectangle(sourceFrameCrop, cvPoint(sourceFrameCrop.cols / 2 - 50, sourceFrameCrop.rows / 2 - 50), cvPoint( sourceFrameCrop.cols / 2 + 50, sourceFrameCrop.rows / 2 + 50), cvScalar(100,255));
+	uint8_t Ymin = 255, Ymax = 0, Umin = 255, Umax = 0, Vmin = 255, Vmax = 0;
+	for(uint16_t r = sourceFrameCrop.rows / 2 - 50; r < sourceFrameCrop.rows / 2 + 50; r++){
+	  for(uint16_t c = sourceFrameCrop.cols / 2 - 50; c < sourceFrameCrop.cols / 2 + 50; c++){
+	    uint8_t Y, U, V;
+	    getYUVColours(sourceFrameCrop, r, c, &Y, &U, &V);
+	    if(Y < Ymin) Ymin = Y;
+	    if(Y > Ymax) Ymax = Y;
+	    if(U < Umin) Umin = U;
+	    if(U > Umax) Umax = U;
+	    if(V < Vmin) Vmin = V;
+	    if(V > Vmax) Vmax = V;
+	  }
+	}
+	char text[200];
+	sprintf(text,"Y[%3d %3d] U[%3d %3d] V[%3d %3d]", Ymin, Ymax, Umin, Umax, Vmin, Vmax);
+	putText(sourceFrame, text, cvPoint( sourceFrameCrop.cols / 2 + 55, sourceFrameCrop.rows / 2 + 70), FONT_HERSHEY_PLAIN, 1, Scalar(0,255,255), 1);
+  */
+
 #if ARF_MOD_VIDEO
 	mod_video(sourceFrameCrop, frameGrey);                              // Modify the sourceframesourceFrame.cols-1
 #endif // ARF_MOD_VIDEO
@@ -339,7 +359,13 @@ Rect setISPvars( uint16_t width, uint16_t height){
     ARF_MIN_POINTS        = (uint16_t) round(0.25 * ARF_MIN_LAYERS);
 
     Rect crop;
-    crop                   = cvRect(fillHeight, 0, width - fillHeight, height);
+    if(mt9f002.output_width > fillHeight){
+      crop                   = cvRect(fillHeight, 0, mt9f002.output_width - fillHeight, height);
+    }else{
+      crop                   = cvRect(fillHeight, 0, width, height);
+    }
+    if(crop.width > width) crop.width = width;
+    if(crop.height > width) crop.height = height;
     return crop;
 }
 
@@ -1205,7 +1231,7 @@ void objCont_addPoint(uint16_t* row, uint16_t* col){
 }
 
 bool pixTest(uint8_t *Y, uint8_t *U, uint8_t *V){
-    if(*V > (*U + ARF_GREY_THRES) && *Y >= ARF_Y_MIN && *Y <= ARF_Y_MAX && *U >= ARF_U_MIN && *U <= ARF_U_MAX && *V >= ARF_V_MIN && *V <= ARF_V_MAX){
+    if(*Y >= ARF_Y_MIN && *Y <= ARF_Y_MAX && *U >= ARF_U_MIN && *U <= ARF_U_MAX && *V >= ARF_V_MIN && *V <= ARF_V_MAX && (*V - 128.0) - ARF_GREY_THRES > fabs(*U - 128.0) + ARF_GREY_THRES){
         return true;
     }
     else{
@@ -1847,7 +1873,9 @@ void active_random_filter_footer( void ){
         fprintf(arf_File,"%d\t%0.6f\t%d\t%d\t%0.3f\t%0.3f\t%0.3f\t%0.3f\t%0.3f\t%0.3f\t%0.3f\n", runCount, curT / 1000000.f, neighbourMem[r].id, neighbourMem[r].lastSeen != runCount, pos->x, pos->y, pos->z, cv_image_pose.eulers.psi, neighbourMem[r].x_w, neighbourMem[r].y_w, neighbourMem[r].z_w);
 #endif
     }
-    printf("\n");
+    if(neighbourMem_size > 0){
+      printf("\n");
+    }
 #endif // ARF_SHOW_MEM
 #if ARF_CALIBRATE_CAM
     if(runCount >= (ARF_TIMEOUT + 100)) calibrateEstimation();

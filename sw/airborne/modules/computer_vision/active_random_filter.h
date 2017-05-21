@@ -92,7 +92,7 @@ extern uint8_t 		ARF_V_MAX;
 extern uint8_t      ARF_CDIST_YTHRES;
 extern uint8_t      ARF_CDIST_UTHRES;
 extern uint8_t      ARF_CDIST_VTHRES;
-extern uint8_t      ARF_GREY_THRES;
+extern int8_t      ARF_GREY_THRES;
 
 extern double       ARF_CAM_RANGE;
 extern double       ARF_MIN_CIRCLE_PERC;
