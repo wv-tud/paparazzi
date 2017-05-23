@@ -57,6 +57,10 @@ PRINT_CONFIG_VAR(CV_AE_AWB_MIN_GAINS)
 #endif
 PRINT_CONFIG_VAR(CV_AE_AWB_MAX_GAINS)
 
+#ifndef CV_AE_EXPOSURE_GAIN
+#define CV_AE_EXPOSURE_GAIN 0.25
+#endif
+
 #ifndef CV_AE_MIDDLE_INDEX
 #define CV_AE_MIDDLE_INDEX 90
 #endif
@@ -87,7 +91,6 @@ PRINT_CONFIG_VAR(CV_AE_BRIGHT_BINS)
 #endif
 PRINT_CONFIG_VAR(CV_AE_AWB_GAIN_SCHEDULING)
 
-#if CV_AE_AWB_GAIN_SCHEDULING
 #ifndef CV_AE_AWB_GAIN_SCHEDULING_TARGET
 #define CV_AE_AWB_GAIN_SCHEDULING_TARGET 10.0
 #endif
@@ -107,11 +110,11 @@ PRINT_CONFIG_VAR(CV_AE_AWB_GAIN_SCHEDULING_STEP)
 #define CV_AE_AWB_GAIN_SCHEDULING_MARGIN 1.5
 #endif
 PRINT_CONFIG_VAR(CV_AE_AWB_GAIN_SCHEDULING_MARGIN)
-#endif
 
 #define MAX_HIST_Y 256 - 20
 #define MIN_HIST_Y 16
 
+float   ae_exposure_gain = CV_AE_EXPOSURE_GAIN;
 float   ae_bright_ignore = CV_AE_BRIGHT_IGNORE;
 float   ae_dark_ignore   = CV_AE_DARK_IGNORE;
 uint8_t ae_middle_index  = CV_AE_MIDDLE_INDEX;
@@ -176,7 +179,7 @@ struct image_t *cv_ae_awb_periodic(struct image_t *img)
     }
     //printf("\nMedian %d / %d - %0.3f\n\n", current_pixels, median_pixels, ae_current_level);
     // that level is supposed to be 'middle_index'
-    float adjustment = 1 + 0.125 * (ae_middle_index / ae_current_level - 1);
+    float adjustment = 1 + ae_exposure_gain * (ae_middle_index / ae_current_level - 1);
     Bound(adjustment, 1 / 16.0f, 16.0f);
     // Calculate exposure based on adjustment
     mt9f002.target_exposure = mt9f002.real_exposure * adjustment;
@@ -188,9 +191,9 @@ struct image_t *cv_ae_awb_periodic(struct image_t *img)
     }else if(prev_real_exposure == mt9f002.real_exposure && prev_exposure_stuck >= 10){
       // Bump the target exposure in order to unfreeze the exposure
       if(mt9f002.real_exposure < mt9f002.target_exposure){
-        mt9f002.target_exposure *= 1.25;
+        mt9f002.target_exposure *= 1.125;
       }else{
-        mt9f002.target_exposure /= 1.25;
+        mt9f002.target_exposure /= 1.125;
       }
     }else{
       prev_exposure_stuck = 0;

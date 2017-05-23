@@ -152,7 +152,7 @@ struct viewvideo_t viewvideo = {
 
 static P7_H264_context_t videoEncoder;
 static FILE *video_file;
-bool viewvideo_recording;
+bool viewvideo_recording = FALSE;
 
 /**
  * Handles all the video streaming and saving of the image shots
@@ -372,6 +372,9 @@ void viewvideo_init(void)
   } else {
 	  printf_debug("[viewvideo] Failed to create SDP file.\n");
   }
+#endif
+#if VIEWVIDEO_WRITE_VIDEO
+  //viewvideo_recording = TRUE;
 #endif
 }
 

@@ -2,7 +2,10 @@
 
 function get_video
 {
-	ffmpeg -analyzeduration 100M -probesize 10M -c h264 -enable_er -r $rate -an -sn -i ftp://$ip/internal_000/$file_name.h264 -vcodec libx264 -ss 1 -map_chapters -1 -map_metadata -1 -an -sn "$output$file_name-$aircraft.mp4"
+	echo "INPUT : ftp://$ip/internal_000/$file_name.h264"
+ 	echo "OUTPUT: $output$file_name-$aircraft.mp4"
+        echo "CMD   : ffmpeg -analyzeduration 100M -probesize 10M -c h264 -enable_er 1 -r $rate -an -sn -i ftp://$ip/internal_000/$file_name.h264 -vcodec libx264 -ss 1 -map_chapters -1 -map_metadata -1 -an -sn \"$output$file_name-$aircraft.mp4\""
+ffmpeg -analyzeduration 100M -probesize 100M -c h264 -enable_er 1 -r $rate -an -sn -i ftp://$ip/internal_000/$file_name.h264 -vcodec libx264 -ss 1 -map_chapters -1 -map_metadata -1 -an -sn "$output$file_name-$aircraft.mp4"
 	echo "Do you want to remove the video? [Y/N]:"
 	read rmfile
 	if [ "$rmfile" = "Y" ]; then
@@ -20,7 +23,7 @@ function usage
 
 aircraft=1
 file_name="ar_filter_demo"
-rate=18
+rate=20
 output="~/Movies/"
 
 while [ "$1" != "" ]; do

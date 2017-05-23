@@ -30,7 +30,9 @@
 
 void bebop_accel_calib_init( void );
 void bebop_set_accel_neutral( void );
+void bebop_send_accel_neutral( void );
 
+extern bool settings_send_accel_neutral;
 extern bool  settings_calibration_running;
 extern float settings_calibration_time;
 

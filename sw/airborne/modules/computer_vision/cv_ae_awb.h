@@ -30,6 +30,7 @@ extern float awb_avgU;
 extern float awb_avgV;
 extern uint32_t awb_nb_pixels;
 
+extern float ae_exposure_gain;
 extern uint8_t ae_dark_bins;
 extern uint8_t ae_bright_bins;
 extern uint8_t ae_middle_index;

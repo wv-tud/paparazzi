@@ -8,6 +8,7 @@
   <dl_settings>
     <dl_settings NAME="AE/AWB">
       <dl_setting var="ae_middle_index" min="6" step="1" max="249" module="computer_vision/cv_ae_awb" shortname="AE histogram center"/>
+      <dl_setting var="ae_exposure_gain" min="0" step="0.01" max="1" module="computer_vision/cv_ae_awb" shortname="AE gain"/>
       <dl_setting var="ae_dark_bins" min="0" step="1" max="127" module="computer_vision/cv_ae_awb" shortname="AE dark bins"/>
       <dl_setting var="ae_bright_bins" min="0" step="1" max="127" module="computer_vision/cv_ae_awb" shortname="AE bright bins"/>
       <dl_setting var="ae_dark_ignore" min="0" step="0.01" max="1" module="computer_vision/cv_ae_awb" shortname="AE ignore dark (%)"/>

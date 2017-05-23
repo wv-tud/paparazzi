@@ -42,6 +42,8 @@
 #define AS_CAM_FORWARD       1
 #define AS_CAM_GLOBAL        2
 
+extern int      settings_ignore_local;
+extern int      settings_as_extended;
 extern double   settings_as_circle_radius;
 extern double   settings_as_separation;
 extern int      settings_as_attractor;
@@ -50,6 +52,11 @@ extern double   settings_as_global_strength;
 extern int      settings_as_heading_mode;
 extern double   settings_as_e;
 extern double   settings_as_eps;
+extern double   settings_as_loglo;
+
+extern double AS_WN;
+extern double AS_GC;
+extern double AS_GN;
 
 // Initialize global attractor
 struct originPoint { double cx; double cy; double cz;};

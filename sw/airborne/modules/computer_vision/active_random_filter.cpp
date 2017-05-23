@@ -62,7 +62,7 @@ using namespace cv;
 #define ARF_MARK_CONTOURS   0                       ///< Mark all contour pixels green on sourceframe
 #define ARF_BALL_CIRCLES    1                       ///< Draw circles around balls
 #define ARF_GATE_CORNERS    1                       ///< Plot corner points of Gates
-#define ARF_PLOT_COORDS     0                       ///< Plot the coordinates of balls on frame
+#define ARF_PLOT_COORDS     1                       ///< Plot the coordinates of balls on frame
 #define ARF_DISTANCE_PLOT   1                       ///< Plot lines with distance on frame
 #define ARF_CROSSHAIR       0                       ///< Plot horizon
 #define ARF_SHOW_CAM_INFO   1                       ///< Show colour gains and exposure on frame
@@ -70,7 +70,7 @@ using namespace cv;
 
 #define ARF_MEASURE_FPS     1                       ///< Measure average FPS
 #define ARF_TIMEOUT         150                      ///< Frames from start
-#define ARF_WRITE_LOG       0                       ///< Write tracking results to logfile
+#define ARF_WRITE_LOG       1                       ///< Write tracking results to logfile
 
 #define ARF_USE_WORLDPOS    1                       ///< Use world coordinates
 #define ARF_USE_YAW         1                       ///< Output in body horizontal XY
@@ -89,7 +89,7 @@ using namespace cv;
 #define ARF_SHOW_REJECT     0                       ///< Print why shapes are rejected
 #define ARF_MOD_VIDEO       1                       ///< Modify the frame to show relevant info
 #define ARF_DRAW_BOXES 	    1                       ///< Draw boxes
-#define ARF_SHOW_MEM        1                       ///< Print object locations to terminal
+#define ARF_SHOW_MEM        0                       ///< Print object locations to terminal
 
 #define ARF_BALL            0
 #define ARF_GATE            1
@@ -155,10 +155,10 @@ static void             mod_video           (Mat& sourceFrame, Mat& frameGrey);
 uint16_t    default_calArea                     = 7650;                 ///< Area of a ball at 1m resolution on full sensor resolution
 uint8_t     ARF_FLOOD_STYLE                     = ARF_FLOOD_CW;         ///< Flood style to search for contours
 uint8_t     ARF_SAMPLE_STYLE                    = ARF_STYLE_RANDOM;     ///< Sample style to search for contours
-double      ARF_CAM_RANGE                       = 4.0;                  ///< Maximum camera range of newly added objects
-uint16_t    ARF_RND_PIX_SAMPLE                  = 2500;                 ///< Random pixel sample size
+double      ARF_CAM_RANGE                       = 8.0;                  ///< Maximum camera range of newly added objects
+uint16_t    ARF_RND_PIX_SAMPLE                  = 5000;                 ///< Random pixel sample size
 uint16_t    ARF_MAX_LAYERS                      = 5000;                 ///< Maximum recursive depth of CW flood
-double 	    ARF_MAX_CIRCLE_DEF 	                = 0.125;                ///< Maximum contour eccentricity
+double 	    ARF_MAX_CIRCLE_DEF 	                = 0.15;                ///< Maximum contour eccentricity
 double      ARF_MIN_CIRCLE_PERC                 = 0.45;                 ///< Minimum percentage of circle in view
 double      ARF_LARGE_SKIP_FACTOR               = 1.0 / 20.0;           ///< Percentage of length large contours are allowed to snap back to starting pos
 /** Automatically calculated tracking parameters **/
@@ -181,37 +181,28 @@ uint8_t     ARF_V_MAX                           = 220;
 uint8_t     ARF_GREY_THRES                      = 0;
 #endif
 #if ARF_OBJECT == ARF_BALL
-/* Cyberzoo */
+/* Daylight
 uint8_t     ARF_Y_MIN                           = 50;                   ///< Minimum Y whilst searching and following contours
 uint8_t     ARF_Y_MAX                           = 255;                  ///< Maximum Y whilst searching and following contours
 uint8_t     ARF_U_MIN                           = 128 - 45;             ///< Minimum U whilst searching and following contours
 uint8_t     ARF_U_MAX                           = 128 + 25;             ///< Maximum U whilst searching and following contours
 uint8_t     ARF_V_MIN                           = 128;                  ///< Minimum V whilst searching and following contours
 uint8_t     ARF_V_MAX                           = 255;                  ///< Maximum V whilst searching and following contours
-int8_t     ARF_GREY_THRES                       = 10;
-/* FAKE LIGHT
-uint8_t     ARF_Y_MIN             = 0;
-uint8_t     ARF_Y_MAX             = 255;
-uint8_t     ARF_U_MIN             = 0;
-uint8_t     ARF_U_MAX             = 255;
-uint8_t     ARF_V_MIN             = 158;
-uint8_t     ARF_V_MAX             = 255;
-*/
-
-/* DAYLIGHT
-uint8_t     ARF_Y_MIN           = 130;
-uint8_t     ARF_Y_MAX           = 255;
-uint8_t     ARF_U_MIN           = 95;
-uint8_t     ARF_U_MAX           = 131;
-uint8_t     ARF_V_MIN           = 145;
-uint8_t     ARF_V_MAX           = 188;
-*/
+int8_t      ARF_GREY_THRES                       = 10;
+/* Cyberzoo */
+uint8_t     ARF_Y_MIN                           = 75;                   ///< Minimum Y whilst searching and following contours
+uint8_t     ARF_Y_MAX                           = 255;                  ///< Maximum Y whilst searching and following contours
+uint8_t     ARF_U_MIN                           = 128 - 50;             ///< Minimum U whilst searching and following contours
+uint8_t     ARF_U_MAX                           = 128 + 30;             ///< Maximum U whilst searching and following contours
+uint8_t     ARF_V_MIN                           = 128;                  ///< Minimum V whilst searching and following contours
+uint8_t     ARF_V_MAX                           = 255;                  ///< Maximum V whilst searching and following contours
+int8_t      ARF_GREY_THRES                      = 2;
 #endif
 
 uint8_t     ARF_MAX_SEARCH_PIXEL_SKIP = 6;                              ///< Maximum nr of false pixels to skip whilst searching upwards for contours
 /** Set up Remaining parameters **/
 double 	    ARF_CROP_X 			                = 1.2;                  ///< Crop margin for blobs when using omni detection
-uint8_t     ARF_MEMORY 			                = 15;                   ///< Frames to keep neighbours in memory
+uint8_t     ARF_MEMORY 			                = 45;                   ///< Frames to keep neighbours in memory
 double      ARF_FPS                             = 20.0;                 ///< Estimated FPS to estimate lost neighbour decay
 double      ARF_VMAX                            = 7.0;                  ///< Maximum estimated velocity of a neighbour (account for some noise)
 
@@ -1836,6 +1827,10 @@ void mod_video(Mat& sourceFrame, Mat& frameGrey){
 	sprintf(text,"avgU:%5.2f avgV:%5.2f (%d)", awb_avgU, awb_avgV, awb_nb_pixels);
 	putText(sourceFrame, text, Point(10 , 60), FONT_HERSHEY_PLAIN, 1, Scalar(0,255,255), 1);
 #endif
+	if(settings_as_extended){
+	  sprintf(text,"WN: %6.3f  GN: %6.3f  GC: %5.3f", AS_WN, AS_GN, AS_GC);
+	  putText(sourceFrame, text, Point(10 , 80), FONT_HERSHEY_PLAIN, 1, Scalar(0,255,255), 1);
+	}
 #if ARF_SHOW_TOTV
 #ifdef __linux__
   //pthread_mutex_lock(&totV_mutex);
@@ -1863,20 +1858,26 @@ void active_random_filter_header( void ){
 }
 
 void active_random_filter_footer( void ){
-#if ARF_SHOW_MEM
+#if ARF_SHOW_MEM || ARF_WRITE_LOG
+#if ARF_WRITE_LOG
+    curT            = sys_time_elapsed_us(&time_init, &time_now);
+#endif
     for(unsigned int r=0; r < neighbourMem_size; r++)        // Print to file & terminal
     {
+#if ARF_SHOW_MEM
         VERBOSE_PRINT("%i - Object %d at (%0.2f m, %0.2f m, %0.2f m)\n", runCount, neighbourMem[r].id, neighbourMem[r].x_w, neighbourMem[r].y_w, neighbourMem[r].z_w);                                                        // Print to terminal
+#endif
 #if ARF_WRITE_LOG
         clock_gettime(CLOCK_MONOTONIC, &time_now);
-        curT            = sys_time_elapsed_us(&time_init, &time_now);
-        fprintf(arf_File,"%d\t%0.6f\t%d\t%d\t%0.3f\t%0.3f\t%0.3f\t%0.3f\t%0.3f\t%0.3f\t%0.3f\n", runCount, curT / 1000000.f, neighbourMem[r].id, neighbourMem[r].lastSeen != runCount, pos->x, pos->y, pos->z, cv_image_pose.eulers.psi, neighbourMem[r].x_w, neighbourMem[r].y_w, neighbourMem[r].z_w);
+        fprintf(arf_File,"%d\t%0.8f\t%d\t%d\t%0.3f\t%0.3f\t%0.3f\t%0.3f\t%0.3f\t%0.3f\t%0.3f\n", runCount, curT / 1000000.f, neighbourMem[r].id, neighbourMem[r].lastSeen != runCount, pos->x, pos->y, pos->z, cv_image_pose.eulers.psi, neighbourMem[r].x_w, neighbourMem[r].y_w, neighbourMem[r].z_w);
 #endif
     }
+#if ARF_VERBOSE
     if(neighbourMem_size > 0){
       printf("\n");
     }
-#endif // ARF_SHOW_MEM
+#endif
+#endif // ARF_SHOW_MEM || ARF_WRITE_LOG
 #if ARF_CALIBRATE_CAM
     if(runCount >= (ARF_TIMEOUT + 100)) calibrateEstimation();
 #endif // ARF_CALIBRATE_CAM

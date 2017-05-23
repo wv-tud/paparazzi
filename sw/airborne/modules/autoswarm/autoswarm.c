@@ -43,6 +43,10 @@ PRINT_CONFIG_VAR(AS_VERBOSE)
 #define VERBOSE_PRINT(...)
 #endif
 
+#ifndef AS_EXTENDED
+#define AS_EXTENDED 0
+#endif
+
 #ifndef AS_GLOBAL_ATTRACTOR
 #define AS_GLOBAL_ATTRACTOR AS_POINT
 #endif
@@ -130,6 +134,14 @@ PRINT_CONFIG_VAR(AS_WRITE_RESULTS)
 #warning [AS] Not adhering to flightplan
 #endif
 
+#ifndef AS_IGNORE_LOCAL
+#define AS_IGNORE_LOCAL 0                                       ///< Ignore local component
+#endif
+#if AS_IGNORE_LOCAL
+PRINT_CONFIG_VAR(AS_IGNORE_LOCAL)
+#warning [AS] Ignoring local component
+#endif
+
 /// Static function declarations ///
 static void     calculateVelocityResponse   (struct NedCoor_f *pos, struct FloatEulers* eulerAngles, double totV[3], double gi[3]);
 static void     calculateGlobalVelocity     (struct NedCoor_f *pos, double gi[3], double ci[3]);
@@ -143,10 +155,17 @@ static void     autoswarm_write_log         (void);
 static double   calculateLocalGlobalCoeff   (struct NedCoor_f *pos, double gi[3], double ci[3]);
 static void     limitYaw                    (struct NedCoor_f *pos, struct FloatEulers* eulerAngles, double cPos[3]);
 
+double AS_WN = 0.0;
+double AS_GC = 0.0;
+double AS_GN = 0.0;
+
 /// Set up swarm parameters ///
+int     settings_as_extended        = AS_EXTENDED;              ///< Enable Velocity Template extension
 int     settings_as_heading_mode    = AS_HEADING_MODE;          ///< Heading/Camera control modus
 double  settings_as_separation      = AS_SEPARATION;            ///< Separation between neighbours
 double  settings_as_lattice_ratio   = AS_LATTICE_RATIO;         ///< Local interactions are bounded within lattice_ratio * separation
+
+int     settings_ignore_local       = AS_IGNORE_LOCAL;          ///< Ignore local component
 
 double  settings_as_e               = AS_E;                     ///< Pinciroli E coefficient
 double  settings_as_eps             = AS_EPS;                   ///< Differential component
@@ -248,7 +267,9 @@ void calculateVelocityResponse(struct NedCoor_f *pos, struct FloatEulers* eulerA
     double li[3]    = {0.0, 0.0, 0.0};                      ///< Local contribution
     double ci[3]    = {0.0, 0.0, 0.0};                      ///< Conflict resolution contribution
     double di[3]    = {0.0, 0.0, 0.0};                      ///< Differential contribution
-    calculateLocalVelocity(pos, li);                        ///< Get the local contribution based on our neighbours
+    if(!settings_ignore_local){
+      calculateLocalVelocity(pos, li);                        ///< Get the local contribution based on our neighbours
+    }
     calculateGlobalVelocity(pos, gi, ci);                   ///< Get the contribution due to the global attractor/field
     double g_coeff  = calculateLocalGlobalCoeff(pos, gi, ci);   ///< Calculate the local-global interaction coefficient
     if (settings_as_heading_mode == AS_CAM_GLOBAL){
@@ -322,27 +343,31 @@ double calculateLocalGlobalCoeff(struct NedCoor_f *pos, double gi[3], double ci[
     //pthread_mutex_lock(&neighbourMem_mutex);
 #endif
     double result = 1.0;
-    if (neighbourMem_size > 0){
-        double w_neighbours[2]  = {0.0, 0.0};                                                                                                                   ///< weighed neighbours vector
+    if(settings_as_extended){
+      if (neighbourMem_size > 0){
+        double w_neighbours[2]  = {0.0, 0.0};                                                                                                           ///< weighed neighbours vector
         for (unsigned int r = 0; r < neighbourMem_size; r++){
-            double range            = hypot( pos->x - neighbourMem[r].x_w, pos->y - neighbourMem[r].y_w );                                                      ///< Range of neighbour
-            if(range < settings_as_separation * settings_as_lattice_ratio){
-                double rel_dist         = fmin( 1.0, ( settings_as_lattice_ratio * settings_as_separation - range )
-                        / ( settings_as_separation * ( settings_as_lattice_ratio - 1 ) ) );                                                                     ///< Relative distance coefficient
-                w_neighbours[0]        += pow( rel_dist, 2.0 ) * ( pos->x - neighbourMem[r].x_w ) / range;                                                      ///< Calculate neighbour contribution to weighed neighbours
-                w_neighbours[1]        += pow( rel_dist, 2.0 ) * ( pos->y - neighbourMem[r].y_w ) / range;
-            }
+          double range            = hypot( pos->x - neighbourMem[r].x_w, pos->y - neighbourMem[r].y_w );                                                ///< Range of neighbour
+          if(range < settings_as_separation * settings_as_lattice_ratio){
+            double rel_dist         = ( settings_as_lattice_ratio * settings_as_separation - range)
+                / ( settings_as_separation * ( settings_as_lattice_ratio - 1 ) );                                                                       ///< Relative distance coefficient
+            w_neighbours[0]        += pow( rel_dist, 2.0 ) * (neighbourMem[r].x_w - pos->x) / range;                                                  ///< Calculate neighbour contribution to weighed neighbours
+            w_neighbours[1]        += pow( rel_dist, 2.0 ) * (neighbourMem[r].y_w - pos->y) / range;
+          }
         }
-        double gi_n             = hypot( gi[0] + ci[0], gi[1] + ci[1]);                                                                                         ///< Norm of global interaction
-        w_neighbours[0] *= gi_n;                                                                                                                                ///< Scale weighed neighbours vector by global contribution
+        double gi_n             = hypot( gi[0] + ci[0], gi[1] + ci[1]);                                                                                 ///< Norm of global interaction
+        w_neighbours[0] *= gi_n;                                                                                                                        ///< Scale weighed neighbours vector by global contribution
         w_neighbours[1] *= gi_n;
-        double c_gi_coef   = ( w_neighbours[0] * (gi[0] + ci[0]) + w_neighbours[1] * (gi[1] + ci[1]) ) / pow( gi_n, 2.0 );                                      ///< dot product between weighed neighbours and global interaction, divided by dot produgt of global interaction and global interaction;
-        result = pow( fmin( 1.0, fmax( 0.0,
-                2.0 - sqrt( pow( (gi[0] + ci[0]) * ( 1 - c_gi_coef), 2.0 ) + pow( (gi[1] + ci[1]) * (1 - c_gi_coef), 2.0 ) ) / gi_n ) ), settings_as_loglo );   ///< Return local-global interaction coefficient
-    }
+        double c_gi_coef = ( w_neighbours[0] * (gi[0] + ci[0]) + w_neighbours[1] * (gi[1] + ci[1]) ) / gi_n;                                            ///< dot product between weighed neighbours and global interaction, divided by dot produgt of global interaction and global interaction;
+        result = pow( fmin( 1.0, fmax( 0.0, (gi_n - c_gi_coef) / gi_n ) ), settings_as_loglo );                                                         ///< Return local-global interaction coefficient
+        AS_GC = result;
+        AS_WN = c_gi_coef;
+        AS_GN = gi_n;
+      }
 #ifdef __linux__
-    //pthread_mutex_unlock(&neighbourMem_mutex);
+      //pthread_mutex_unlock(&neighbourMem_mutex);
 #endif
+    }
     return result;
 }
 
@@ -371,7 +396,7 @@ void calculateGlobalVelocity(struct NedCoor_f *pos, double gi[3], double ci[3]){
     case AS_BUCKET :{
         double cr     = hypot( globalOrigin.cx - pos->x, globalOrigin.cy - pos->y);
         if (cr > settings_as_deadzone){
-            double gScalar      = fmin( settings_as_global_strength * settings_as_vmax, fmax( settings_as_bucket_vmin, settings_as_global_strength * settings_as_vmax * ( 1 - 1 / ( 1 + exp( 6.0 / settings_as_separation * (cr - settings_as_separation ) ) ) ) ) );
+            double gScalar      = fmin( settings_as_global_strength * settings_as_vmax, fmax( settings_as_bucket_vmin, settings_as_global_strength * settings_as_vmax * ( 1 - 1 / ( 1 + exp( 6.0 / settings_as_circle_radius * (cr - settings_as_circle_radius ) ) ) ) ) );
             gi[0]               = gScalar * ( globalOrigin.cx - pos->x ) / cr;
             gi[1]               = gScalar * ( globalOrigin.cy - pos->y ) / cr;
         }
@@ -395,30 +420,34 @@ void calculateGlobalVelocity(struct NedCoor_f *pos, double gi[3], double ci[3]){
     }
     default : break;
     }
-    // Add doublets for all neighbours to enhance conflict resolution
-    double angle_gi = atan2( gi[1], gi[0] );
-    double gi_n     = hypot( gi[0], gi[1] );
-    double u        = 0.0;
-    double v        = 0.0;
+    if(settings_as_extended){
+      // Add doublets for all neighbours to enhance conflict resolution
+      double angle_gi = atan2( gi[1], gi[0] );
+      double gi_n     = hypot( gi[0], gi[1] );
+      double u        = 0.0;
+      double v        = 0.0;
 #ifdef __linux__
-  //pthread_mutex_lock(&neighbourMem_mutex);
+      //pthread_mutex_lock(&neighbourMem_mutex);
 #endif
-    for (uint8_t i=0; i < neighbourMem_size; i++){
+      for (uint8_t i=0; i < neighbourMem_size; i++){
         double r    = hypot(pos->x - neighbourMem[i].x_w , pos->y - neighbourMem[i].y_w);  ///< The range to this neighbour
-        if(r > 0.85 * settings_as_separation){
-            r               = fmax(r, settings_as_separation);
-            double dAngle   = angle_gi - atan2(neighbourMem[i].y_w - pos->y, neighbourMem[i].x_w - pos->x);
-            if (dAngle >  M_PI)     dAngle =  2.0 * M_PI - dAngle;
-            if (dAngle < -M_PI)     dAngle =  2.0 * M_PI + dAngle;
-            u              += gi_n * pow(settings_as_separation, 2.0) * (pow(sin(dAngle), 2.0) - pow(cos(dAngle), 2.0)) / pow( r, 2.0);
-            v              += (2) * gi_n * pow(settings_as_separation, 2.0) * cos(dAngle) * sin(dAngle) / pow( r, 2.0);
+        if(r >= 0.95 * settings_as_separation){
+          double dAngle   = angle_gi - atan2(neighbourMem[i].y_w - pos->y, neighbourMem[i].x_w - pos->x);
+          if (dAngle >  M_PI)     dAngle =  2.0 * M_PI - dAngle;
+          if (dAngle < -M_PI)     dAngle =  2.0 * M_PI + dAngle;
+          u              += gi_n * pow(settings_as_separation, 2.0) * (pow(sin(dAngle), 2.0) - pow(cos(dAngle), 2.0)) / pow( r, 2.0);
+          v              += (2) * gi_n * pow(settings_as_separation, 2.0) * cos(dAngle) * sin(dAngle) / pow( r, 2.0);
         }
-    }
+      }
 #ifdef __linux__
-    //pthread_mutex_unlock(&neighbourMem_mutex);
+      //pthread_mutex_unlock(&neighbourMem_mutex);
 #endif
-    ci[0]           = u * cos(angle_gi) - v * sin(angle_gi);
-    ci[1]           = u * sin(angle_gi) + v * cos(angle_gi);
+      ci[0]           = u * cos(angle_gi) - v * sin(angle_gi);
+      ci[1]           = u * sin(angle_gi) + v * cos(angle_gi);
+    }else{
+      ci[0] = 0.0;
+      ci[1] = 0.0;
+    }
     return;
 }
 

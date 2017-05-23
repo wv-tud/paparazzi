@@ -54,6 +54,7 @@ int32_t  accel_z_avg = 0;
 int32_t z_ideal;
 
 bool  settings_calibration_running  = BEBOP_ACCEL_CALIB_AUTOSTART;
+bool settings_send_accel_neutral = false;
 float settings_calibration_time     = BEBOP_ACCEL_CALIB_MEASURE_TIME;
 static abi_event bebop_accel_ev;
 
@@ -67,6 +68,10 @@ void bebop_accel_calib_init( void ) {
 void bebop_accel_calib_run( uint8_t __attribute__ ((unused)) sender_id, uint32_t stamp, struct Int32Vect3* __attribute__ ((unused)) accel ) {
   static uint32_t runCount = 0;
   static uint32_t prevStamp = 0;
+  if(settings_send_accel_neutral){
+    settings_send_accel_neutral = false;
+    bebop_send_accel_neutral();
+  }
   if(!autopilot.motors_on && settings_calibration_running){
       if( imu.accel_neutral.x || imu.accel_neutral.y || imu.accel_neutral.z){
           imu.accel_neutral.x = 0;
@@ -79,12 +84,13 @@ void bebop_accel_calib_run( uint8_t __attribute__ ((unused)) sender_id, uint32_t
       prevStamp = stamp;
       if(settings_calibration_time < 0.0){
           bebop_set_accel_neutral();
+          accel_x_tot = 0;
+          accel_y_tot = 0;
+          accel_z_tot = 0;
           settings_calibration_running = false;
           settings_calibration_time = BEBOP_ACCEL_CALIB_MEASURE_TIME;
           runCount = 0;
-          char data[200];
-          snprintf(data, 200, "bebob %d ACC (X %d,  Y %d,  Z  %d)", AC_ID, accel_x_avg, accel_y_avg, accel_z_avg - z_ideal);
-          DOWNLINK_SEND_INFO_MSG(DefaultChannel, DefaultDevice, strlen(data), data);
+          bebop_send_accel_neutral();
       } else {
         accel_x_tot += imu.accel_unscaled.x;
         accel_y_tot += imu.accel_unscaled.y;
@@ -95,6 +101,13 @@ void bebop_accel_calib_run( uint8_t __attribute__ ((unused)) sender_id, uint32_t
         accel_z_avg = (int32_t) round( accel_z_tot / ((double) runCount) );
       }
   }
+}
+
+void bebop_send_accel_neutral( void ){
+  char data[200];
+  snprintf(data, 200, "bebob %d ACC (X %d,  Y %d,  Z  %d)", AC_ID, accel_x_avg, accel_y_avg, accel_z_avg - z_ideal);
+  printf("%s\n",data);
+  DOWNLINK_SEND_INFO_MSG(DefaultChannel, DefaultDevice, strlen(data), data);
 }
 
 void bebop_set_accel_neutral( void ){

@@ -118,7 +118,7 @@ void file_logger_periodic(void)
   struct FloatEulers* eulers = stateGetNedToBodyEulers_f();
   fprintf(file_logger, "%d,%f,%f,%d,%d,%d,%d,%d,%d\n",
             counter,
-            magneto_psi_f,
+            //magneto_psi_f,
             eulers->psi,
             ahrs_icq.rate_correction.p,
             ahrs_icq.rate_correction.q,
