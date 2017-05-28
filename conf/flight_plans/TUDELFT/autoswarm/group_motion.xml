@@ -1,6 +1,6 @@
 <!DOCTYPE flight_plan SYSTEM "../../flight_plan.dtd">
 
-<flight_plan alt="1.75" ground_alt="0" lat0="51.990634" lon0="4.376789" max_dist_from_home="25" name="Bebop avoid orange TU Delft Cyberzoo" security_height="1.25">
+<flight_plan alt="1.25" ground_alt="0" lat0="51.990634" lon0="4.376789" max_dist_from_home="25" name="Bebop avoid orange TU Delft Cyberzoo" security_height="1.25">
   <header>
 #include "autopilot.h"
 #include "subsystems/datalink/datalink.h"
@@ -48,13 +48,13 @@
   <blocks>
     <block name="Wait GPS">
     	<call_once fun="setSwarmMode(2)"/> <!--  Look towards global -->
-    	<set var="settings_as_extended" value="1"/>
+    	<set var="settings_as_extended" value="0"/>
     	<set var="settings_as_loglo" value="1.0"/>
-    	<set var="settings_as_vmax" value="4.0"/>
-    	<set var="settings_as_circle_radius" value="2.0"/>
+    	<set var="settings_as_vmax" value="2.0"/>
+    	<set var="settings_as_circle_radius" value="1.25"/>
     	<set var="settings_as_e" value="0.06"/> 
     	<set var="settings_as_separation" value="1.5"/> <!--  2.0m separation -->
-    	<set var="settings_as_global_strength" value="0.75"/> <!--  100% global strength -->
+    	<set var="settings_as_global_strength" value="1.0"/> <!--  100% global strength -->
     	<call_once fun="setGlobalMode(2)"/> <!--  CW global field -->
       <call_once fun="NavKillThrottle()"/>
       <while cond="!GpsFixValid()"/>

@@ -20,16 +20,17 @@
     	<!-- Only one main batter so CATASTROPHIC_BATTERY kill should be somewhat delayed -->
     	<define name="CATASTROPHIC_BATTERY_KILL_DELAY" value="30" unit="s/10"/> <!-- in tenth of seconds for engine kill -->
     
- 		<!--  swarmhub 
+ 		<!--  swarmhub -->
 		<configure name="HOST" value="192.168.40.$(AC_ID)" />
 		<configure name="MODEM_HOST" value="192.168.40.255" />
 		<!--  Baro, Sonar, RTK -->
-		<configure name="USE_BARO_BOARD" value="TRUE" />
-		<configure name="USE_BARO" value="TRUE" />
-		<configure name="USE_SONAR" value="TRUE" />
-		<define name="USE_GPS_UBX_RTCM" value="TRUE" />
-		<!--  Use magneto calib with ICQ AHRS -->
-		<define name="AHRS_ICQ_MAG_ID" value="MAG_CALIB_UKF_ID" />
+		<configure name="USE_BARO_BOARD" value="FALSE" />
+		<configure name="USE_MAGNETOMETER" value="FALSE" />
+		<configure name="USE_BARO" value="FALSE" />
+		<configure name="USE_SONAR" value="FALSE" />
+		<define name="USE_GPS_UBX_RTCM" value="FALSE" />
+		<!--  Use magneto calib with ICQ AHRS 
+		<define name="AHRS_ICQ_MAG_ID" value="MAG_CALIB_UKF_ID" /> -->
 		<!-- Still to be tested
 		<configure name="USE_HFF" value="true" />
 		<configure name="HFF_ACCEL_NOISE" value="0.75" /> 
@@ -42,48 +43,39 @@
 		<define name="MT9F002_OUTPUT_WIDTH" value="960" /> <!-- 480 / 960 / 1920 / 3840 -->
 		<define name="MT9F002_OUTPUT_HEIGHT" value="1656" /> <!-- 414 / 828 / 1656 / 3312 -->
 		<define name="MT9F002_TARGET_FPS" value="25" />
-		<define name="MT9F002_TARGET_EXPOSURE" value="0.5" />
-		<define name="MT9F002_GAIN_GREEN1" value="2.0" />
-		<define name="MT9F002_GAIN_GREEN2" value="2.0" />
-		<define name="MT9F002_GAIN_RED" value="2.3" />
-		<define name="MT9F002_GAIN_BLUE" value="2.8" />
+		<define name="MT9F002_TARGET_EXPOSURE" value="30" />
+		<define name="MT9F002_GAIN_GREEN1" value="10.0" />
+		<define name="MT9F002_GAIN_GREEN2" value="10.0" />
+		<define name="MT9F002_GAIN_RED" value="13.1" />
+		<define name="MT9F002_GAIN_BLUE" value="17.0" />
 		<!-- Subsystem section -->
 		<module name="telemetry" type="transparent_udp" />
 		<module name="radio_control" type="datalink" />
 		<module name="motor_mixing" />
 		<module name="actuators" type="bebop" />
 		<module name="imu" type="bebop"/>
-		<module name="gps" type="ublox" />
+		<module name="gps" type="datalink" />
 		<module name="stabilization" type="indi_simple" />
 		<module name="guidance" type="indi" />
 		<module name="ahrs" type="int_cmpl_quat">
-			<define name="AHRS_MAG_OMEGA" value="0.2"/>
-      		<define name="AHRS_MAG_ZETA" value="0.9"/>
-      		<define name="AHRS_BIAS_UPDATE_HEADING_THRESHOLD" value="2.5"/>
-      		<configure name="AHRS_USE_MAGNETOMETER" value="TRUE"/>
-      		<define name="AHRS_MAG_UPDATE_ALL_AXES" value="FALSE" />
-      		<define name="AHRS_USE_GPS_HEADING" value="FALSE" />
-      		<define name="AHRS_GRAVITY_UPDATE_COORDINATED_TURN" value="FALSE" />
-      		<!-- <define name="AHRS_PROPAGATE_LOW_PASS_RATES" value="FALSE" />  -->
+      		<configure name="AHRS_USE_MAGNETOMETER" value="FALSE"/>
+      		<define name="AHRS_USE_GPS_HEADING" value="TRUE" />
       		<define name="AHRS_GRAVITY_HEURISTIC_FACTOR" value="0" />
-      		<!-- <define name="AHRS_FC_IMU_ID" value="ABI_BROADCAST" />
-      		<define name="AHRS_FC_MAG_ID" value="ABI_BROADCAST" />
-      		<define name="AHRS_FC_GPS_ID" value="GPS_MULTI_ID" />-->
 		</module>
 		<module name="ins" type="extended" />
 	</firmware>
 	<!-- Modules -->
 	<modules main_freq="512">
-		<module name="gps_ubx_ucenter"/>
+		<!-- <module name="gps_ubx_ucenter"/> -->
 		<module name="bebop_accel_calib_flat" />
-		<module name="mag_calib_ukf" />
-		<module name="geo_mag" />
-		<module name="air_data" />
-		<module name="send_imu_mag_current" />
+		<!-- <module name="mag_calib_ukf" /> -->
+		<!-- <module name="geo_mag" /> -->
+		<!-- <module name="air_data" /> -->
+		<!-- <module name="send_imu_mag_current" /> -->
 		<module name="logger_file">
 			<define name="FILE_LOGGER_PATH" value="/data/ftp/internal_000" />
 		</module>
-		<module name="nav_rotorcraft_shake_throw"/>
+		<!-- <module name="nav_rotorcraft_shake_throw"/> -->
 		<!-- Modules for swarming -->
 		<module name="pose_history">
 			<define name="POSE_HISTORY_SIZE" value="128" />
@@ -93,19 +85,16 @@
 		</module>
 		<!-- Vision pipeline -->
 		<module name="video_thread" />
-		<module name="cv_image_pose"/>
+		<module name="cv_image_pose" />
 		<module name="cv_ae_awb">
-		  	<define name="CV_AE_AWB_VERBOSE" value="FALSE" />
-			<define name="CV_AE_MIDDLE_INDEX" value="90" />
-			<define name="CV_AE_EXPOSURE_GAIN" value="0.15" />
-			<define name="CV_AE_DARK_IGNORE" value="0.45" />
-			<define name="CV_AE_BRIGHT_IGNORE" value="0.45" />
-			<define name="CV_AE_DARK_BINS" value="15" />
-			<define name="CV_AE_BRIGHT_BINS" value="15" />
-			<define name="CV_AE_AWB_GAIN_SCHEDULING" value="0" />
-			<define name="CV_AE_AWB_OFFSET_U" value="2" />
-			<define name="CV_AE_AWB_OFFSET_V" value="-2" />
-			<define name="CV_AE_AWB_GAIN" value="0.05" />
+		  <define name="CV_AE_AWB_VERBOSE" value="FALSE" />
+		  <define name="CV_AE_MIDDLE_INDEX" value="95" />
+		  <define name="CV_AE_EXPOSURE_GAIN" value="2.5" />
+		  <define name="CV_AE_DARK_IGNORE" value="0.98" />
+		  <define name="CV_AE_BRIGHT_IGNORE" value="0.25" />
+		  <define name="CV_AE_DARK_BINS" value="55" />
+		  <define name="CV_AE_BRIGHT_BINS" value="40" />
+		  <define name="CV_AE_AWB_GAIN_SCHEDULING" value="0" />
 		</module>
 		<module name="cv_bebop_camera_stabilization"/>
 		<module name="cv_active_random_filter"/>
@@ -113,9 +102,9 @@
 			<configure name="VIEWVIDEO_BROADCAST" value="FALSE" />
 			<define name="VIEWVIDEO_CAMERA" value="front_camera" />
 			<define name="VIEWVIDEO_SHOT_PATH" value="/data/ftp/internal_000" />
-			<define name="VIEWVIDEO_FPS" value="18" />
+			<define name="VIEWVIDEO_FPS" value="20" />
 			<define name="VIEWVIDEO_WRITE_VIDEO" value="FALSE" />
-			<define name="VIEWVIDEO_VIDEO_FILE" value="experiment" />
+			<define name="VIEWVIDEO_VIDEO_FILE" value="experiment_osc_extended" />
 			<define name="VIEWVIDEO_STREAM_VIDEO" value="TRUE" />
 		</module>
 	</modules>
@@ -193,7 +182,7 @@
 		<define name="SONAR_MAX_RANGE" value="2.2" />
 		<define name="SONAR_UPDATE_ON_AGL" value="FALSE" />
 		<define name="USE_GPS_ALT" value="1" />     <!-- Use height from the optitrack -->
-		<!-- <define name="VFF_R_GPS" value="0.01" /> -->   <!-- The optitrack has high accuracy -->
+		<define name="VFF_R_GPS" value="0.01" />   <!-- The optitrack has high accuracy -->
 	</section>
 
 
@@ -230,8 +219,7 @@
 		<define name="G1_P" value="0.05" />
 		<define name="G1_Q" value="0.025" />
 		<define name="G1_R" value="0.0022" />
-		<define name="G2_R" value="0.20" />
-		-->
+		<define name="G2_R" value="0.20" /> -->
 
 		<!-- For the bebop2 we need to filter the roll rate due to the dampers -->
 		<define name="FILTER_ROLL_RATE" value="TRUE" />
@@ -258,7 +246,7 @@
 
 		<!-- Adaptive Learning Rate -->
 		<define name="USE_ADAPTIVE" value="TRUE" />
-		<define name="ADAPTIVE_MU" value="0.00025" />
+		<define name="ADAPTIVE_MU" value="0.0005" />
 
 		<!--Maxium yaw rate, to avoid instability -->
 		<define name="MAX_R" value="120" unit="deg/s" />

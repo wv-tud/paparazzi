@@ -155,12 +155,12 @@ static void             mod_video           (Mat& sourceFrame, Mat& frameGrey);
 uint16_t    default_calArea                     = 7650;                 ///< Area of a ball at 1m resolution on full sensor resolution
 uint8_t     ARF_FLOOD_STYLE                     = ARF_FLOOD_CW;         ///< Flood style to search for contours
 uint8_t     ARF_SAMPLE_STYLE                    = ARF_STYLE_RANDOM;     ///< Sample style to search for contours
-double      ARF_CAM_RANGE                       = 8.0;                  ///< Maximum camera range of newly added objects
+double      ARF_CAM_RANGE                       = 6.0;                  ///< Maximum camera range of newly added objects
 uint16_t    ARF_RND_PIX_SAMPLE                  = 5000;                 ///< Random pixel sample size
 uint16_t    ARF_MAX_LAYERS                      = 5000;                 ///< Maximum recursive depth of CW flood
-double 	    ARF_MAX_CIRCLE_DEF 	                = 0.15;                ///< Maximum contour eccentricity
-double      ARF_MIN_CIRCLE_PERC                 = 0.45;                 ///< Minimum percentage of circle in view
-double      ARF_LARGE_SKIP_FACTOR               = 1.0 / 20.0;           ///< Percentage of length large contours are allowed to snap back to starting pos
+double 	    ARF_MAX_CIRCLE_DEF 	                = 0.11;                ///< Maximum contour eccentricity
+double      ARF_MIN_CIRCLE_PERC                 = 0.55;                 ///< Minimum percentage of circle in view
+double      ARF_LARGE_SKIP_FACTOR               = 1.0 / 10.0;           ///< Percentage of length large contours are allowed to snap back to starting pos
 /** Automatically calculated tracking parameters **/
 uint16_t    ARF_MIN_POINTS;                                             ///< Mimimum contour length
 double      ARF_MIN_CIRCLE_SIZE;                                        ///< Minimum contour area
@@ -190,21 +190,21 @@ uint8_t     ARF_V_MIN                           = 128;                  ///< Min
 uint8_t     ARF_V_MAX                           = 255;                  ///< Maximum V whilst searching and following contours
 int8_t      ARF_GREY_THRES                       = 10;
 /* Cyberzoo */
-uint8_t     ARF_Y_MIN                           = 75;                   ///< Minimum Y whilst searching and following contours
+uint8_t     ARF_Y_MIN                           = 35;                   ///< Minimum Y whilst searching and following contours
 uint8_t     ARF_Y_MAX                           = 255;                  ///< Maximum Y whilst searching and following contours
-uint8_t     ARF_U_MIN                           = 128 - 50;             ///< Minimum U whilst searching and following contours
-uint8_t     ARF_U_MAX                           = 128 + 30;             ///< Maximum U whilst searching and following contours
-uint8_t     ARF_V_MIN                           = 128;                  ///< Minimum V whilst searching and following contours
+uint8_t     ARF_U_MIN                           = 128 - 30;             ///< Minimum U whilst searching and following contours
+uint8_t     ARF_U_MAX                           = 128 + 20;             ///< Maximum U whilst searching and following contours
+uint8_t     ARF_V_MIN                           = 128 - 10;                  ///< Minimum V whilst searching and following contours
 uint8_t     ARF_V_MAX                           = 255;                  ///< Maximum V whilst searching and following contours
-int8_t      ARF_GREY_THRES                      = 2;
+int8_t      ARF_GREY_THRES                      = 5;
 #endif
 
 uint8_t     ARF_MAX_SEARCH_PIXEL_SKIP = 6;                              ///< Maximum nr of false pixels to skip whilst searching upwards for contours
 /** Set up Remaining parameters **/
 double 	    ARF_CROP_X 			                = 1.2;                  ///< Crop margin for blobs when using omni detection
-uint8_t     ARF_MEMORY 			                = 45;                   ///< Frames to keep neighbours in memory
-double      ARF_FPS                             = 20.0;                 ///< Estimated FPS to estimate lost neighbour decay
-double      ARF_VMAX                            = 7.0;                  ///< Maximum estimated velocity of a neighbour (account for some noise)
+uint8_t     ARF_MEMORY 			                = 30;                   ///< Frames to keep neighbours in memory
+double      ARF_FPS                         = 20.0;                 ///< Estimated FPS to estimate lost neighbour decay
+double      ARF_VMAX                        = 7.0;                  ///< Maximum estimated velocity of a neighbour (account for some noise)
 
 /** Initialize parameters to be assigned during runtime **/
 static uint16_t 	        pixCount            = 0;                    ///< Total pixels processed (resets to 0 before each frame)
@@ -1822,15 +1822,33 @@ void mod_video(Mat& sourceFrame, Mat& frameGrey){
 #if ARF_SHOW_CAM_INFO
 	sprintf(text,"Exp: %2.3f / %2.3f  (%3.1f / %d)", mt9f002.real_exposure, mt9f002.target_exposure, ae_current_level, ae_middle_index);
 	putText(sourceFrame, text, Point(10 , 20), FONT_HERSHEY_PLAIN, 1, Scalar(0,255,255), 1);
-	sprintf(text,"R:%4.1f B:%4.1f G:%4.1f", mt9f002.gain_red, mt9f002.gain_blue, mt9f002.gain_green1);
+	sprintf(text,"R:%4.3f B:%4.3f G:%4.3f", mt9f002.gain_red, mt9f002.gain_blue, mt9f002.gain_green1);
 	putText(sourceFrame, text, Point(10 , 40), FONT_HERSHEY_PLAIN, 1, Scalar(0,255,255), 1);
 	sprintf(text,"avgU:%5.2f avgV:%5.2f (%d)", awb_avgU, awb_avgV, awb_nb_pixels);
 	putText(sourceFrame, text, Point(10 , 60), FONT_HERSHEY_PLAIN, 1, Scalar(0,255,255), 1);
 #endif
 	if(settings_as_extended){
-	  sprintf(text,"WN: %6.3f  GN: %6.3f  GC: %5.3f", AS_WN, AS_GN, AS_GC);
+	  sprintf(text,"GC: %5.3f", AS_GC);
 	  putText(sourceFrame, text, Point(10 , 80), FONT_HERSHEY_PLAIN, 1, Scalar(0,255,255), 1);
 	}
+	if(histogram_plot[0] > 0){
+	  for(uint16_t i = MIN_HIST_Y; i < MAX_HIST_Y; i++){
+	    if(i < MIN_HIST_Y + ae_dark_bins){
+	      line(sourceFrame, Point(0, 80 + i - MIN_HIST_Y), Point(round((1 - ae_dark_ignore) * histogram_plot[i] / ((float) histogram_plot[0]) * 2000), 80 + i - MIN_HIST_Y), Scalar(0,255), 1, 4);
+	    }else if(i == MIN_HIST_Y + ae_dark_bins){
+	      line(sourceFrame, Point(0, 80 + i - MIN_HIST_Y), Point(75, 80 + i - MIN_HIST_Y), Scalar(127,127), 1, 4);
+	    }else if(i == MAX_HIST_Y - ae_bright_bins){
+	      line(sourceFrame, Point(0, 80 + i - MIN_HIST_Y), Point(75, 80 + i - MIN_HIST_Y), Scalar(127,127), 1, 4);
+	    }else if(i > MAX_HIST_Y - ae_bright_bins){
+	      line(sourceFrame, Point(0, 80 + i - MIN_HIST_Y), Point(round((1 - ae_bright_ignore) * histogram_plot[i] / ((float) histogram_plot[0]) * 2000), 80 + i - MIN_HIST_Y), Scalar(0,255), 1, 4);
+	    }else if(i == ae_middle_index){
+	      line(sourceFrame, Point(0, 80 + i - MIN_HIST_Y), Point(75, 80 + i - MIN_HIST_Y), Scalar(255,255), 1, 4);
+	    }else{
+	      line(sourceFrame, Point(0, 80 + i - MIN_HIST_Y), Point(round(histogram_plot[i] / ((float) histogram_plot[0]) * 2000), 80 + i - MIN_HIST_Y), Scalar(0,255), 1, 4);
+	    }
+	  }
+	}
+
 #if ARF_SHOW_TOTV
 #ifdef __linux__
   //pthread_mutex_lock(&totV_mutex);

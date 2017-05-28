@@ -131,8 +131,9 @@ struct libisp_config isp_config = {
     .cell_h_inv  = {{ 478 }},
     .alpha       = {{ 0 }},
     .beta        = {{ 0 }},
-    .threshold   = {{ .threshold_r=981, .threshold_g=981, .threshold_b=981 }}, // 1023 - pedestal
-    .gain        = {{ .gain_r = 356, .gain_g = 356, .gain_b = 306 }}, // For AWB
+    .threshold   = {{ .threshold_r=981, .threshold_g=981, .threshold_b=981 }}, // 1023 - pedestal 981
+    /*.gain        = {{ .gain_r = 356, .gain_g = 356, .gain_b = 306 }}, // For AWB inside */
+    .gain        = {{ .gain_r = 256, .gain_g = 256, .gain_b = 256 }}, // For AWB outside
   },
 
   .lsc_red_coeffs = {
@@ -440,15 +441,15 @@ struct libisp_config isp_config = {
   .statistics_yuv = {
     .measure_req           = {{1,1}},
     .measure_status        = {{0,0}},
-    .window_pos_x          = {{ .window_x_start = MT9F002_INITIAL_OFFSET_X, .window_x_end = MT9F002_INITIAL_OFFSET_X + MT9F002_SENSOR_WIDTH }},
-    .window_pos_y          = {{ .window_y_start = MT9F002_INITIAL_OFFSET_Y, .window_y_end = MT9F002_INITIAL_OFFSET_Y + MT9F002_SENSOR_HEIGHT }},
+    .window_pos_x          = {{ .window_x_start = 0, .window_x_end = MT9F002_SENSOR_WIDTH }},
+    .window_pos_y          = {{ .window_y_start = 0, .window_y_end = MT9F002_SENSOR_HEIGHT }},
     .circle_pos_x_center   = {{ CAMERA_H_FISHEYE_CENTER_X }},
     .circle_pos_x_squared  = {{ CAMERA_H_FISHEYE_CENTER_X * CAMERA_H_FISHEYE_CENTER_X }},
     .circle_pos_y_center   = {{ CAMERA_H_FISHEYE_CENTER_Y }},
     .circle_pos_y_squared  = {{ CAMERA_H_FISHEYE_CENTER_Y * CAMERA_H_FISHEYE_CENTER_Y }},
     .circle_radius_squared = {{ (CAMERA_H_FISHEYE_RADIUS - 40) * (CAMERA_H_FISHEYE_RADIUS - 40) }},
     .increments_log2       = {{ 0, 0 }},
-    .awb_threshold         = {{ 33 }},
+    .awb_threshold         = {{ 45 }},
   },
 
   /* Edge enhancement + Color reduction filter */

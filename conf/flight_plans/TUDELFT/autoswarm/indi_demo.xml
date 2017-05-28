@@ -1,0 +1,125 @@
+<!DOCTYPE flight_plan SYSTEM "../../flight_plan.dtd">
+
+<flight_plan alt="1.0" ground_alt="0.0" lat0="51.990634" lon0="4.376789" max_dist_from_home="50" name="UKF Magnetometer Calibration test" security_height="2.0">
+  <header>
+    #include "autopilot.h"
+    #include "subsystems/datalink/datalink.h"
+    #include "subsystems/electrical.h"
+    #include "subsystems/radio_control.h"
+    #include "modules/loggers/file_logger.h"
+  </header>
+  <waypoints>
+    <waypoint name="HOME" 	x="1.0" y="1.0"/>
+    <waypoint name="TD" 	x="1.0" y="1.0"/>
+    <waypoint name="STDBY" 	x="1.0" y="1.0"/>
+    <waypoint name="CLIMB" 	x="1.0" y="0.0"/>
+
+    <waypoint name="p1" lat="51.9906131" lon="4.3767738"/>
+    <waypoint name="p2" lat="51.9906257" lon="4.3768055"/>
+    
+    <waypoint lat="51.9905957" lon="4.3767678" name="CZ1"/>	
+    <waypoint lat="51.9906458" lon="4.3767149" name="CZ2"/>	
+    <waypoint lat="51.9906799" lon="4.3768012" name="CZ3"/>	
+    <waypoint lat="51.9906298" lon="4.3768541" name="CZ4"/>	
+  </waypoints>
+  <sectors>
+    <sector color="red" name="CyberZoo">
+      <corner name="CZ1"/>
+      <corner name="CZ2"/>
+      <corner name="CZ3"/>
+      <corner name="CZ4"/>
+    </sector>
+  </sectors>
+  <exceptions>
+    <!-- RC-Loss -->
+    <!-- GPS loss -->
+    <!-- Not done from flight plan, main.c goes to AP_MODE_FAILSAFE hardcoded -->
+    <!-- Geofence -->
+    <!-- Not done from flight plan -->
+    <!-- Datalink loss -->
+    <exception cond="(datalink_time > 10 &&
+      !(datalink_time > 120) &&
+      !(IndexOfBlock('Takeoff') > nav_block) &&
+      !(nav_block >= IndexOfBlock('land')) &&
+      (autopilot_in_flight() == true) )" deroute="DatalinkLoss"/>
+    <!-- Battery loss -->
+    <exception cond="(electrical.bat_low &&
+    !(IndexOfBlock('Holding point') > nav_block) &&
+    !(nav_block >= IndexOfBlock('land')) &&
+    (autopilot_in_flight() == true) )" deroute="ComeBackAndLand"/>
+    <exception cond="(electrical.bat_critical &&
+    !(IndexOfBlock('Holding point') > nav_block) &&
+    !(nav_block >= IndexOfBlock('land')) &&
+    (autopilot_in_flight() == true) )" deroute="land here"/>
+  </exceptions>
+  <blocks>
+    <block name="Wait GPS">
+      <call_once fun="NavKillThrottle()"/>
+      <while cond="!GpsFixValid()"/>
+    </block>
+    <block name="Geo init">
+      <while cond="LessThan(NavBlockTime(), 10)"/>
+      <call_once fun="NavSetGroundReferenceHere()"/>
+      <call_once fun="file_logger_stop()"/>
+      <call_once fun="file_logger_start()"/>
+    </block>
+    <block name="Holding point">
+      <call_once fun="NavKillThrottle()"/>
+      <attitude pitch="0" roll="0" throttle="0" until="FALSE" vmode="throttle"/>
+    </block>
+    <block name="Start Engine">
+      <call_once fun="NavResurrect()"/>
+      <attitude pitch="0" roll="0" throttle="0" until="FALSE" vmode="throttle"/>
+    </block>
+    <block name="Takeoff" strip_button="Takeoff" strip_icon="takeoff.png">
+      <call_once fun="NavSetWaypointHere(WP_CLIMB)"/>
+      <call_once fun="NavSetWaypointHere(WP_HOME)"/>
+      <call_once fun="NavSetWaypointHere(WP_TD)"/>
+    </block>
+    <block name="Standby" strip_button="Standby" strip_icon="home.png">
+      <call_once fun="NavSetWaypointHere(WP_STDBY)"/>
+      <stay wp="STDBY"/>
+    </block>
+    <block name="Start">
+    	<go wp="p1"/>
+    </block>
+    <block name="Line (p1 - p2)">
+        <go from="p1" hmode="route" wp="p2"/>
+        <stay until="stage_time>3" wp="p2"/>
+        <go from="p2" hmode="route" wp="p1"/>
+        <stay until="stage_time>3" wp="p1"/>
+        <deroute block="Start"/>
+    </block>
+    <block name="Stay p1">
+    	<stay wp="p1"/>
+    </block>
+    <block name="Stay p2">
+    	<stay wp="p2"/>
+    </block>
+    <block name="land here" strip_button="Land Here" strip_icon="land-right.png">
+      <call_once fun="NavSetWaypointHere(WP_TD)"/>
+    </block>
+    <block name="land">
+      <go wp="TD"/>
+    </block>
+    <block name="Flare">
+      <exception cond="LessThan(GetPosAlt(), 0.15)" deroute="Landed"/> <!-- TODO: see if this also works outside optitrack! -->
+      <exception cond="!nav_is_in_flight()" deroute="Landed"/>
+      <call_once fun="NavStartDetectGround()"/>
+      <stay climb="nav_descend_vspeed" vmode="climb" wp="TD"/>
+    </block>
+    <block name="Landed">
+      <call_once fun="NavKillThrottle()"/>
+      <attitude pitch="0" roll="0" throttle="0" until="FALSE" vmode="throttle"/>
+    </block>
+    <block name="ComeBackAndLand">
+      <go wp="HOME"/>
+      <deroute block="land here"/>
+    </block>
+    <block name="DatalinkLoss">
+      <call_once fun="NavSetWaypointHere(WP_TD)"/>
+      <stay until="stage_time>15" wp="TD"/>
+      <deroute block="ComeBackAndLand"/>
+    </block>
+  </blocks>
+</flight_plan>

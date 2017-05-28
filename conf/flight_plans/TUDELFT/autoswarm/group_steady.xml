@@ -48,14 +48,14 @@
   <blocks>
     <block name="Wait GPS">
     	<call_once fun="setSwarmMode(2)"/> <!--  Look towards global -->
-    	<set var="settings_as_extended" value="1"/>
+    	<set var="settings_as_extended" value="0"/>
     	<set var="settings_as_loglo" value="1.0"/>
     	<set var="settings_as_vmax" value="2.0"/>
     	<set var="settings_as_circle_radius" value="1.5"/>
     	<set var="settings_as_e" value="0.06"/> 
     	<set var="settings_as_separation" value="1.5"/> <!--  2.0m separation -->
     	<set var="settings_as_global_strength" value="0.5"/> <!--  100% global strength -->
-    	<call_once fun="setGlobalMode(1)"/> <!--  Point global field -->
+    	<call_once fun="setGlobalMode(1)"/> <!--  Bucket global field -->
       <call_once fun="NavKillThrottle()"/>
       <while cond="!GpsFixValid()"/>
     </block>

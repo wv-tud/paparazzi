@@ -37,8 +37,20 @@ extern uint8_t ae_middle_index;
 extern float ae_bright_ignore;
 extern float ae_dark_ignore;
 extern float ae_current_level;
+extern int8_t awb_offset_u;
+extern int8_t awb_offset_v;
+extern float awb_gain;
+
+extern uint32_t histogram_plot[255];
 
 extern void cv_ae_awb_init(void);
+
+#ifndef MAX_HIST_Y
+#define MAX_HIST_Y 256 - 20
+#endif
+#ifndef MIN_HIST_Y
+#define MIN_HIST_Y 16
+#endif
 
 #endif
 
