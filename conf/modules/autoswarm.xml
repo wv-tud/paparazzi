@@ -43,7 +43,7 @@
     <file name="autoswarm.h"/>
   </header>
   <init fun="autoswarm_init()"/>
-  <periodic fun="autoswarm_run()"/> <!--  freq="30" / autorun="TRUE" -->
+  <periodic fun="autoswarm_run()" freq="64"/><!-- / autorun="TRUE" -->
   <makefile target="ap">
     <file name="autoswarm.c"/>
 

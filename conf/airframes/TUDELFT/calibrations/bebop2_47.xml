@@ -2,9 +2,9 @@
 
 <airframe>
   <section name="IMU" prefix="IMU_">
-		<define name="ACCEL_X_NEUTRAL" value="17"/>
-    	<define name="ACCEL_Y_NEUTRAL" value="-78"/>
-    	<define name="ACCEL_Z_NEUTRAL" value="-308"/>
+		<define name="ACCEL_X_NEUTRAL" value="1"/> <!-- 29/05 -->
+    	<define name="ACCEL_Y_NEUTRAL" value="-44"/>
+    	<define name="ACCEL_Z_NEUTRAL" value="-169"/>
     	
     	<define name="MAG_X_SENS" value="8.32441255621" integer="16"/>
     	<define name="MAG_Y_SENS" value="8.25720085664" integer="16"/>

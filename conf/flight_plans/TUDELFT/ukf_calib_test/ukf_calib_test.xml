@@ -14,6 +14,10 @@
     <waypoint name="CLIMB" x="0.0" y="0.0"/>
     <waypoint name="TD"    x="0.0" y="0.0"/>
     <waypoint name="STDBY" x="-2.0" y="-5.0"/>
+    <waypoint name="_CAM"  x="0.0" y="0.0"/>
+    <waypoint name="GLOBAL"  x="0.0" y="0.0"/>
+    <waypoint name="_TD"  x="0.0" y="0.0"/>
+    <waypoint name="_GOAL"  x="0.0" y="0.0"/>
     
     <waypoint name="p1"    x="-5.0" y="10.0"/>
     <waypoint name="p2"    x="-5.0" y="20.0"/>

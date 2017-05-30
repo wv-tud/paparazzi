@@ -54,7 +54,7 @@ int32_t  accel_z_avg = 0;
 int32_t z_ideal;
 
 bool  settings_calibration_running  = BEBOP_ACCEL_CALIB_AUTOSTART;
-bool settings_send_accel_neutral = false;
+bool settings_send_accel_neutral    = false;
 float settings_calibration_time     = BEBOP_ACCEL_CALIB_MEASURE_TIME;
 static abi_event bebop_accel_ev;
 

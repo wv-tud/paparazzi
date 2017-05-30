@@ -133,7 +133,7 @@ struct libisp_config isp_config = {
     .beta        = {{ 0 }},
     .threshold   = {{ .threshold_r=981, .threshold_g=981, .threshold_b=981 }}, // 1023 - pedestal 981
     /*.gain        = {{ .gain_r = 356, .gain_g = 356, .gain_b = 306 }}, // For AWB inside */
-    .gain        = {{ .gain_r = 256, .gain_g = 256, .gain_b = 256 }}, // For AWB outside
+    .gain        = {{ .gain_r = 400, .gain_g = 256, .gain_b = 256 }}, // For AWB outside
   },
 
   .lsc_red_coeffs = {

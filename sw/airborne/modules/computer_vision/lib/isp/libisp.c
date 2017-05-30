@@ -194,11 +194,32 @@ int configure_isp(struct v4l2_device *dev)
 	avi_isp_statistics_yuv_set_registers(&isp_ctx, &isp_config.statistics_yuv);
 	avi_isp_edge_enhancement_color_reduction_filter_set_registers(&isp_ctx, &isp_config.eecrf);
 	avi_isp_edge_enhancement_color_reduction_filter_ee_lut_set_registers(&isp_ctx, &isp_config.eecrf_lut);
-	avi_isp_chain_yuv_inter_get_registers(&isp_ctx, &isp_config.chain_yuv_inter);
+	avi_isp_chain_yuv_inter_set_registers(&isp_ctx, &isp_config.chain_yuv_inter);
 
 	//close_isp(&isp_ctx);
 
 	return 0;
+}
+
+int reconfigure_isp(struct v4l2_device *dev)
+{
+  if(open_isp_fd(&isp_ctx, dev->fd) < 0)
+    return -1;
+
+  //avi_isp_chain_bayer_inter_set_registers(&isp_ctx, &isp_config.bayer_inter);
+  //avi_isp_pedestal_set_registers(&isp_ctx, &isp_config.pedestal);
+  //avi_isp_green_imbalance_set_registers(&isp_ctx, &isp_config.green_imbalance);
+  //avi_isp_dead_pixel_correction_set_registers(&isp_ctx, &isp_config.dead_pixel_correction);
+  //avi_isp_denoising_set_registers(&isp_ctx, &isp_config.denoising);
+  //avi_isp_statistics_bayer_set_registers(&isp_ctx, &isp_config.statistics_bayer);
+  avi_isp_lens_shading_correction_set_registers(&isp_ctx, &isp_config.lens_shading_correction);
+  //avi_isp_bayer_set_registers(&isp_ctx, &isp_config.bayer);
+  //avi_isp_color_correction_set_registers(&isp_ctx, &isp_config.color_correction);
+  //avi_isp_gamma_corrector_set_registers(&isp_ctx, &isp_config.gamma_corrector);
+  //avi_isp_chroma_set_registers(&isp_ctx, &isp_config.chroma);
+  //avi_isp_statistics_yuv_set_registers(&isp_ctx, &isp_config.statistics_yuv);
+  //avi_isp_edge_enhancement_color_reduction_filter_set_registers(&isp_ctx, &isp_config.eecrf);
+  return 0;
 }
 
 int isp_request_statistics_yuv_window( uint16_t x_start, uint16_t x_end, uint16_t y_start, uint16_t y_end, uint16_t x_odd_inc, uint16_t y_odd_inc ) {

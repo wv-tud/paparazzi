@@ -1,1 +1,19 @@
-./bebop2_30.xml
+<!DOCTYPE airframe SYSTEM "../../airframe.dtd">
+
+<airframe>
+  <section name="IMU" prefix="IMU_">
+		<define name="ACCEL_X_NEUTRAL" value="4"/><!-- 29/05 -->
+    	<define name="ACCEL_Y_NEUTRAL" value="-16"/>
+    	<define name="ACCEL_Z_NEUTRAL" value="-91"/>
+    	
+    	<define name="MAG_X_SENS" value="8.32441255621" integer="16"/>
+    	<define name="MAG_Y_SENS" value="8.25720085664" integer="16"/>
+    	<define name="MAG_Z_SENS" value="8.60009819293" integer="16"/>
+	</section>
+	<section name="STABILIZATION_ATTITUDE_INDI" prefix="STABILIZATION_INDI_">
+		<define name="G1_P" value="0.070755" />
+		<define name="G1_Q" value="0.057855" />
+		<define name="G1_R" value="0.000441" />
+		<define name="G2_R" value="0.345032" />
+	</section>
+</airframe>

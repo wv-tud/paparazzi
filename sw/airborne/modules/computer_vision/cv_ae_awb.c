@@ -238,10 +238,19 @@ struct image_t *cv_ae_awb_periodic(struct image_t *img)
     // so:
     // gain_blue *= |Y| / (|Y| + |U|)  --> ^0.25 in order to make less agressive updates
     // gain_red  *= |Y| / (|Y| + |V|)  --> ^0.25 in order to make less agressive updates
-      mt9f002.gain_blue *= 1 + awb_gain * (yuv_stats.awb_sum_Y / ((float)(yuv_stats.awb_sum_Y + yuv_stats.awb_sum_U - (129 + awb_offset_u) *
+    float blue_adj = (((float) (yuv_stats.awb_sum_Y + awb_offset_u * yuv_stats.awb_nb_grey_pixels)) / ((float)(yuv_stats.awb_sum_Y + yuv_stats.awb_sum_U - (129) *
         yuv_stats.awb_nb_grey_pixels)) - 1);
-      mt9f002.gain_red  *= 1 + awb_gain * (yuv_stats.awb_sum_Y / ((float)(yuv_stats.awb_sum_Y + yuv_stats.awb_sum_V - (129 + awb_offset_v) *
-        yuv_stats.awb_nb_grey_pixels)) - 1);
+    mt9f002.gain_blue *= 1 + awb_gain * blue_adj;
+    if(mt9f002.gain_blue < mt9f002.gain_green1){
+      mt9f002.gain_blue = mt9f002.gain_green1;
+    }
+
+    float red_adj = (((float) (yuv_stats.awb_sum_Y + awb_offset_v * yuv_stats.awb_nb_grey_pixels)) / ((float)(yuv_stats.awb_sum_Y + yuv_stats.awb_sum_V - (129) *
+              yuv_stats.awb_nb_grey_pixels)) - 1);
+    mt9f002.gain_red *= 1 + awb_gain * red_adj;
+    if(mt9f002.gain_red < mt9f002.gain_green1){
+      mt9f002.gain_red = mt9f002.gain_green1;
+    }
     /*
      *          Gain scheduling
      */

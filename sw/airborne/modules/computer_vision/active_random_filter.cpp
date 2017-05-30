@@ -181,15 +181,15 @@ uint8_t     ARF_V_MAX                           = 220;
 uint8_t     ARF_GREY_THRES                      = 0;
 #endif
 #if ARF_OBJECT == ARF_BALL
-/* Daylight
+/* Daylight */
 uint8_t     ARF_Y_MIN                           = 50;                   ///< Minimum Y whilst searching and following contours
-uint8_t     ARF_Y_MAX                           = 255;                  ///< Maximum Y whilst searching and following contours
-uint8_t     ARF_U_MIN                           = 128 - 45;             ///< Minimum U whilst searching and following contours
-uint8_t     ARF_U_MAX                           = 128 + 25;             ///< Maximum U whilst searching and following contours
-uint8_t     ARF_V_MIN                           = 128;                  ///< Minimum V whilst searching and following contours
+uint8_t     ARF_Y_MAX                           = 50;                   ///< Maximum Y whilst searching and following contours
+uint8_t     ARF_U_MIN                           = 128 - 30;             ///< Minimum U whilst searching and following contours
+uint8_t     ARF_U_MAX                           = 128 + 20;             ///< Maximum U whilst searching and following contours
+uint8_t     ARF_V_MIN                           = 128 - 10;             ///< Minimum V whilst searching and following contours
 uint8_t     ARF_V_MAX                           = 255;                  ///< Maximum V whilst searching and following contours
-int8_t      ARF_GREY_THRES                       = 10;
-/* Cyberzoo */
+int8_t      ARF_GREY_THRES                      = 5;
+/* Cyberzoo
 uint8_t     ARF_Y_MIN                           = 35;                   ///< Minimum Y whilst searching and following contours
 uint8_t     ARF_Y_MAX                           = 255;                  ///< Maximum Y whilst searching and following contours
 uint8_t     ARF_U_MIN                           = 128 - 30;             ///< Minimum U whilst searching and following contours
@@ -197,6 +197,7 @@ uint8_t     ARF_U_MAX                           = 128 + 20;             ///< Max
 uint8_t     ARF_V_MIN                           = 128 - 10;                  ///< Minimum V whilst searching and following contours
 uint8_t     ARF_V_MAX                           = 255;                  ///< Maximum V whilst searching and following contours
 int8_t      ARF_GREY_THRES                      = 5;
+*/
 #endif
 
 uint8_t     ARF_MAX_SEARCH_PIXEL_SKIP = 6;                              ///< Maximum nr of false pixels to skip whilst searching upwards for contours

@@ -20,7 +20,7 @@
     	<!-- Only one main batter so CATASTROPHIC_BATTERY kill should be somewhat delayed -->
     	<define name="CATASTROPHIC_BATTERY_KILL_DELAY" value="30" unit="s/10"/> <!-- in tenth of seconds for engine kill -->
     
- 		<!--  swarmhub 
+ 		<!--  swarmhub -->
 		<configure name="HOST" value="192.168.40.$(AC_ID)" />
 		<configure name="MODEM_HOST" value="192.168.40.255" />
 		<!--  Baro, Sonar, RTK -->
@@ -45,8 +45,8 @@
 		<define name="MT9F002_TARGET_EXPOSURE" value="0.5" />
 		<define name="MT9F002_GAIN_GREEN1" value="2.0" />
 		<define name="MT9F002_GAIN_GREEN2" value="2.0" />
-		<define name="MT9F002_GAIN_RED" value="2.3" />
-		<define name="MT9F002_GAIN_BLUE" value="2.8" />
+		<define name="MT9F002_GAIN_RED" value="2.7" />
+		<define name="MT9F002_GAIN_BLUE" value="3.0" />
 		<!-- Subsystem section -->
 		<module name="telemetry" type="transparent_udp" />
 		<module name="radio_control" type="datalink" />
@@ -75,7 +75,7 @@
 	<!-- Modules -->
 	<modules main_freq="512">
 		<module name="gps_ubx_ucenter"/>
-		<module name="bebop_accel_calib_flat" />
+		<module name="bebop_accel_calib_flat"/>
 		<module name="mag_calib_ukf" />
 		<module name="geo_mag" />
 		<module name="air_data" />
@@ -93,6 +93,7 @@
 		</module>
 		<!-- Vision pipeline -->
 		<module name="video_thread" />
+		<module name="cv_isp_config"/>
 		<module name="cv_image_pose"/>
 		<module name="cv_ae_awb">
 		  	<define name="CV_AE_AWB_VERBOSE" value="FALSE" />
@@ -103,9 +104,9 @@
 			<define name="CV_AE_DARK_BINS" value="15" />
 			<define name="CV_AE_BRIGHT_BINS" value="15" />
 			<define name="CV_AE_AWB_GAIN_SCHEDULING" value="0" />
-			<define name="CV_AE_AWB_OFFSET_U" value="2" />
-			<define name="CV_AE_AWB_OFFSET_V" value="-2" />
-			<define name="CV_AE_AWB_GAIN" value="0.05" />
+			<define name="CV_AE_AWB_OFFSET_U" value="0" />
+			<define name="CV_AE_AWB_OFFSET_V" value="0" />
+			<define name="CV_AE_AWB_GAIN" value="1.00" />
 		</module>
 		<module name="cv_bebop_camera_stabilization"/>
 		<module name="cv_active_random_filter"/>
@@ -114,9 +115,9 @@
 			<define name="VIEWVIDEO_CAMERA" value="front_camera" />
 			<define name="VIEWVIDEO_SHOT_PATH" value="/data/ftp/internal_000" />
 			<define name="VIEWVIDEO_FPS" value="18" />
-			<define name="VIEWVIDEO_WRITE_VIDEO" value="FALSE" />
-			<define name="VIEWVIDEO_VIDEO_FILE" value="experiment" />
-			<define name="VIEWVIDEO_STREAM_VIDEO" value="TRUE" />
+			<define name="VIEWVIDEO_WRITE_VIDEO" value="TRUE" />
+			<define name="VIEWVIDEO_VIDEO_FILE" value="outside_experiment" />
+			<define name="VIEWVIDEO_STREAM_VIDEO" value="FALSE" />
 		</module>
 	</modules>
 	<!-- Misc. settings -->
@@ -137,20 +138,20 @@
 	<section name="MAG_CALIB_UKF" prefix="MAG_CALIB_UKF_">
 		<define name="HOTSTART" value="TRUE"/>
     	<define name="HOTSTART_SAVE_FILE" value="/data/ftp/internal_000/mag_ukf_calib.txt"/>
-    	<define name="CLEAN_START" value="FALSE"/>
+    	<define name="CLEAN_START" value="TRUE"/>
     	<define name="VERBOSE" value="FALSE"/>
 	</section>
 	
 	<section name="NAV_RC_SHAKE_THROW" prefix="NAV_RC_SHAKE_THROW_">
-      <define name="GOTO_BLOCK" value="Standby"/>
+      <define name="GOTO_BLOCK" value="Swarm"/>
       <define name="RESET_BLOCK" value="Landed"/>
-      <define name="DEBUG_NO_FLIGHT" value="TRUE"/>
+      <define name="DEBUG_NO_FLIGHT" value="FALSE"/>
       <define name="LAUNCH_REQUIREMENTS" value="GpsFixValid() && autopilot_get_mode() == AP_MODE_NAV"/>
   	</section>
 
 	<section name="BEBOP_ACCEL_CALIB_FLAT" prefix="BEBOP_ACCEL_CALIB_">
 		<define name="AUTOSTART" value="FALSE" />
-		<define name="MEASURE_TIME" value="30" />
+		<define name="MEASURE_TIME" value="60.0" />
 	</section>
 
 	<section name="MIXING" prefix="MOTOR_MIXING_">
@@ -248,8 +249,8 @@
 
 		<!-- second order filter parameters -->
 		<define name="ESTIMATION_FILT_CUTOFF" value="4.0" />
-		<define name="FILT_CUTOFF" value="2.75" />
-		<define name="FILT_CUTOFF_P" value="2.75" />
+		<define name="FILT_CUTOFF" value="5.0" />
+		<define name="FILT_CUTOFF_P" value="5.0" />
 
 		<!-- first order actuator dynamics (indi_simple) -->
 		<define name="ACT_DYN_P" value="0.06" />
