@@ -154,7 +154,13 @@ static void *video_thread_function(void *data)
     cv_run_device(vid, &img);
 
     // Free the image
-    v4l2_image_free(vid->thread.dev, &img);
+#if USE_H264
+    if(vid != &front_camera){
+#endif
+      v4l2_image_free(vid->thread.dev, &img);
+#if USE_H264
+    }
+#endif
   }
 
   image_free(&img_color);

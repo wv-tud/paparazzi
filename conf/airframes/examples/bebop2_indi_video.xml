@@ -19,10 +19,15 @@
 	<!-- Camera parameters -->
 	<define name="USE_H264" value="TRUE" />
 	<define name="H264_ROTATE" value="TRUE" />
+	
+	<define name="MT9F002_SENSOR_HEIGHT" value="3312-800" />
+	<define name="MT9F002_OUTPUT_HEIGHT" value="1656-400" /> <!-- 414 / 828 / 1656 / 3312 -->
+	<define name="MT9F002_INITIAL_OFFSET_Y" value="400" /> <!-- 0 min-offset -->
+	
 	<define name="MT9F002_SENSOR_WIDTH" value="1920" />
 	<define name="MT9F002_OUTPUT_WIDTH" value="960" /> <!-- 480 / 960 / 1920 / 3840 -->
-	<define name="MT9F002_OUTPUT_HEIGHT" value="1656" /> <!-- 414 / 828 / 1656 / 3312 -->
 	<define name="MT9F002_INITIAL_OFFSET_X" value="960+384" /> <!-- 384 min-offset -->
+	
 	<define name="MT9F002_TARGET_FPS" value="25" />
 	<define name="MT9F002_TARGET_EXPOSURE" value="30" />
 	<define name="MT9F002_GAIN_GREEN1" value="10.0" />
@@ -61,7 +66,7 @@
 	<module name="cv_ae_awb">
 		<define name="CV_AE_AWB_VERBOSE" value="FALSE" />
 		<define name="CV_AE_MIDDLE_INDEX" value="110" />
-		<define name="CV_AE_EXPOSURE_GAIN" value="1.0" />
+		<define name="CV_AE_EXPOSURE_GAIN" value="0.1" />
 		<define name="CV_AE_DARK_IGNORE" value="0.4" />
 		<define name="CV_AE_BRIGHT_IGNORE" value="0.4" />
 		<define name="CV_AE_DARK_BINS" value="45" />
@@ -76,7 +81,8 @@
 		<define name="VIEWVIDEO_CAMERA2" value="bottom_camera" />
 		<define name="VIEWVIDEO_SHOT_PATH" value="/data/ftp/internal_000" />
 		<define name="VIEWVIDEO_FPS" value="20" />
-		<define name="VIEWVIDEO_VIDEO_FILE" value="experiment_group_motion" />
+		<define name="VIEWVIDEO_H264_BITRATE" value="0.5" />
+		<define name="VIEWVIDEO_VIDEO_FILE" value="video_file" />
 	</module>
   </modules>
 

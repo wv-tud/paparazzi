@@ -34,7 +34,7 @@
 #include "modules/computer_vision/cv.h"
 
 #if defined BOARD_BEBOP && !defined USE_H264
-#define USE_H264 TRUE
+#define USE_H264 FALSE
 #endif
 PRINT_CONFIG_VAR(USE_H264)
 
