@@ -45,6 +45,9 @@ extern struct viewvideo_t viewvideo;
 
 // Module functions
 extern void viewvideo_init(void);
+extern void viewvideo_stop_recording( void );
+extern void viewvideo_start_recording( void );
+extern bool viewvideo_recording;
 
 #endif /* VIEW_VIDEO_H */
 

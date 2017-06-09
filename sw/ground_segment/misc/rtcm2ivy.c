@@ -44,6 +44,8 @@
 #include "std.h"
 #include "serial_port.h"
 
+void UbxSend_CFG_TMODE3(uint8_t ubx_version, uint8_t ubx_res1, uint16_t ubx_flags, int32_t ubx_ececfxorlat, int32_t ubx_ececfyorlon, int32_t ubx_ececfzoralt, int8_t ubx_ececfxorlathp, int8_t ubx_ececfyorlonhp, int8_t ubx_ececfzoralthp, uint8_t ubx_res2, uint32_t ubx_fixedposacc, uint32_t ubx_svinmindur, uint32_t ubx_svinacclimit, uint32_t ubx_res3, uint32_t ubx_res4);
+
 /** Used variables **/
 struct SerialPort *serial_port;
 
@@ -62,6 +64,12 @@ char *serial_device   = "/dev/ttyACM0";
 uint32_t serial_baud  = B9600;
 uint32_t packet_size  = 100;    // 802.15.4 (Series 1) XBee 100 Bytes payload size
 uint32_t ivy_size     = 0;
+uint16_t min_dur_s    = 240;
+uint16_t min_acc_mm   = 250;
+bool svin = false;
+
+/* For sending ubx msg to ground station gps */
+uint8_t send_ck_a, send_ck_b;
 
 #define PACKET_MAX_SIZE	512
 #define IVY_MSG_HEAD    "rtcm2ivy RTCM_INJECT"
@@ -244,6 +252,9 @@ void print_usage(int argc __attribute__((unused)), char **argv)
     "   -v, --verbose             Verbosity enabled\n"
     "   -l, --logger              Save RTCM3 messages to log\n\n"
 
+    "   -s, --survey-in           Enable survey-in mode, uses <time> and <accuracy>\n"
+    "   -t <time>                 Minimum survey-in time in seconds\n"
+    "   -a <accuracy>             Minimum survey-in accuracy in milimeters\n"
     "   -d <device>               The GPS device(default: /dev/ttyACM0)\n"
     "   -b <baud_rate>            The device baud rate(default: B9600)\n"
     "   -p <packet_size>          The payload size (default:100, max:4146))\n\n";
@@ -256,7 +267,7 @@ int main(int argc, char **argv)
 
   // Parse the options from cmdline
   char c;
-  while ((c = getopt(argc, argv, "hvlp:d:b:i:")) != EOF) {
+  while ((c = getopt(argc, argv, "hvlst:a:p:d:b:i:")) != EOF) {
     switch (c) {
       case 'h':
         print_usage(argc, argv);
@@ -268,9 +279,15 @@ int main(int argc, char **argv)
       case 'l':
         logger = TRUE;
         break;
-      case 'd':
-        serial_device = optarg;
-        break;
+      case 's':
+          svin = TRUE;
+          break;
+      case 't':
+          min_dur_s = atoi(optarg);
+          break;
+      case 'a':
+          min_acc_mm = atoi(optarg);
+          break;
       case 'p':
         packet_size = atoi(optarg);
         ivy_size = packet_size + strlen(IVY_MSG_HEAD) + 5;  // Header+blank+(000..255)packetId+blank
@@ -279,6 +296,9 @@ int main(int argc, char **argv)
           exit(EXIT_FAILURE);
         }
         break;
+      case 'd':
+          serial_device = optarg;
+          break;
       case 'b':
         serial_baud = atoi(optarg);
         break;
@@ -286,7 +306,7 @@ int main(int argc, char **argv)
         ac_id = atoi(optarg);
         break;
       case '?':
-        if (optopt == 'p' || optopt == 'd' || optopt == 'b' || optopt == 'i') {
+        if (optopt == 'p' || optopt == 'd' || optopt == 'b' || optopt == 'i' || optopt == 't' || optopt == 'a') {
           fprintf(stderr, "Option -%c requires an argument.\n", optopt);
         } else if (isprint(optopt)) {
           fprintf(stderr, "Unknown option `-%c'.\n", optopt);
@@ -329,9 +349,116 @@ int main(int argc, char **argv)
   GIOChannel *sk = g_io_channel_unix_new(serial_port->fd);
   g_io_add_watch(sk, G_IO_IN, parse_device_data, NULL);
 
+  // Configuring the chip for TMODE3 (svin parameters)
+  if(svin){
+      //  uint16_t ubx_flags;
+      uint8_t lla = 1;                              ///< 0: ECEF,  1: LLA
+      uint8_t mode = 1;                             ///< 0: Disabled,  1: Suvery-in  2: Fixed mode
+      uint16_t ubx_flags = (lla<<8)+mode;           // FIXME : mind the reserve bytes get shifted
+      uint32_t svinacclimit = min_acc_mm * 10;    ///< Minimum accuracy in 1000 mm
+      uint32_t svinmindur = min_dur_s;              ///< Minimum duration in seconds
+      UbxSend_CFG_TMODE3(0,0, ubx_flags,0,0,0,0,0,0,0,0,svinmindur,svinacclimit,0,0);
+  }
+
   // Run the main loop
   printf_debug("Started rtcm2ivy for aircraft id %d!\n", ac_id);
   g_main_loop_run(ml);
 
   return 0;
+}
+
+uint8_t uart_write(uint8_t *p);
+void ubx_send_bytes(uint8_t len, uint8_t *bytes);
+void ubx_send_1byte(uint8_t byte);
+void ubx_trailer(void);
+void ubx_header(uint8_t nav_id, uint8_t msg_id, uint16_t len);
+
+#define UBX_CFG_MSG_ID 0x01
+#define UBX_CFG_ID 0x06
+#define UBX_CFG_TMODE3_ID 0x71
+
+static inline void UbxSend_CFG_MSG(uint8_t ubx_class, uint8_t ubx_msgid, uint8_t ubx_rate) {
+  ubx_header(UBX_CFG_ID, UBX_CFG_MSG_ID, 3);
+  uint8_t _class = ubx_class;
+  ubx_send_bytes(1, (uint8_t*)&_class);
+  uint8_t _msgid = ubx_msgid;
+  ubx_send_bytes( 1, (uint8_t*)&_msgid);
+  uint8_t _rate = ubx_rate;
+  ubx_send_bytes( 1, (uint8_t*)&_rate);
+  ubx_trailer();
+}
+// Configuring the ground station survery in parameters.
+void UbxSend_CFG_TMODE3(uint8_t ubx_version, uint8_t ubx_res1, uint16_t ubx_flags, int32_t ubx_ececfxorlat, int32_t ubx_ececfyorlon, int32_t ubx_ececfzoralt, int8_t ubx_ececfxorlathp, int8_t ubx_ececfyorlonhp, int8_t ubx_ececfzoralthp, uint8_t ubx_res2, uint32_t ubx_fixedposacc, uint32_t ubx_svinmindur, uint32_t ubx_svinacclimit, uint32_t ubx_res3, uint32_t ubx_res4) {
+
+   ubx_header(UBX_CFG_ID, UBX_CFG_TMODE3_ID, 40);
+   uint8_t _version = ubx_version;              ubx_send_bytes(1, (uint8_t*)&_version);
+   uint8_t _res1 = ubx_res1;                    ubx_send_bytes(1, (uint8_t*)&_res1);
+   uint16_t _flags = ubx_flags;                 ubx_send_bytes(2, (uint8_t*)&_flags);
+   int32_t _ececfxorlat = ubx_ececfxorlat;      ubx_send_bytes(4, (uint8_t*)&_ececfxorlat);
+   int32_t _ececfyorlon = ubx_ececfyorlon;      ubx_send_bytes(4, (uint8_t*)&_ececfyorlon);
+   int32_t _ececfzoralt = ubx_ececfzoralt;      ubx_send_bytes(4, (uint8_t*)&_ececfzoralt);
+   int8_t _ececfxorlathp = ubx_ececfxorlathp;   ubx_send_bytes(1, (uint8_t*)&_ececfxorlathp);
+   int8_t _ececfyorlonhp = ubx_ececfyorlonhp;   ubx_send_bytes(1, (uint8_t*)&_ececfyorlonhp);
+   int8_t _ececfzoralthp = ubx_ececfzoralthp;   ubx_send_bytes(1, (uint8_t*)&_ececfzoralthp);
+   uint8_t _res2 = ubx_res2;                    ubx_send_bytes(1, (uint8_t*)&_res2);
+   uint32_t _fixedposacc = ubx_fixedposacc;     ubx_send_bytes(4, (uint8_t*)&_fixedposacc);
+   uint32_t _svinmindur = ubx_svinmindur;       ubx_send_bytes(4, (uint8_t*)&_svinmindur);
+   uint32_t _svinacclimit = ubx_svinacclimit;   ubx_send_bytes(4, (uint8_t*)&_svinacclimit);
+   uint32_t _res3 = ubx_res3;                   ubx_send_bytes(4, (uint8_t*)&_res3);
+   uint32_t _res4 = ubx_res4;                   ubx_send_bytes(4, (uint8_t*)&_res4); // 8 seperate bytes
+   ubx_trailer();
+}
+
+void ubx_header(uint8_t nav_id, uint8_t msg_id, uint16_t len) // writes the first six bytes of ubx msg package
+{
+    uint8_t sync1 = UBX_PREAMBLE1;
+    uint8_t sync2 = UBX_PREAMBLE2;
+    uart_write(&sync1);
+    uart_write(&sync2);
+    send_ck_a = 0;
+    send_ck_b = 0;
+    ubx_send_1byte(nav_id);
+    ubx_send_1byte(msg_id);
+    ubx_send_1byte((uint8_t)(len&0xFF));
+    ubx_send_1byte((uint8_t)(len>>8));
+}
+
+void ubx_trailer(void)
+{
+    uart_write(&send_ck_a);
+    uart_write(&send_ck_b);
+}
+
+void ubx_send_1byte(uint8_t byte)
+{
+    uart_write(&byte);
+    send_ck_a = send_ck_a + byte;
+    send_ck_b = send_ck_b + send_ck_a;
+}
+
+void ubx_send_bytes(uint8_t len, uint8_t *bytes)
+{
+    int i;
+    for (i = 0; i < len; i++) {
+        ubx_send_1byte(bytes[i]);
+    }
+}
+
+uint8_t uart_write(uint8_t *p)
+{
+//  printf("Size of the buffer: %i, Buffer content:%0x \n",sizeof(*p),*p);
+//    unsigned char buff1 = *p;
+//    printf("Content in buffer: %0x \n", buff1);
+    int ret = 0;
+    do{
+        ret = write( serial_port->fd, p, 1);
+//      serial_port_flush_output(serial_port->fd);
+      } while(ret < 1 && errno == EAGAIN); //FIXME: max retry
+
+    if(ret > 0){
+        printf ("Byte content: 0x%X \n", *p);
+        return ret;
+    }
+    else
+        return 0;
 }

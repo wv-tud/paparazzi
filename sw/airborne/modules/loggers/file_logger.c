@@ -31,11 +31,22 @@
 
 #include "subsystems/imu.h"
 #include "firmwares/rotorcraft/stabilization.h"
+#include "firmwares/rotorcraft/guidance/guidance_indi.h"
 #include "state.h"
+#include "subsystems/actuators.h"
+#include "generated/modules.h"
 
 /** Set the default File logger path to the USB drive */
 #ifndef FILE_LOGGER_PATH
 #define FILE_LOGGER_PATH /data/video/usb
+#endif
+
+#ifndef FILE_LOGGER_DATETIME_NAME
+#define FILE_LOGGER_DATETIME_NAME 0
+#endif
+
+#if FILE_LOGGER_DATETIME_NAME
+#include <time.h>
 #endif
 
 /** The file pointer */
@@ -48,21 +59,40 @@ void file_logger_start(void)
   char filename[512];
 
   // Check for available files
+#if FILE_LOGGER_DATETIME_NAME
+  time_t timer;
+  char date_buffer[26];
+  struct tm* tm_info;
+  timer = time(NULL);
+  tm_info = localtime(&timer);
+  strftime(date_buffer, 26, "%Y_%m_%d__%H_%M_%S", tm_info);
+  sprintf(filename, "%s/%s_%05d.csv", STRINGIFY(FILE_LOGGER_PATH), date_buffer, counter);
+  while ((file_logger = fopen(filename, "r"))) {
+    fclose(file_logger);
+    counter++;
+    sprintf(filename, "%s/%s_%05d.csv", STRINGIFY(FILE_LOGGER_PATH), date_buffer, counter);
+  }
+  file_logger = fopen(filename, "w");
+#else
   sprintf(filename, "%s/%05d.csv", STRINGIFY(FILE_LOGGER_PATH), counter);
   while ((file_logger = fopen(filename, "r"))) {
     fclose(file_logger);
-
     counter++;
     sprintf(filename, "%s/%05d.csv", STRINGIFY(FILE_LOGGER_PATH), counter);
   }
-
   file_logger = fopen(filename, "w");
-
+#endif
+  uint8_t max_retries = 10;
+  uint8_t cur_try = 0;
+  while(file_logger == NULL && cur_try < max_retries){
+	  cur_try++;
+  }
   if (file_logger != NULL) {
     fprintf(
       file_logger,
       "counter,gyro_unscaled_p,gyro_unscaled_q,gyro_unscaled_r,accel_unscaled_x,accel_unscaled_y,accel_unscaled_z,mag_unscaled_x,mag_unscaled_y,mag_unscaled_z,COMMAND_THRUST,COMMAND_ROLL,COMMAND_PITCH,COMMAND_YAW,qi,qx,qy,qz\n"
     );
+    logger_file_file_logger_periodic_status = MODULES_RUN;
   }
 }
 
@@ -73,6 +103,7 @@ void file_logger_stop(void)
     fclose(file_logger);
     file_logger = NULL;
   }
+  logger_file_file_logger_periodic_status = MODULES_IDLE;
 }
 
 /** Log the values to a csv file */

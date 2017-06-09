@@ -53,8 +53,8 @@ PRINT_CONFIG_MSG("Gyro/Accel output rate is 100Hz at 1kHz internal sampling")
  * Gyroscope: Bandwidth 256Hz, Delay 0.98ms sampling 8kHz
  */
 #define BEBOP_LOWPASS_FILTER MPU60X0_DLPF_256HZ
-#define BEBOP_SMPLRT_DIV 3
-PRINT_CONFIG_MSG("Gyro/Accel output rate is 2kHz at 8kHz internal sampling")
+#define BEBOP_SMPLRT_DIV 1
+PRINT_CONFIG_MSG("Gyro/Accel output rate is 1kHz at 8kHz internal sampling")
 #endif
 #endif
 PRINT_CONFIG_VAR(BEBOP_SMPLRT_DIV)
@@ -87,7 +87,7 @@ void imu_bebop_init(void)
   //the magnetometer of the bebop2 is located on the gps board,
   //which is under a slight angle
   struct FloatEulers imu_to_mag_eulers =
-  { 0.0, RadOfDeg(8.5), M_PI };
+  { 0.0, RadOfDeg(8.5), 0.0 };
   orientationSetEulers_f(&imu_to_mag_bebop, &imu_to_mag_eulers);
 #endif
 }
@@ -137,7 +137,7 @@ void imu_bebop_event(void)
 #if BEBOP_VERSION2
     struct Int32Vect3 mag_temp;
     // In the second bebop version the magneto is turned 90 degrees
-    VECT3_ASSIGN(mag_temp, imu_bebop.ak.data.vect.x, imu_bebop.ak.data.vect.y, imu_bebop.ak.data.vect.z);
+    VECT3_ASSIGN(mag_temp, -imu_bebop.ak.data.vect.x, -imu_bebop.ak.data.vect.y, imu_bebop.ak.data.vect.z);
     // Rotate the magneto
     struct Int32RMat *imu_to_mag_rmat = orientationGetRMat_i(&imu_to_mag_bebop);
     int32_rmat_vmult(&imu.mag_unscaled, imu_to_mag_rmat, &mag_temp);

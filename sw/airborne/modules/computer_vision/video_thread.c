@@ -66,7 +66,13 @@ PRINT_CONFIG_VAR(VIDEO_THREAD_NICE_LEVEL)
 #endif
 PRINT_CONFIG_VAR(VIDEO_THREAD_MAX_CAMERAS)
 
-static struct video_config_t *cameras[VIDEO_THREAD_MAX_CAMERAS] = {NULL};
+#ifndef VIDEO_THREAD_VERBOSE
+#define VIDEO_THREAD_VERBOSE 0
+#endif
+
+#define printf_debug    if(VIDEO_THREAD_VERBOSE > 0) printf
+
+struct video_config_t *cameras[VIDEO_THREAD_MAX_CAMERAS];
 
 // Main thread
 static void *video_thread_function(void *data);
@@ -137,26 +143,15 @@ static void *video_thread_function(void *data)
       if (dt_us < fps_period_us) {
         usleep(fps_period_us - dt_us);
       } else {
-        fprintf(stderr, "[%s] desired %i fps, only managing %.1f fps\n", print_tag, vid->fps, 1000000.f / dt_us);
+        //fprintf(stderr, "[%s] desired %i fps, only managing %.1f fps\n", print_tag, vid->fps, 1000000.f / dt_us);
       }
     }
 
     // Wait for a new frame (blocking)
     struct image_t img;
     v4l2_image_get(vid->thread.dev, &img);
-
-    // pointer to the final image to pass for saving and further processing
-    struct image_t *img_final = &img;
-
-    // run selected filters
-    if (vid->filters & VIDEO_FILTER_DEBAYER) {
-      BayerToYUV(&img, &img_color, 0, 0);
-      // use color image for further processing
-      img_final = &img_color;
-    }
-
     // Run processing if required
-    cv_run_device(vid, img_final);
+    cv_run_device(vid, &img);
 
     // Free the image
     v4l2_image_free(vid->thread.dev, &img);
@@ -263,6 +258,10 @@ static void stop_video_thread(struct video_config_t *device)
  */
 void video_thread_init(void)
 {
+  // Initialise all camera pointers to be NULL
+  for (int indexCameras = 0; indexCameras < VIDEO_THREAD_MAX_CAMERAS; indexCameras++) {
+    cameras[indexCameras] = NULL;
+  }
 }
 
 /**

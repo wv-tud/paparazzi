@@ -188,7 +188,11 @@ void natnet_parse(unsigned char *in)
       float x = 0.0f; memcpy(&x, ptr, 4); ptr += 4;
       float y = 0.0f; memcpy(&y, ptr, 4); ptr += 4;
       float z = 0.0f; memcpy(&z, ptr, 4); ptr += 4;
-      printf_natnet("\tMarker %d : pos = [%3.2f,%3.2f,%3.2f]\n", j, x, y, z);
+      // Add the Optitrack angle to the x and y positions
+      float x_r = cos(tracking_offset_angle) * z - sin(tracking_offset_angle) * x;
+      float y_r = sin(tracking_offset_angle) * z + cos(tracking_offset_angle) * x;
+      float z_r = y;
+      printf_natnet("\tMarker %d : pos = [%3.2f,%3.2f,%3.2f]\tpos NED = [%3.2f,%3.2f,%3.2f]\n", j, x, y, z, y_r, x_r, -z_r);
     }
 
     // ========== RIGID BODIES ==========
@@ -220,6 +224,13 @@ void natnet_parse(unsigned char *in)
       memcpy(&rigidBodies[j].qw, ptr, 4); ptr += 4;  //qw --> QW
       printf_natnet("ID (%d) : %d\n", j, rigidBodies[j].id);
       printf_natnet("pos: [%3.2f,%3.2f,%3.2f]\n", rigidBodies[j].x, rigidBodies[j].y, rigidBodies[j].z);
+      
+      // Add the Optitrack angle to the x and y positions
+      float x_r = cos(tracking_offset_angle) * rigidBodies[j].x - sin(tracking_offset_angle) * rigidBodies[j].y;
+      float y_r = sin(tracking_offset_angle) * rigidBodies[j].x + cos(tracking_offset_angle) * rigidBodies[j].y;
+      float z_r = rigidBodies[j].z;
+      printf_natnet("pos NED: [%3.2f,%3.2f,%3.2f]\n", y_r, x_r, -z_r);
+      
       printf_natnet("ori: [%3.2f,%3.2f,%3.2f,%3.2f]\n", rigidBodies[j].qx, rigidBodies[j].qy, rigidBodies[j].qz,
                     rigidBodies[j].qw);
 

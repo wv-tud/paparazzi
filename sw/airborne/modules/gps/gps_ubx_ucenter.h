@@ -32,7 +32,11 @@
 #include "pprzlink/pprzlink_device.h"
 
 /** U-Center Variables */
+#if USE_GPS_UBX_RTCM
+#define GPS_UBX_UCENTER_CONFIG_STEPS    23
+#else
 #define GPS_UBX_UCENTER_CONFIG_STEPS    19
+#endif
 
 struct gps_ubx_ucenter_struct {
   uint8_t status;

@@ -37,6 +37,14 @@
 
 #include "subsystems/ahrs/ahrs_float_utils.h"
 
+static struct FloatVect3 H_AHRS = { .x = AHRS_H_X, .y = AHRS_H_Y, .z =  AHRS_H_Z};
+
+static inline void ahrs_int_set_H(struct FloatVect3 *newH){
+  H_AHRS.x = newH->x;
+  H_AHRS.y = newH->y;
+  H_AHRS.z = newH->z;
+}
+
 static inline void ahrs_int_get_euler_from_accel_mag(struct Int32Eulers *e, struct Int32Vect3 *accel,
     struct Int32Vect3 *mag)
 {
@@ -70,7 +78,7 @@ static inline void ahrs_int_get_euler_from_accel_mag(struct Int32Eulers *e, stru
   //  sphi_ctheta * imu.mag.y +
   //  cphi_ctheta * imu.mag.z;
   //  float m_psi = -atan2(me, mn);
-  const float mag_dec = atan2(-AHRS_H_Y, AHRS_H_X);
+  const float mag_dec = atan2(-H_AHRS.y, H_AHRS.x);
   const float fpsi = atan2f(-me, mn) - mag_dec;
   e->psi = ANGLE_BFP_OF_REAL(fpsi);
   INT32_ANGLE_NORMALIZE(e->psi);

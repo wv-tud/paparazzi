@@ -23,6 +23,7 @@ TARGET_DIR=$(FTP_DIR)/$(SUB_DIR)
 
 # The datalink default uses UDP
 MODEM_HOST         ?= 192.168.42.255
+VIEWVIDEO_HOST     ?= $(shell $(PAPARAZZI_SRC)/sw/tools/get_my_ip.sh $(HOST))
 
 # The GPS sensor is connected internally
 GPS_PORT           ?= UART1

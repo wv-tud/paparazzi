@@ -29,6 +29,9 @@ DRONE = $(PAPARAZZI_SRC)/sw/tools/parrot/bebop.py
 
 # Program the device and start it.
 upload program: $(OBJDIR)/$(TARGET).elf
+# FW >= 4.0.0 uses a different H264 encoding library file from previous versions, the PPRZ version works with the FW 3.9.0 libh1enc.so file, so we need to upload it ourselves
+	$(Q)$(DRONE) --host=$(HOST) kill $(TARGET).elf
+	$(Q)$(DRONE) --host=$(HOST) upload_file $(PAPARAZZI_SRC)/sw/airborne/modules/computer_vision/lib/encoding/libh1enc.so $(SUB_DIR)
 	$(Q)$(DRONE) --host=$(HOST) upload_file_and_run $(OBJDIR)/$(TARGET).elf $(SUB_DIR)
 
 # Listing of phony targets.

@@ -23,6 +23,7 @@
   <settings>
     <dl_settings>
       <dl_settings name="video">
+        <dl_setting var="viewvideo_recording" min="0" step="1" max="1" values="FALSE|TRUE" shortname="record #1" module="computer_vision/viewvideo"/>
         <dl_setting var="viewvideo.use_rtp" min="0" step="1" max="1" values="FALSE|TRUE" shortname="rtp" module="computer_vision/viewvideo" param="VIEWVIDEO_USE_RTP"/>
       </dl_settings>
     </dl_settings>
@@ -39,18 +40,18 @@
     <file name="viewvideo.c"/>
     <!-- Include the needed Computer Vision files -->
     <include name="modules/computer_vision"/>
+    <include name="modules/computer_vision/lib/encoding"/>
     <file name="rtp.c" dir="modules/computer_vision/lib/encoding"/>
-
+    <file name="P7_H264.c" dir="modules/computer_vision/lib/encoding"/>
+       
     <!-- Define the network connection to send images over -->
     <raw>
       include $(CFG_SHARED)/udp.makefile
-
       VIEWVIDEO_HOST        ?= $(MODEM_HOST)
       VIEWVIDEO_PORT_OUT    ?= 5000
       VIEWVIDEO_PORT2_OUT   ?= 6000
-      VIEWVIDEO_BROADCAST   ?= TRUE
+      VIEWVIDEO_BROADCAST   ?= FALSE
       VIEWVIDEO_USE_NETCAT  ?= FALSE
-
       VIEWVID_CFLAGS  = -DVIEWVIDEO_HOST=$(VIEWVIDEO_HOST) -DVIEWVIDEO_PORT_OUT=$(VIEWVIDEO_PORT_OUT) -DVIEWVIDEO_PORT2_OUT=$(VIEWVIDEO_PORT2_OUT)
       ifneq (,$(findstring $(VIEWVIDEO_USE_NETCAT),0 FALSE))
         ap.CFLAGS += $(VIEWVID_CFLAGS) -DVIEWVIDEO_BROADCAST=$(VIEWVIDEO_BROADCAST)
@@ -58,7 +59,7 @@
       else
         $(TARGET).CFLAGS += $(VIEWVID_CFLAGS) -DVIEWVIDEO_USE_NETCAT
       endif
+      $(TARGET).LDFLAGS += -Wl,-Bdynamic,-rpath,/data/ftp/internal_000/paparazzi/ -Lmodules/computer_vision/lib/encoding -l:libh1enc.so -Wl,-Bstatic
     </raw>
-
   </makefile>
 </module>
