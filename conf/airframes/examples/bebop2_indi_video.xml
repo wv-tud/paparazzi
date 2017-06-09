@@ -6,6 +6,9 @@
     <target name="ap" board="bebop2">
       <define name="STABILIZATION_INDI_G2_R" value="0.20"/>
     </target>
+    
+	<configure name="HOST" value="192.168.0.$(AC_ID)" />
+	<configure name="MODEM_HOST" value="192.168.0.255" />
 
     <target name="nps" board="pc">
       <module name="fdm" type="jsbsim"/>
@@ -58,15 +61,15 @@
 	<module name="cv_ae_awb">
 		<define name="CV_AE_AWB_VERBOSE" value="FALSE" />
 		<define name="CV_AE_MIDDLE_INDEX" value="110" />
-		<define name="CV_AE_EXPOSURE_GAIN" value="2.5" />
+		<define name="CV_AE_EXPOSURE_GAIN" value="1.0" />
 		<define name="CV_AE_DARK_IGNORE" value="0.4" />
-		<define name="CV_AE_BRIGHT_IGNORE" value="0.6" />
+		<define name="CV_AE_BRIGHT_IGNORE" value="0.4" />
 		<define name="CV_AE_DARK_BINS" value="45" />
 		<define name="CV_AE_BRIGHT_BINS" value="45" />
 		<define name="CV_AE_AWB_GAIN_SCHEDULING" value="0" />
 	</module>
-	<!-- <module name="cv_bebop_camera_stabilization" />
-	<module name="cv_active_random_filter" /> -->
+	<module name="cv_bebop_camera_stabilization" />
+	<!-- <module name="cv_active_random_filter" /> -->
 	<module name="video_rtp_stream">
 		<configure name="VIEWVIDEO_BROADCAST" value="FALSE" />
 		<define name="VIEWVIDEO_CAMERA" value="front_camera" />
