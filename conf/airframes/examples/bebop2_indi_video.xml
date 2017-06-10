@@ -66,14 +66,16 @@
 	<module name="cv_ae_awb">
 		<define name="CV_AE_AWB_VERBOSE" value="FALSE" />
 		<define name="CV_AE_MIDDLE_INDEX" value="110" />
-		<define name="CV_AE_EXPOSURE_GAIN" value="0.1" />
+		<define name="CV_AE_EXPOSURE_GAIN" value="0.25" />
 		<define name="CV_AE_DARK_IGNORE" value="0.4" />
 		<define name="CV_AE_BRIGHT_IGNORE" value="0.4" />
 		<define name="CV_AE_DARK_BINS" value="45" />
 		<define name="CV_AE_BRIGHT_BINS" value="45" />
 		<define name="CV_AE_AWB_GAIN_SCHEDULING" value="0" />
 	</module>
-	<module name="cv_bebop_camera_stabilization" />
+	<module name="cv_bebop_camera_stabilization">
+		<define name="CAM_STAB_FOVY" value="60.0"/>
+	</module>
 	<!-- <module name="cv_active_random_filter" /> -->
 	<module name="video_rtp_stream">
 		<configure name="VIEWVIDEO_BROADCAST" value="FALSE" />
@@ -81,7 +83,7 @@
 		<define name="VIEWVIDEO_CAMERA2" value="bottom_camera" />
 		<define name="VIEWVIDEO_SHOT_PATH" value="/data/ftp/internal_000" />
 		<define name="VIEWVIDEO_FPS" value="20" />
-		<define name="VIEWVIDEO_H264_BITRATE" value="0.5" />
+		<define name="VIEWVIDEO_H264_BITRATE" value="2.0" />
 		<define name="VIEWVIDEO_VIDEO_FILE" value="video_file" />
 	</module>
   </modules>
