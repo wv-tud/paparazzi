@@ -1,0 +1,68 @@
+<!DOCTYPE module SYSTEM "module.dtd">
+
+<module name="cv_active_random_filter" dir="computer_vision/">
+  <doc>
+    <description>Active random sampling colour filter</description>
+  </doc>
+	<settings>
+		<dl_settings>
+			<dl_settings NAME="Filter">
+				<dl_setting var="ARF_RND_PIX_SAMPLE" min="1" step="100"
+					max="10000" module="computer_vision/active_random_filter"
+					shortname="Sample size" />
+				<dl_setting var="ARF_FLOOD_STYLE" min="0" step="1"
+					max="1" module="computer_vision/active_random_filter" shortname="Flood style"
+					values="Omni|Clockwise" />
+				<dl_setting var="ARF_SAMPLE_STYLE" min="0" step="1"
+					max="2" module="computer_vision/active_random_filter" shortname="Sample style"
+					values="Full|Grid|Random" />
+				<dl_setting var="ARF_Y_MIN" min="0" step="1" max="255"
+					module="computer_vision/active_random_filter" shortname="Y min" />
+				<dl_setting var="ARF_Y_MAX" min="0" step="1" max="255"
+					module="computer_vision/active_random_filter" shortname="Y max" />
+				<dl_setting var="ARF_U_MIN" min="0" step="1" max="255"
+					module="computer_vision/active_random_filter" shortname="U min" />
+				<dl_setting var="ARF_U_MAX" min="0" step="1" max="255"
+					module="computer_vision/active_random_filter" shortname="U max" />
+				<dl_setting var="ARF_V_MIN" min="0" step="1" max="255"
+					module="computer_vision/active_random_filter" shortname="V min" />
+				<dl_setting var="ARF_V_MAX" min="0" step="1" max="255"
+					module="computer_vision/active_random_filter" shortname="V max" />
+				<dl_setting var="ARF_GREY_THRES" min="-127" step="1"
+					max="127" module="computer_vision/active_random_filter" shortname="Grey threshold" />
+
+				<dl_setting var="ARF_MIN_CIRCLE_PERC" min="0" step="0.01"
+					max="1" module="computer_vision/active_random_filter" shortname="Min fill (%)" />
+				<dl_setting var="ARF_MAX_CIRCLE_DEF" min="0" step="0.001"
+					max="1" module="computer_vision/active_random_filter" shortname="Max eccentricity" />
+				<dl_setting var="ARF_CAM_RANGE" min="0" step="0.01"
+					max="10" module="computer_vision/active_random_filter" shortname="max range (m)" />
+				<dl_setting var="default_calArea" min="1" step="1" max="30000"
+					module="computer_vision/active_random_filter" shortname="calArea" />
+			</dl_settings>
+		</dl_settings>
+	</settings>
+  <depends>cv_bebop_camera_stabilization.xml</depends>
+  <header>
+    <file name="cv_active_random_filter.h"/>
+  </header>
+  <init fun="cv_ar_filter_init()"/>
+  <makefile>
+    <file name="cv_active_random_filter.c"/>
+    <file name="active_random_filter.cpp"/>
+    <flag name="CXXFLAGS" value="I$(PAPARAZZI_SRC)/sw/ext/opencv_bebop/install/include"/>
+    <flag name="LDFLAGS" value="L$(PAPARAZZI_HOME)/sw/ext/opencv_bebop/install/lib" />
+	<flag name="LDFLAGS" value="lopencv_world" />
+	<flag name="LDFLAGS" value="L$(PAPARAZZI_HOME)/sw/ext/opencv_bebop/install/share/OpenCV/3rdparty/lib" />
+	<flag name="LDFLAGS" value="ltegra_hal" />
+	<flag name="LDFLAGS" value="lzlib" />
+	<flag name="LDFLAGS" value="llibjpeg" />
+	<flag name="LDFLAGS" value="llibpng" />
+	<flag name="LDFLAGS" value="llibtiff" />
+	<flag name="LDFLAGS" value="lstdc++" />
+	<flag name="LDFLAGS" value="ldl" />
+	<flag name="LDFLAGS" value="lm" />
+	<flag name="LDFLAGS" value="lpthread" />
+	<flag name="LDFLAGS" value="lrt" />
+  </makefile>
+</module>

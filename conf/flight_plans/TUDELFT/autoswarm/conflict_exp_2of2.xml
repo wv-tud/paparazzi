@@ -1,0 +1,154 @@
+<!DOCTYPE flight_plan SYSTEM "../../flight_plan.dtd">
+
+<flight_plan alt="1.75" ground_alt="0" lat0="51.990634" lon0="4.376789" max_dist_from_home="25" name="Bebop avoid orange TU Delft Cyberzoo" security_height="1.25">
+  <header>
+#include "autopilot.h"
+#include "subsystems/datalink/datalink.h"
+#include "modules/autoswarm/autoswarm.h"
+#include "modules/computer_vision/viewvideo.h"
+</header>
+  <waypoints>
+    <waypoint name="HOME" 	x="1.0" y="1.0"/>
+    <waypoint name="_TD" 	x="1.0" y="1.0"/>
+    <waypoint name="STDBY" 	x="1.0" y="1.0"/>
+    <waypoint name="_GOAL" 	x="1.0" y="0.0"/>
+    <waypoint name="_CAM" 	x="1.0" y="0.0"/>
+    <waypoint name="GLOBAL" lat="51.9906376" lon="4.3767850"/>	
+    <waypoint lat="51.9905957" lon="4.3767678" name="CZ1"/>	
+    <waypoint lat="51.9906458" lon="4.3767149" name="CZ2"/>	
+    <waypoint lat="51.9906799" lon="4.3768012" name="CZ3"/>	
+    <waypoint lat="51.9906298" lon="4.3768541" name="CZ4"/>	
+  </waypoints>
+  <sectors>
+    <sector color="red" name="CyberZoo">
+      <corner name="CZ1"/>
+      <corner name="CZ2"/>
+      <corner name="CZ3"/>
+      <corner name="CZ4"/>
+    </sector>
+  </sectors>
+  <exceptions>
+    <exception cond="!InsideCyberZoo(GetPosX(), GetPosY()) &&
+      !(IndexOfBlock('Holding point') > nav_block) &&
+      !(nav_block >= IndexOfBlock('land here')) &&
+      (autopilot.in_flight == true) && LessThan(3, block_time)" deroute="land here"/>
+    <exception cond="LessThan(10, datalink_time) &&
+      !(IndexOfBlock('Holding point') > nav_block) &&
+      !(nav_block >= IndexOfBlock('land here')) &&
+      (autopilot.in_flight == true)" deroute="land here"/>
+    <exception cond="!GpsFixValid() &&
+      !(IndexOfBlock('Holding point') > nav_block) &&
+      !(nav_block >= IndexOfBlock('land here')) &&
+      (autopilot.in_flight == true)" deroute="No GPS Landing" />
+    <exception cond="LessThan(2.5, GetPosAlt()) &&
+      !(IndexOfBlock('Holding point') > nav_block) &&
+      !(nav_block >= IndexOfBlock('land here')) &&
+      (autopilot.in_flight == true)" deroute="land here"/>
+  </exceptions>
+  <blocks>
+    <block name="Wait GPS">
+    	<call_once fun="setSwarmMode(2)"/> <!--  Look towards global -->
+    	<set var="settings_as_extended" value="1"/>
+    	<set var="settings_as_loglo" value="1.0"/>
+    	<set var="settings_as_vmax" value="2.0"/>
+    	<set var="settings_as_circle_radius" value="1.5"/>
+    	<set var="settings_as_e" value="0.06"/> 
+    	<set var="settings_as_separation" value="1.5"/> <!--  2.0m separation -->
+    	<set var="settings_as_global_strength" value="0.5"/> <!--  100% global strength -->
+    	<call_once fun="setGlobalMode(2)"/> <!--  CW global field -->
+      <call_once fun="NavKillThrottle()"/>
+      <while cond="!GpsFixValid()"/>
+    </block>
+    <block name="Geo init">
+      <while cond="LessThan(NavBlockTime(), 2)"/>
+      <call_once fun="NavSetAltitudeReferenceHere()"/>
+ 	  <!-- <call fun="NavSetGroundReferenceHere()"/> Messes up the InsideCyberZoo function-->   
+    </block>
+    <block name="Holding point">
+      <call_once fun="NavKillThrottle()"/>
+      <attitude pitch="0" roll="0" throttle="0" until="FALSE" vmode="throttle"/>
+    </block>
+    <block key="r" name="Start Engine" strip_button="Start engines" strip_icon="resurrect.png">
+      <call_once fun="NavResurrect()"/>
+      <call_once fun="NavSetWaypointHere(WP__TD)"/>
+      <attitude pitch="0" roll="0" throttle="0" until="FALSE" vmode="throttle"/>
+    </block>
+    <block key="t" name="Takeoff">
+      <call_once fun="NavSetWaypointHere(WP__TD)"/>
+    </block>
+    <block key="s" name="Standby" strip_button="Standby" strip_icon="home.png">
+      <call_once fun="NavSetWaypointHere(WP_STDBY)"/>
+      <stay wp="STDBY"/>
+    </block>
+    <block name="Swarm" strip_button="Swarm" strip_icon="lookfore.png">
+    	<set var="viewvideo_recording" value="TRUE"/>
+		<call_once fun="setSwarmMode(2)"/>
+		<call_once fun="nav_set_heading_towards_waypoint(WP__CAM)"/>
+    	<stay wp="_GOAL"/>
+    </block>
+    <block name="Swarm Home">
+    	<set var="viewvideo_recording" value="FALSE"/>
+    	<exception cond="amIhome()" deroute="Land"/>
+		<call_once fun="NavCopyWaypointPositionOnly(WP_GLOBAL, WP__TD)"/>
+		<call_once fun="setGlobalMode(0)"/>
+		<call_once fun="setSwarmMode(1)"/>
+		<call_once fun="nav_set_heading_towards_waypoint(WP__CAM)"/>
+    	<stay wp="_GOAL"/>
+    </block>
+    <block key="l" name="land here" strip_button="Land Here" strip_icon="land-right.png">
+      <set var="viewvideo_recording" value="FALSE"/>
+      <call_once fun="NavSetWaypointHere(WP__TD)"/>
+      <go wp="_TD"/>
+    </block>
+    <block name="Land">
+      <set var="viewvideo_recording" value="FALSE"/>
+      <go wp="_TD"/>
+    </block>
+    <block name="Flare">
+      <exception cond="LessThan(GetPosAlt(), 0.15)" deroute="Landed"/> <!-- TODO: see if this also works outside optitrack! -->
+      <exception cond="!nav_is_in_flight()" deroute="Landed"/>
+      <call_once fun="NavStartDetectGround()"/>
+      <stay climb="nav_descend_vspeed" vmode="climb" wp="_TD"/>
+    </block>
+    <block name="Landed">
+      <call_once fun="NavKillThrottle()"/>
+      <set var="viewvideo_recording" value="FALSE"/>
+      <attitude pitch="0" roll="0" throttle="0" until="FALSE" vmode="throttle"/>
+    </block>
+    <block name="No GPS Landing">
+    	<call_once fun="NavSetWaypointHere(WP__TD)"/>
+    	<stay wp="_TD"/>
+    	<exception cond="LessThan(2, NavBlockTime())"  deroute="Land"/>
+    	<exception cond="!nav_is_in_flight()" 	deroute="Landed"/>
+    	<exception cond="GpsFixValid()" 	deroute="Standby" />
+    </block>
+    <block name="circle_cw">
+      <set var="settings_as_attractor" value="2"/>
+      <deroute block="Swarm"/>
+    </block>
+    <block name="circle_ccw">
+      <set var="settings_as_attractor" value="3"/>
+      <deroute block="Swarm"/>
+    </block>
+    <block name="bucket">
+      <set var="settings_as_attractor" value="1"/>
+      <deroute block="Swarm"/>
+    </block>
+    <block name="spread_out">
+      <set var="settings_as_separation" value="settings_as_separation+0.125"/>
+      <deroute block="Swarm"/>
+    </block>
+    <block name="spread_in">
+      <set var="settings_as_separation" value="settings_as_separation-0.125"/>
+      <deroute block="Swarm"/>
+    </block>
+    <block name="inc_circle">
+      <set var="settings_as_circle_radius" value="settings_as_circle_radius+0.125"/>
+      <deroute block="Swarm"/>
+    </block>
+    <block name="dec_circle">
+      <set var="settings_as_circle_radius" value="settings_as_circle_radius-0.125"/>
+      <deroute block="Swarm"/>
+    </block>
+  </blocks>
+</flight_plan>

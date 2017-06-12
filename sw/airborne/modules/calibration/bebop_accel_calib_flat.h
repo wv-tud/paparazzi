@@ -18,33 +18,23 @@
  * <http://www.gnu.org/licenses/>.
  */
 /**
- * @file "modules/calibration/mag_calib_ukf.h"
+ * @file "modules/bebop_accel_calib_flat/bebop_accel_calib_flat.h"
  * @author w.vlenterie
- * Calibrate the magnetometer using an unscented kalman filter
- * For more information please visit the following links:
- *   - https://github.com/sfwa/trical
- *   - http://au.tono.my/log/20131213-trical-magnetometer-calibration.html
- *   - http://www.acsu.buffalo.edu/~johnc/mag_cal05.pdf
+ * Calibrate the bebop accelerometer from a flat surface
  */
 
-#ifndef MAG_CALIB_UKF_H
-#define MAG_CALIB_UKF_H
+#ifndef BEBOP_ACCEL_CALIB_FLAT_H
+#define BEBOP_ACCEL_CALIB_FLAT_H
 
-#include "std.h"
-#include "TRICAL.h"
+#include <stdbool.h>
 
-// setting to request state reset
-extern bool mag_calib_ukf_reset_state;
-extern bool mag_calib_ukf_send_state;
+void bebop_accel_calib_init( void );
+void bebop_set_accel_neutral( void );
+void bebop_send_accel_neutral( void );
 
-extern float angle_diff_f;
-extern float magneto_psi_f;
-
-extern TRICAL_instance_t mag_calib;
-
-void mag_calib_ukf_init(void);
-void mag_calib_hotstart_write(void);
-void mag_calib_hotstart_read(void);
-void mag_calib_send_state(void);
+extern bool settings_send_accel_neutral;
+extern bool  settings_calibration_running;
+extern float settings_calibration_time;
 
 #endif
+

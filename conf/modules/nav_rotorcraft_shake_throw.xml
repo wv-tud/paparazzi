@@ -1,0 +1,22 @@
+<!DOCTYPE module SYSTEM "module.dtd">
+
+<module name="nav_rotorcraft_shake_throw" dir="nav">
+  <doc>
+    <description>Shake and throw launch for rotorcraft</description>
+    <section name="NAV_RC_SHAKE_THROW" prefix="NAV_RC_SHAKE_THROW_">
+      <define name="GOTO_BLOCK" value="Standby" description="Goto Flight block after launch"/>
+      <define name="RESET_BLOCK" value="Landed" description="Flight block to reset launch status"/>
+      <define name="LAUNCH_REQUIREMENTS" value="GpsFixValid() && autopilot_get_mode() == AP_MODE_NAV" description="Conditions to meet in order to be able to launch"/>
+      <define name="NO_FLIGHT" value="FALSE" description="Debug mode to disable flight"/>
+  </section>
+  </doc>
+  <header>
+    <file name="nav_rotorcraft_shake_throw.h"/>
+  </header>
+  <init fun="nav_rotorcraft_shake_throw_init()"/>
+  <periodic fun="nav_rotorcraft_shake_throw_run()" freq="512"/>
+  <makefile>
+    <file name="nav_rotorcraft_shake_throw.c"/>
+  </makefile>
+</module>
+
