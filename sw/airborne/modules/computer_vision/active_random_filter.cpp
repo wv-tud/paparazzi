@@ -24,10 +24,8 @@
  */
 
 #include "active_random_filter.h"
-#include "modules/computer_vision/cv_image_pose.h"
-#include "modules/computer_vision/cv_ae_awb.h"
-#include "modules/autoswarm/autoswarm.h"
-#include "bebop_camera_stabilization.h"
+
+
 #include <vector>
 #include <ctime>
 
@@ -39,6 +37,10 @@ extern "C" {
     #include <sys/time.h>                           ///< C header used for system time functions and data
     #include "mcu_periph/sys_time.h"                ///< C header used for PPRZ time functions and data
     #include <stdio.h>
+    #include "cv_bebop_camera_stabilization.h"
+    #include "modules/computer_vision/cv_image_pose.h"
+    #include "modules/computer_vision/cv_ae_awb.h"
+    #include "modules/autoswarm/autoswarm.h"
 }
 
 using namespace std;
@@ -231,8 +233,6 @@ extern uint16_t             ispWidth;                                   ///< Max
 extern uint16_t             ispHeight;                                  ///< Maximum height of ISP after applied scaling
 extern uint16_t             initialWidth;                               ///< Initial width of ISP after applied scaling
 extern uint16_t             initialHeight;                              ///< Initial height of ISP after applied scaling
-extern uint16_t             cropCol;                                    ///< Column from which the ISP is cropped relative to MIN
-extern int16_t              fillHeight;                                 ///< Column from which the ISP is cropped relative to MIN
 extern double               ispScalar;                                  ///< Applied scalar by the ISP
 static Rect 			    objCrop;                                    ///< Current recangle being processed when using omni search
 static vector<Rect> 	    cropAreas;                                  ///< All the rectangles found
@@ -351,13 +351,19 @@ Rect setISPvars( uint16_t width, uint16_t height){
     ARF_MIN_POINTS        = (uint16_t) round(0.25 * ARF_MIN_LAYERS);
 
     Rect crop;
-    if(mt9f002.output_width > fillHeight){
-      crop                   = cvRect(fillHeight, 0, mt9f002.output_width - fillHeight, height);
+    if(fillHeight > 0){
+      crop                   = cvRect(0, 0, width, height);
     }else{
-      crop                   = cvRect(fillHeight, 0, width, height);
+      if(mt9f002.output_width > fillHeight){
+        crop                   = cvRect(fillHeight, 0, mt9f002.output_width - fillHeight, height);
+      }else{
+        crop                   = cvRect(fillHeight, 0, width, height);
+      }
     }
-    if(crop.width > width) crop.width = width;
-    if(crop.height > width) crop.height = height;
+    if(crop.width > width || crop.width <= 0) crop.width = width;
+    if(crop.height > height || crop.height <= 0) crop.height = height;
+    if(crop.x > width || crop.x <= 0) crop.x = 0;
+    if(crop.y > height || crop.y <= 0) crop.y = 0;
     return crop;
 }
 
