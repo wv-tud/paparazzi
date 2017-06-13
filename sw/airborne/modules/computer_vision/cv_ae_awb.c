@@ -111,13 +111,15 @@ PRINT_CONFIG_VAR(CV_AE_AWB_GAIN_SCHEDULING_STEP)
 #endif
 PRINT_CONFIG_VAR(CV_AE_AWB_GAIN_SCHEDULING_MARGIN)
 
-#define MAX_HIST_Y 256 - 20
-#define MIN_HIST_Y 16
+#ifndef CV_AE_AWB_GAIN
+#define CV_AE_AWB_GAIN 1.0
+#endif
 
 float   ae_exposure_gain = CV_AE_EXPOSURE_GAIN;
 float   ae_bright_ignore = CV_AE_BRIGHT_IGNORE;
 float   ae_dark_ignore   = CV_AE_DARK_IGNORE;
 uint8_t ae_middle_index  = CV_AE_MIDDLE_INDEX;
+float ae_awb_gain        = CV_AE_AWB_GAIN;
 
 uint8_t ae_dark_bins     = CV_AE_DARK_BINS;
 uint8_t ae_bright_bins   = CV_AE_BRIGHT_BINS;
@@ -126,6 +128,9 @@ float ae_current_level   = 0.0;
 float awb_avgU           = 0.0;
 float awb_avgV           = 0.0;
 uint32_t awb_nb_pixels   = 0;
+
+
+uint32_t histogram_plot[256];
 
 int8_t gs_adjustDir      = 0;
 bool gs_gains_maxed      = FALSE;
@@ -145,8 +150,10 @@ struct image_t *cv_ae_awb_periodic(struct image_t *img)
     uint32_t cdf[MAX_HIST_Y];
     cdf[MIN_HIST_Y - 1] = 0;
     //printf("Histogram (%d)\n", yuv_stats.nb_valid_Y);
+    histogram_plot[0] = yuv_stats.nb_valid_Y;
     for (int i = MIN_HIST_Y; i < MAX_HIST_Y; i++) {
       cdf[i] = cdf[i - 1] + yuv_stats.ae_histogram_Y[i];
+      histogram_plot[i] = yuv_stats.ae_histogram_Y[i];
       //printf("%6d ",  yuv_stats.ae_histogram_Y[i]);
     }
     // Calculate the indices of the dark and bright bins
@@ -208,8 +215,8 @@ struct image_t *cv_ae_awb_periodic(struct image_t *img)
      *      Auto white-balance (Robust Automatic White Balance Algorithm using Gray Color Points in Images - Huo et al.)
      */
     awb_nb_pixels     = yuv_stats.awb_nb_grey_pixels;
-    awb_avgU          = (yuv_stats.awb_sum_U) / ((float) yuv_stats.awb_nb_grey_pixels) - 128.0;
-    awb_avgV          = (yuv_stats.awb_sum_V) / ((float) yuv_stats.awb_nb_grey_pixels) - 128.0;
+    awb_avgU          = (yuv_stats.awb_sum_U) / ((float) yuv_stats.awb_nb_grey_pixels);
+    awb_avgV          = (yuv_stats.awb_sum_V) / ((float) yuv_stats.awb_nb_grey_pixels);
     VERBOSE_PRINT("avgU = %d / %d - 128.0 = %f\n", yuv_stats.awb_sum_U, yuv_stats.awb_nb_grey_pixels, awb_avgU);
     VERBOSE_PRINT("avgV = %d / %d - 128.0 = %f\n", yuv_stats.awb_sum_V, yuv_stats.awb_nb_grey_pixels, awb_avgV);
     // |B| = |Y| + |U|  &&   |R| = |Y| + |V|
@@ -218,10 +225,19 @@ struct image_t *cv_ae_awb_periodic(struct image_t *img)
     // so:
     // gain_blue *= |Y| / (|Y| + |U|)  --> ^0.25 in order to make less agressive updates
     // gain_red  *= |Y| / (|Y| + |V|)  --> ^0.25 in order to make less agressive updates
-    mt9f002.gain_blue *= pow(yuv_stats.awb_sum_Y / ((float)(yuv_stats.awb_sum_Y + yuv_stats.awb_sum_U - 128 *
-        yuv_stats.awb_nb_grey_pixels)), 0.25);
-    mt9f002.gain_red  *= pow(yuv_stats.awb_sum_Y / ((float)(yuv_stats.awb_sum_Y + yuv_stats.awb_sum_V - 128 *
-        yuv_stats.awb_nb_grey_pixels)), 0.25);
+    float blue_adj = (((float) (yuv_stats.awb_sum_Y)) / ((float)(yuv_stats.awb_sum_Y + yuv_stats.awb_sum_U - (129) *
+        yuv_stats.awb_nb_grey_pixels)) - 1);
+    mt9f002.gain_blue *= 1 + ae_awb_gain * blue_adj;
+    if(mt9f002.gain_blue < mt9f002.gain_green1){
+      mt9f002.gain_blue = mt9f002.gain_green1;
+    }
+
+    float red_adj = (((float) (yuv_stats.awb_sum_Y)) / ((float)(yuv_stats.awb_sum_Y + yuv_stats.awb_sum_V - (129) *
+        yuv_stats.awb_nb_grey_pixels)) - 1);
+    mt9f002.gain_red *= 1 + ae_awb_gain * red_adj;
+    if(mt9f002.gain_red < mt9f002.gain_green1){
+      mt9f002.gain_red = mt9f002.gain_green1;
+    }
     /*
      *          Gain scheduling
      */
@@ -269,5 +285,8 @@ struct image_t *cv_ae_awb_periodic(struct image_t *img)
 
 void cv_ae_awb_init(void)
 {
+  for (int i = 0; i < 256; i++) {
+    histogram_plot[i] = 0.0;
+  }
   cv_add_to_device(&CV_AE_AWB_CAMERA, cv_ae_awb_periodic);
 }
