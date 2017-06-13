@@ -32,6 +32,9 @@ extern double     firstOrder_comp;
 extern double     secondOrder_comp;
 extern float      angleOfView;
 
+extern uint16_t             cropCol;                                    ///< Column from which the ISP is cropped relative to MIN
+extern int16_t              fillHeight;                                 ///< Column from which the ISP is cropped relative to MIN
+
 void              cv_cam_stab_init(void);
 /** Fisheye + Perspective correction **/
 void              point2pixel        (double x_out, double y_out, double *x_in, double *y_in);

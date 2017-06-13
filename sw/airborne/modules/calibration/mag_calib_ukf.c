@@ -198,13 +198,22 @@ void mag_calib_ukf_run(uint8_t sender_id, uint32_t stamp, struct Int32Vect3 *mag
         TRICAL_estimate_update(&mag_calib, measurement), expected_mag_field);
       */
       TRICAL_measurement_calibrate(&mag_calib, measurement, calibrated_measurement);
+      float measurement_norm = sqrtf(powf(calibrated_measurement[0], 2.0) + powf(calibrated_measurement[1], 2.0) + powf(calibrated_measurement[2], 2.0));
       /** Save calibrated result **/
-      calibrated_mag.x = (int32_t) MAG_BFP_OF_REAL(calibrated_measurement[0]);
-      calibrated_mag.y = (int32_t) MAG_BFP_OF_REAL(calibrated_measurement[1]);
-      calibrated_mag.z = (int32_t) MAG_BFP_OF_REAL(calibrated_measurement[2]);
+      if(measurement_norm > 0.1){
+        calibrated_mag.x = (int32_t) MAG_BFP_OF_REAL(calibrated_measurement[0] / measurement_norm);
+        calibrated_mag.y = (int32_t) MAG_BFP_OF_REAL(calibrated_measurement[1] / measurement_norm);
+        calibrated_mag.z = (int32_t) MAG_BFP_OF_REAL(calibrated_measurement[2] / measurement_norm);
+      }else{
+        calibrated_mag.x = (int32_t) MAG_BFP_OF_REAL(calibrated_measurement[0]);
+        calibrated_mag.y = (int32_t) MAG_BFP_OF_REAL(calibrated_measurement[1]);
+        calibrated_mag.z = (int32_t) MAG_BFP_OF_REAL(calibrated_measurement[2]);
+      }
       imu.mag.x = calibrated_mag.x;
       imu.mag.y = calibrated_mag.y;
       imu.mag.z = calibrated_mag.z;
+      /** Normalize measurement data */
+
       /** Debug print */
       VERBOSE_PRINT("magnetometer measurement (x: %4.2f  y: %4.2f  z: %4.2f) norm: %4.2f\n", measurement[0], measurement[1],
                     measurement[2], hypot(hypot(measurement[0], measurement[1]), measurement[2]));
@@ -221,8 +230,9 @@ void mag_calib_ukf_run(uint8_t sender_id, uint32_t stamp, struct Int32Vect3 *mag
       }else if(runCount == 50){
         ahrs_icq_realign_heading(avg_heading / ((float) runCount));
       }else {
-        ahrs_icq_update_heading(e.psi);
+        //ahrs_icq_update_heading(e.psi);
       }
+
       /** Forward calibrated data */
       AbiSendMsgIMU_MAG_INT32(MAG_CALIB_UKF_ID, stamp, &calibrated_mag);
     }

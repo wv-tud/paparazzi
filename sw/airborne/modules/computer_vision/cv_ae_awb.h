@@ -26,6 +26,12 @@
 #ifndef CV_AE_AWB_H
 #define CV_AE_AWB_H
 
+#define MAX_HIST_Y 256 - 20
+#define MIN_HIST_Y 16
+
+extern uint32_t histogram_plot[256];
+
+extern float ae_awb_gain;
 extern float awb_avgU;
 extern float awb_avgV;
 extern uint32_t awb_nb_pixels;

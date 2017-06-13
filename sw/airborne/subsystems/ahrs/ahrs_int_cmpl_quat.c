@@ -409,13 +409,18 @@ void ahrs_icq_set_mag_gains(void)
 
 static inline void ahrs_icq_update_mag_full(struct Int32Vect3 *mag, float dt)
 {
-
+  struct Int32Vect3 expected_imu;
+#if BEBOP_VERSION2
+  struct Int32Quat ltp_to_body_quat, *body_to_imu_quat = orientationGetQuat_i(&ahrs_icq.body_to_imu);
+  int32_quat_comp_inv(&ltp_to_body_quat, &ahrs_icq.ltp_to_imu_quat, body_to_imu_quat);
+  struct Int32RMat ltp_to_body_rmat;
+  int32_rmat_of_quat(&ltp_to_body_rmat, &ltp_to_body_quat);
+  int32_rmat_vmult(&expected_imu, &ltp_to_body_rmat, &ahrs_icq.mag_h);
+#else
   struct Int32RMat ltp_to_imu_rmat;
   int32_rmat_of_quat(&ltp_to_imu_rmat, &ahrs_icq.ltp_to_imu_quat);
-
-  struct Int32Vect3 expected_imu;
   int32_rmat_vmult(&expected_imu, &ltp_to_imu_rmat, &ahrs_icq.mag_h);
-
+#endif
   struct Int32Vect3 residual;
   VECT3_CROSS_PRODUCT(residual, *mag, expected_imu);
 
@@ -470,12 +475,30 @@ static inline void ahrs_icq_update_mag_2d(struct Int32Vect3 *mag, float dt)
   struct Int32RMat ltp_to_imu_rmat;
   int32_rmat_of_quat(&ltp_to_imu_rmat, &ahrs_icq.ltp_to_imu_quat);
 
+  //printf("lpt_imu: %d  %d  %d  %d\n", ahrs_icq.ltp_to_imu_quat.qx , ahrs_icq.ltp_to_imu_quat.qy, ahrs_icq.ltp_to_imu_quat.qz, ahrs_icq.ltp_to_imu_quat.qi);
+
   struct Int32Vect3 measured_ltp;
-  int32_rmat_transp_vmult(&measured_ltp, &ltp_to_imu_rmat, mag);
+#if BEBOP_VERSION2
+    struct Int32Quat ltp_to_body_quat, *body_to_imu_quat = orientationGetQuat_i(&ahrs_icq.body_to_imu);
+    int32_quat_comp_inv(&ltp_to_body_quat, &ahrs_icq.ltp_to_imu_quat, body_to_imu_quat);
+    struct Int32RMat ltp_to_body_rmat;
+    int32_rmat_of_quat(&ltp_to_body_rmat, &ltp_to_body_quat);
+    int32_rmat_transp_vmult(&measured_ltp, &ltp_to_body_rmat, mag);
+#else
+    int32_rmat_transp_vmult(&measured_ltp, &ltp_to_imu_rmat, mag);
+#endif
 
   /* normalize measured ltp in 2D (x,y) */
   struct Int32Vect2 measured_ltp_2d = {measured_ltp.x, measured_ltp.y};
   int32_vect2_normalize(&measured_ltp_2d, INT32_MAG_FRAC);
+
+  struct Int32Vect2 measured_mag_2d = {mag->x, mag->y};
+    int32_vect2_normalize(&measured_mag_2d, INT32_MAG_FRAC);
+
+
+  //printf("e: %d  %d\n", expected_ltp.x, expected_ltp.y);
+  //printf("m: %d  %d\n", measured_mag_2d.x, measured_mag_2d.y);
+  //printf("m: %d  %d\n", measured_ltp_2d.x, measured_ltp_2d.y);
 
   /* residual_ltp FRAC: 2 * MAG_FRAC - 5 = 17 */
   struct Int32Vect3 residual_ltp = {
@@ -484,6 +507,7 @@ static inline void ahrs_icq_update_mag_2d(struct Int32Vect3 *mag, float dt)
     (measured_ltp_2d.x * expected_ltp.y - measured_ltp_2d.y * expected_ltp.x) / (1 << 5)
   };
 
+  //printf("r: %d\n", residual_ltp.z);
 
   struct Int32Vect3 residual_imu;
   int32_rmat_vmult(&residual_imu, &ltp_to_imu_rmat, &residual_ltp);
