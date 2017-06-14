@@ -21,23 +21,34 @@
     <waypoint name="p4"    x="5.0" y="5.0"/>
     <waypoint name="CAM"   x="0.0" y="7.5"/>
     
+    <waypoint name="s1"    x="-7.5" y="-2.5"/>
+    <waypoint name="s2"    x="-7.5" y="12.5"/>
+    <waypoint name="s3"    x="7.5" y="12.5"/>
+    <waypoint name="s4"    x="7.5" y="-2.5"/>
   </waypoints>
+  <sectors>
+    <sector color="red" name="Safety">
+      <corner name="s1"/>
+      <corner name="s2"/>
+      <corner name="s3"/>
+      <corner name="s3"/>
+    </sector>
+  </sectors>
   <exceptions>
     <!-- RC-Loss -->
     <!-- GPS loss -->
     <!-- Not done from flight plan, main.c goes to AP_MODE_FAILSAFE hardcoded -->
     <!-- Geofence -->
-    <!-- Not done from flight plan -->
+    <exception cond="(!InsideSafety(GetPosX(), GetPosY()) &&
+      !(IndexOfBlock('Takeoff') > nav_block) &&
+      !(nav_block >= IndexOfBlock('land')) &&
+      (autopilot_in_flight() == true) )" deroute="EmergencyLanding"/>
     <!-- Datalink loss -->
-    <exception cond="(datalink_time > 1 &&
-      !(datalink_time > 3) &&
+    <exception cond="(datalink_time > 3 &&
+      !(datalink_time > 8) &&
       !(IndexOfBlock('Takeoff') > nav_block) &&
       !(nav_block >= IndexOfBlock('land')) &&
       (autopilot_in_flight() == true) )" deroute="DatalinkLoss"/>
-      <exception cond="((datalink_time > 3) &&
-      !(IndexOfBlock('Takeoff') > nav_block) &&
-      !(nav_block >= IndexOfBlock('land')) &&
-      (autopilot_in_flight() == true) )" deroute="land here"/>
     <!-- Battery loss -->
     <exception cond="(electrical.bat_low &&
     !(IndexOfBlock('Holding point') > nav_block) &&
@@ -70,23 +81,9 @@
     </block>
     <block name="Takeoff" strip_button="Takeoff" strip_icon="takeoff.png">
       <call_once fun="NavSetWaypointHere(WP_CLIMB)"/>
-      <call_once fun="NavSetWaypointHere(WP_HOME)"/>
-      <attitude pitch="0" roll="0" until="stateGetPositionEnu_f()->z > fmax( WaypointAlt(WP_STDBY) - 1.5, 1.0 )" vmode="climb" climb="nav_climb_vspeed"/>
-      <!--  Let the INDI stabilization adjust a bit -->
-      <set var="indi.adaptive" value="TRUE"/>
+      <call_once fun="NavSetWaypointHere(WP_TD)"/>
       <attitude pitch="0" roll="0" until="stateGetPositionEnu_f()->z > WaypointAlt(WP_STDBY)" vmode="climb" climb="nav_climb_vspeed"/>
-      <!--  Turn adaptive indi off -->
-      <set var="indi.adaptive" value="FALSE"/>
     </block>
-    <!-- <block name="Init magneto" strip_button="Standby">
-      <set var="indi.adaptive" value="TRUE"/>
-      <heading course="0" vmode="alt" alt="WaypointAlt(WP_STDBY)" pitch="0" until="stage_time > 0.25"/>
-      <for from="1" to="20" var="i">
-        <heading course="0 + 18 * $i" vmode="alt" alt="WaypointAlt(WP_STDBY)" pitch="0" until="stage_time > 0.1"/>
-      </for>
-      <heading course="0" vmode="alt" alt="WaypointAlt(WP_STDBY)" pitch="0" until="stage_time > 0.25"/>
-      <set var="indi.adaptive" value="FALSE"/>
-    </block> -->
     <block name="Standby" strip_button="Standby" strip_icon="home.png">
       <call_once fun="NavSetWaypointHere(WP_STDBY)"/>
       <stay wp="STDBY"/>
@@ -119,10 +116,11 @@
         </for>
         <deroute block="Prepare (go p1)"/>
     </block>
-    <block name="Test Yaw (go p1, 16 increments of 45 deg)">
+    <block name="Test Yaw (go p1, 8 increments of 45 deg)">
       <go wp="p1"/>
-      <for from="1" to="16" var="i">
-        <heading alt="WaypointAlt(WP_p1)" course="45 * $i" until="stage_time > 3"/>
+      <for from="1" to="8" var="i">
+        <heading alt="WaypointAlt(WP_p1)" course="45 * ($i - 1)"/>
+        <stay wp="p1" until="stage_time > 2"/>
       </for>
       <deroute block="Prepare (go p1)"/>
     </block>
@@ -132,12 +130,14 @@
     </block>
     <block name="land here" strip_button="Land Here" strip_icon="land-right.png">
       <call_once fun="NavSetWaypointHere(WP_TD)"/>
+      <go wp="TD"/>
     </block>
     <block name="land">
       <go wp="TD"/>
     </block>
     <block name="flare">
-      <exception cond="NavDetectGround()" deroute="Holding point"/>
+      <!-- <exception cond="NavDetectGround()" deroute="Holding point"/> -->
+      <exception cond="LessThan(GetPosAlt(), 0.20)" deroute="landed"/>
       <exception cond="!nav_is_in_flight()" deroute="landed"/>
       <call_once fun="NavStartDetectGround()"/>
       <stay climb="nav_descend_vspeed" vmode="climb" wp="TD"/>
@@ -151,9 +151,17 @@
       <deroute block="land here"/>
     </block>
     <block name="DatalinkLoss">
+      <exception cond="datalink_time < 2" deroute="Standby"/>
       <call_once fun="NavSetWaypointHere(WP_TD)"/>
-      <stay until="stage_time>15" wp="TD"/>
+      <stay until="stage_time > 5" wp="TD"/>
       <deroute block="ComeBackAndLand"/>
+    </block>
+    <block name="EmergencyLanding">
+    	<call_once fun="NavSetWaypointHere(WP_TD)"/>
+    	<stay climb="1*nav_descend_vspeed" vmode="climb" wp="TD" until="stage_time > 5"/>
+    	<attitude pitch="0" roll="0" until="stage_time > 5" vmode="climb" climb="2*nav_descend_vspeed"/>
+    	<attitude pitch="0" roll="0" until="LessThan(GetPosAlt(), 0.20)" vmode="climb" climb="3*nav_descend_vspeed"/>
+    	<exception cond="LessThan(GetPosAlt(), 0.20)" deroute="landed"/>
     </block>
   </blocks>
 </flight_plan>
