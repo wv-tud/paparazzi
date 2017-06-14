@@ -1,6 +1,6 @@
 <!DOCTYPE flight_plan SYSTEM "../../flight_plan.dtd">
 
-<flight_plan alt="1.0" ground_alt="0.0" lat0="51.9908030" lon0="4.3784856" max_dist_from_home="10" name="UKF Magnetometer Calibration test" security_height="2.0">
+<flight_plan alt="1.75" ground_alt="0.0" lat0="51.9908030" lon0="4.3784856" max_dist_from_home="20" name="UKF Magnetometer Calibration test" security_height="1.25">
   <header>
     #include "autopilot.h"
     #include "subsystems/datalink/datalink.h"
@@ -14,6 +14,10 @@
     <waypoint name="CLIMB" x="0.0" y="0.0"/>
     <waypoint name="TD"    x="0.0" y="0.0"/>
     <waypoint name="STDBY" x="0.0" y="0.0"/>
+    <waypoint name="_GOAL" x="0.0" y="0.0"/>
+    <waypoint name="_CAM" x="0.0" y="0.0"/>
+    <waypoint name="GLOBAL" x="0.0" y="-1.0"/>
+    <waypoint name="_TD"    x="0.0" y="0.0"/>
     
     <waypoint name="p1"    x="-5.0" y="5.0"/>
     <waypoint name="p2"    x="-5.0" y="10.0"/>
@@ -59,7 +63,6 @@
     !(nav_block >= IndexOfBlock('land')) &&
     (autopilot_in_flight() == true) )" deroute="land here"/>
   </exceptions>
-
   <blocks>
     <block name="Wait GPS">
       <call_once fun="NavKillThrottle()"/>
@@ -82,7 +85,7 @@
     <block name="Takeoff" strip_button="Takeoff" strip_icon="takeoff.png">
       <call_once fun="NavSetWaypointHere(WP_CLIMB)"/>
       <call_once fun="NavSetWaypointHere(WP_TD)"/>
-      <attitude pitch="0" roll="0" until="stateGetPositionEnu_f()->z > WaypointAlt(WP_STDBY)" vmode="climb" climb="nav_climb_vspeed"/>
+      <attitude pitch="0" roll="0" until="GetPosAlt() > WaypointAlt(WP_STDBY)" vmode="climb" climb="nav_climb_vspeed"/>
     </block>
     <block name="Standby" strip_button="Standby" strip_icon="home.png">
       <call_once fun="NavSetWaypointHere(WP_STDBY)"/>
@@ -94,12 +97,12 @@
     </block>
     <block name="Test Line (p1 - p2)">
         <go from="p1" hmode="route" wp="p2"/>
-        <stay until="stage_time>3" wp="p2"/>
+        <stay until="stage_time > 3" wp="p2"/>
         <go from="p2" hmode="route" wp="p1"/>
         <deroute block="Prepare (go p1)"/>
     </block>
     <block name="Test Block (1x: p1, p2, p3, p4, p1)">
-        <stay until="stage_time>3" wp="p1"/>
+        <stay until="stage_time > 3" wp="p1"/>
         <go from="p1" hmode="route" wp="p2"/>
         <go from="p2" hmode="route" wp="p3"/>
         <go from="p3" hmode="route" wp="p4"/>
@@ -108,7 +111,7 @@
     </block>
     <block name="Test Block (5x: p1, p2, p3, p4, p1)">
         <for var="i" from="0" to="4">
-            <stay until="stage_time>3" wp="p1"/>
+            <stay until="stage_time > 3" wp="p1"/>
             <go from="p1" hmode="route" wp="p2"/>
             <go from="p2" hmode="route" wp="p3"/>
             <go from="p3" hmode="route" wp="p4"/>
@@ -119,13 +122,13 @@
     <block name="Test Yaw (go p1, 8 increments of 45 deg)">
       <go wp="p1"/>
       <for from="1" to="8" var="i">
-        <heading alt="WaypointAlt(WP_p1)" course="45 * ($i - 1)"/>
-        <stay wp="p1" until="stage_time > 2"/>
+        <heading alt="WaypointAlt(WP_p1)" course="45 * ($i - 1)" until="stage_time > 1" />
+        <stay until="stage_time > 2" wp="p1"/>
       </for>
       <deroute block="Prepare (go p1)"/>
     </block>
     <block name="Test Circle (60 sec CAM, go p1)" pre_call="nav_set_heading_towards_waypoint(WP_CAM)">
-      <circle radius="5" wp="CAM" until="stage_time>60"/>
+      <circle radius="5" wp="CAM" until="stage_time > 60"/>
       <deroute block="Prepare (go p1)"/>
     </block>
     <block name="land here" strip_button="Land Here" strip_icon="land-right.png">
@@ -151,16 +154,15 @@
       <deroute block="land here"/>
     </block>
     <block name="DatalinkLoss">
-      <exception cond="datalink_time < 2" deroute="Standby"/>
+      <exception cond="LessThan(datalink_time,2)" deroute="Standby"/>
       <call_once fun="NavSetWaypointHere(WP_TD)"/>
       <stay until="stage_time > 5" wp="TD"/>
       <deroute block="ComeBackAndLand"/>
     </block>
     <block name="EmergencyLanding">
     	<call_once fun="NavSetWaypointHere(WP_TD)"/>
-    	<stay climb="1*nav_descend_vspeed" vmode="climb" wp="TD" until="stage_time > 5"/>
-    	<attitude pitch="0" roll="0" until="stage_time > 5" vmode="climb" climb="2*nav_descend_vspeed"/>
-    	<attitude pitch="0" roll="0" until="LessThan(GetPosAlt(), 0.20)" vmode="climb" climb="3*nav_descend_vspeed"/>
+    	<stay climb="1*nav_descend_vspeed" vmode="climb" wp="TD"/>
+    	<attitude pitch="0" roll="0" vmode="climb" climb="2*nav_descend_vspeed"/>
     	<exception cond="LessThan(GetPosAlt(), 0.20)" deroute="landed"/>
     </block>
   </blocks>
