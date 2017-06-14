@@ -23,7 +23,7 @@
 		<!-- Baro, Sonar, RTK -->
 		<configure name="USE_SONAR" value="TRUE" />
 		<define name="USE_GPS_UBX_RTCM" value="TRUE" />
-		<define name="TRICAL_FULL_3X3" value="1" />
+		<define name="TRICAL_FULL_3X3" value="0" />
 		<!-- Use magneto calib with ICQ AHRS -->
 		<define name="AHRS_ICQ_MAG_ID" value="MAG_CALIB_UKF_ID" />
 		<!-- Still to be tested <configure name="USE_HFF" value="true" /> <configure 

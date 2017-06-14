@@ -186,7 +186,7 @@ void mag_calib_ukf_run(uint8_t sender_id, uint32_t stamp, struct Int32Vect3 *mag
       measurement[1] = MAG_FLOAT_OF_BFP(mag->y);
       measurement[2] = MAG_FLOAT_OF_BFP(mag->z);
       /** Update magnetometer UKF **/
-#if !1
+#if 1
       /*
        * Norm only:
        * Please checkout branch norm_only of wv-tud/TRICAL
@@ -230,11 +230,10 @@ void mag_calib_ukf_run(uint8_t sender_id, uint32_t stamp, struct Int32Vect3 *mag
       VERBOSE_PRINT("calibrated   measurement (x: %4.2f  y: %4.2f  z: %4.2f) norm: %4.2f\n\n", calibrated_measurement[0],
                     calibrated_measurement[1], calibrated_measurement[2], hypot(hypot(calibrated_measurement[0], calibrated_measurement[1]),
                         calibrated_measurement[2]));
-
+      struct Int32Eulers e;
+      ahrs_int_get_euler_from_accel_mag(&e, &imu.accel, &imu.mag);
+      magneto_psi_f = ANGLE_FLOAT_OF_BFP(e.psi);
       if(runCount < 50){
-        struct Int32Eulers e;
-        ahrs_int_get_euler_from_accel_mag(&e, &imu.accel, &imu.mag);
-        magneto_psi_f = ANGLE_FLOAT_OF_BFP(e.psi);
         avg_heading += e.psi;
       }else if(runCount == 50){
         ahrs_icq_realign_heading(avg_heading / ((float) runCount));
@@ -242,6 +241,7 @@ void mag_calib_ukf_run(uint8_t sender_id, uint32_t stamp, struct Int32Vect3 *mag
       /*else {
         ahrs_icq_update_heading(e.psi);
       }*/
+      printf("e.psi: %0.2f  (%d  %d  %d)\n", magneto_psi_f / M_PI * 180.0, calibrated_mag.x, calibrated_mag.y, calibrated_mag.z);
 
       /** Forward calibrated data */
       AbiSendMsgIMU_MAG_INT32(MAG_CALIB_UKF_ID, stamp, &calibrated_mag);
