@@ -28,3 +28,6 @@
 [submodule "sw/ext/TRICAL"]
 	path = sw/ext/TRICAL
 	url = https://github.com/sfwa/TRICAL.git
+[submodule "sw/ext/flyingrobotcommander"]
+	path = sw/ext/flyingrobotcommander
+	url = https://github.com/paparazzi/flyingrobotcommander
