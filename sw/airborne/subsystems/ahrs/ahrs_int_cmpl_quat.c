@@ -32,7 +32,7 @@
 
 #include "subsystems/ahrs/ahrs_int_cmpl_quat.h"
 #include "subsystems/ahrs/ahrs_int_utils.h"
-
+#include "modules/calibration/mag_calib_ukf.h"
 #if USE_GPS
 #include "subsystems/gps.h"
 #endif
@@ -475,20 +475,16 @@ static inline void ahrs_icq_update_mag_2d(struct Int32Vect3 *mag, float dt)
   struct Int32RMat ltp_to_imu_rmat;
   int32_rmat_of_quat(&ltp_to_imu_rmat, &ahrs_icq.ltp_to_imu_quat);
 
-  //printf("lpt_imu: %d  %d  %d  %d\n", ahrs_icq.ltp_to_imu_quat.qx , ahrs_icq.ltp_to_imu_quat.qy, ahrs_icq.ltp_to_imu_quat.qz, ahrs_icq.ltp_to_imu_quat.qi);
-
   struct Int32Vect3 measured_ltp;
 #if BEBOP_VERSION2
     struct Int32Quat ltp_to_body_quat, *body_to_imu_quat = orientationGetQuat_i(&ahrs_icq.body_to_imu);
     int32_quat_comp_inv(&ltp_to_body_quat, &ahrs_icq.ltp_to_imu_quat, body_to_imu_quat);
     struct Int32RMat ltp_to_body_rmat;
     int32_rmat_of_quat(&ltp_to_body_rmat, &ltp_to_body_quat);
-    int32_rmat_transp_vmult(&measured_ltp, &ltp_to_body_quat, mag);
-    //int32_quat_vmult(&measured_ltp, &ltp_to_body_quat, mag);
+    int32_rmat_transp_vmult(&measured_ltp, &ltp_to_body_rmat, mag);
     struct Int32Eulers ahrs_eulers;
     int32_eulers_of_quat(&ahrs_eulers, &ltp_to_body_quat);
-    printf("theta: %0.2f  phi: %0.2f\n", ANGLE_FLOAT_OF_BFP(ahrs_eulers.theta) / M_PI * 180.0, ANGLE_FLOAT_OF_BFP(ahrs_eulers.phi) / M_PI * 180.0);
-    printf("yaw: %0.2f  --  %0.2f\n", ANGLE_FLOAT_OF_BFP(ahrs_eulers.psi) / M_PI * 180.0, (atan2f(MAG_FLOAT_OF_BFP(mag->y),MAG_FLOAT_OF_BFP(mag->x))) / M_PI * 180.0);
+    printf("yaw: %0.2f  --  %0.2f  --  %0.2f\n", ANGLE_FLOAT_OF_BFP(ahrs_eulers.psi) / M_PI * 180.0, magneto_psi_f / M_PI * 180.0, ANGLE_FLOAT_OF_BFP(ahrs_eulers.psi) / M_PI * 180.0 - magneto_psi_f / M_PI * 180.0);
 #else
     int32_rmat_transp_vmult(&measured_ltp, &ltp_to_imu_rmat, mag);
 #endif
@@ -497,19 +493,14 @@ static inline void ahrs_icq_update_mag_2d(struct Int32Vect3 *mag, float dt)
   struct Int32Vect2 measured_ltp_2d = {measured_ltp.x, measured_ltp.y};
   int32_vect2_normalize(&measured_ltp_2d, INT32_MAG_FRAC);
 
-  struct Int32Vect2 measured_mag_2d = {mag->x, mag->y};
-    int32_vect2_normalize(&measured_mag_2d, INT32_MAG_FRAC);
-
-
   printf("exp: %d  %d\n", expected_ltp.x, expected_ltp.y);
   printf("mea: %d  %d\n", measured_ltp_2d.x, measured_ltp_2d.y);
-  printf("mag: %d  %d\n", measured_mag_2d.x, measured_mag_2d.y);
 
   /* residual_ltp FRAC: 2 * MAG_FRAC - 5 = 17 */
   struct Int32Vect3 residual_ltp = {
     0,
     0,
-    -(measured_ltp_2d.x * expected_ltp.y - measured_ltp_2d.y * expected_ltp.x) / (1 << 5)
+    (measured_ltp_2d.x * expected_ltp.y - measured_ltp_2d.y * expected_ltp.x) / (1 << 5)
   };
 
   //printf("r: %d\n", residual_ltp.z);

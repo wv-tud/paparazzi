@@ -3,12 +3,7 @@
 <airframe name="bebop2_swarm">
 	<firmware name="rotorcraft">
 		<target name="ap" board="bebop2">
-			<!-- PERIODIC_FREQUENCY should be least equal or greater than AHRS_PROPAGATE_FREQUENCY 
-				<configure name="PERIODIC_FREQUENCY" value="512" /> <configure name="AHRS_PROPAGATE_FREQUENCY" 
-				value="500" /> <configure name="AHRS_CORRECT_FREQUENCY" value="500" /> <configure 
-				name="NAVIGATION_FREQUENCY" value="64" /> <configure name="CONTROL_FREQUENCY" 
-				value="500"/> <configure name="TELEMETRY_FREQUENCY" value="60" /> <configure 
-				name="MODULES_FREQUENCY" value="512" /> -->
+			
 		</target>
 		<!-- amount of time it take for the bat to trigger check -->
 		<!-- to avoid bat low spike detection when strong pullup withch draws short 
@@ -18,17 +13,23 @@
 			delayed -->
 		<define name="CATASTROPHIC_BATTERY_KILL_DELAY" value="30" unit="s/10" /> <!-- in tenth of seconds for engine kill -->
 
-		<!-- swarmhub <configure name="HOST" value="192.168.40.$(AC_ID)" /> <configure 
-			name="MODEM_HOST" value="192.168.40.255" /> -->
+		<!-- swarmhub -->
+		<configure name="HOST" value="192.168.0.$(AC_ID)" />
+		<configure name="MODEM_HOST" value="192.168.255.255" />
 		<!-- Baro, Sonar, RTK -->
 		<configure name="USE_SONAR" value="TRUE" />
+		<configure name="USE_MAGNETOMETER" value="TRUE" />
 		<define name="USE_GPS_UBX_RTCM" value="TRUE" />
-		<define name="TRICAL_FULL_3X3" value="0" />
+		
 		<!-- Use magneto calib with ICQ AHRS -->
+		<define name="TRICAL_FULL_3X3" value="0" />
 		<define name="AHRS_ICQ_MAG_ID" value="MAG_CALIB_UKF_ID" />
-		<!-- Still to be tested <configure name="USE_HFF" value="true" /> <configure 
-			name="HFF_ACCEL_NOISE" value="0.75" /> <configure name="VFF_EXTENDED_ACCEL_NOISE" 
-			value="0.75" /> -->
+		
+		<!-- Still to be tested 
+		<configure name="USE_HFF" value="true" /> 
+		<configure name="HFF_ACCEL_NOISE" value="0.75" /> 
+		<configure name="VFF_EXTENDED_ACCEL_NOISE" value="0.75" /> -->
+		
 		<define name="GPS_TIMEOUT" value="1" />
 		<!-- Camera parameters -->
 		<define name="USE_H264" value="TRUE" />
@@ -52,17 +53,13 @@
 		<module name="stabilization" type="indi_simple" />
 		<module name="guidance" type="indi" />
 		<module name="ahrs" type="int_cmpl_quat">
-			<define name="AHRS_MAG_OMEGA" value="0.04"/>
-			<define name="AHRS_MAG_ZETA" value="0.9"/>
-			<configure name="USE_MAGNETOMETER" value="TRUE" />
+			<define name="AHRS_MAG_OMEGA" value="0.2"/>
+			<define name="AHRS_MAG_ZETA" value="3.5"/>
 			<define name="AHRS_MAG_UPDATE_ALL_AXES" value="FALSE" />
 			<define name="AHRS_USE_GPS_HEADING" value="FALSE" />
 			<define name="AHRS_GRAVITY_UPDATE_COORDINATED_TURN" value="FALSE" />
 			<!-- <define name="AHRS_PROPAGATE_LOW_PASS_RATES" value="FALSE" /> -->
 			<define name="AHRS_GRAVITY_HEURISTIC_FACTOR" value="0" />
-			<!-- <define name="AHRS_FC_IMU_ID" value="ABI_BROADCAST" /> <define name="AHRS_FC_MAG_ID" 
-				value="ABI_BROADCAST" /> <define name="AHRS_FC_GPS_ID" value="GPS_MULTI_ID" 
-				/> -->
 		</module>
 		<module name="ins" type="extended" />
 	</firmware>
@@ -152,29 +149,28 @@
 	</section>
 
 	<section name="AHRS" prefix="AHRS_">
-		<define name="HEADING_UPDATE_GPS_MIN_SPEED" value="0" />
 		<!-- For vibrating airframes -->
 		<define name="GRAVITY_HEURISTIC_FACTOR" value="0" />
 		<!-- values used if no GPS fix, on 3D fix is update by geo_mag module -->
 		<!-- local magnetic field (Delft) -->
 		<!-- http://wiki.paparazziuav.org/wiki/Subsystem/ahrs#Local_Magnetic_Field -->
-		<define name="H_X" value="0.3892503" />
-		<define name="H_Y" value="0.0017972" />
-		<define name="H_Z" value="0.9211303" />
+		<!-- Delft (51°59'27.6"N 4°22'41.4"E) - last update 20170504  -->
+    	<define name="H_X" value="0.390081445"/>
+    	<define name="H_Y" value="0.006383744"/>
+    	<define name="H_Z" value="0.920758228"/>
 	</section>
 
 	<section name="INS" prefix="INS_">
 		<define name="SONAR_MAX_RANGE" value="2.2" />
 		<define name="SONAR_UPDATE_ON_AGL" value="TRUE" />
 		<define name="USE_GPS_ALT" value="1" />     <!-- Use height from the optitrack -->
-		<!-- <define name="VFF_R_GPS" value="0.01" /> -->   <!-- The optitrack has high accuracy -->
 	</section>
 
 	<section name="RC_SETPOINT" prefix="STABILIZATION_ATTITUDE_">
 		<!-- setpoint limits for attitude stabilization rc flight -->
 		<define name="SP_MAX_PHI" value="45" unit="deg" />
 		<define name="SP_MAX_THETA" value="45" unit="deg" />
-		<define name="SP_MAX_R" value="120" unit="deg/s" />
+		<define name="SP_MAX_R" value="240" unit="deg/s" />
 		<define name="DEADBAND_A" value="0" />
 		<define name="DEADBAND_E" value="0" />
 		<define name="DEADBAND_R" value="50" />
@@ -201,7 +197,7 @@
 	<section name="STABILIZATION_ATTITUDE_INDI" prefix="STABILIZATION_INDI_">
 
 		<!-- For the bebop2 we need to filter the roll rate due to the dampers -->
-		<define name="FILTER_ROLL_RATE" value="FALSE" />
+		<define name="FILTER_ROLL_RATE" value="TRUE" />
 		<define name="FILTER_PITCH_RATE" value="FALSE" />
 		<define name="FILTER_YAW_RATE" value="FALSE" />
 
@@ -228,7 +224,7 @@
 		<define name="ADAPTIVE_MU" value="0.0001" />
 
 		<!--Maxium yaw rate, to avoid instability -->
-		<define name="MAX_R" value="120" unit="deg/s" />
+		<define name="MAX_R" value="240" unit="deg/s" />
 	</section>
 
 	<include href="conf/airframes/TUDELFT/calibrations/bebop2_$AC_ID.xml" />
@@ -236,14 +232,13 @@
 	<section name="MAG_CALIB_UKF" prefix="MAG_CALIB_UKF_">
 		<define name="HOTSTART" value="TRUE" />
 		<define name="HOTSTART_SAVE_FILE" value="/data/ftp/internal_000/mag_ukf_calib.txt" />
-		<define name="CLEAN_START" value="TRUE" />
-		<define name="VERBOSE" value="FALSE" />
+		<define name="CLEAN_START" value="FALSE" />
 	</section>
 
 	<section name="NAV_RC_SHAKE_THROW" prefix="NAV_RC_SHAKE_THROW_">
-		<define name="GOTO_BLOCK" value="Swarm" />
+		<define name="GOTO_BLOCK" value="Standby" />
 		<define name="RESET_BLOCK" value="Landed" />
-		<define name="DEBUG_NO_FLIGHT" value="FALSE" />
+		<define name="DEBUG_NO_FLIGHT" value="TRUE" />
 		<define name="LAUNCH_REQUIREMENTS"
 			value="GpsFixValid() && autopilot_get_mode() == AP_MODE_NAV" />
 	</section>
@@ -258,29 +253,29 @@
 	</section>
 
 	<section name="GUIDANCE_V" prefix="GUIDANCE_V_">
-		<define name="HOVER_KP" value="350" />
-		<define name="HOVER_KD" value="85" />
-		<define name="HOVER_KI" value="20" />
-		<define name="NOMINAL_HOVER_THROTTLE" value="0.575" />
+		<define name="HOVER_KP" value="550" />
+		<define name="HOVER_KD" value="255" />
+		<define name="HOVER_KI" value="160" />
+		<define name="NOMINAL_HOVER_THROTTLE" value="0.655" unit="%"/>
 		<define name="ADAPT_THROTTLE_ENABLED" value="TRUE" />
-		<define name="ADAPT_INITIAL_HOVER_THROTTLE" value="0.575" />
-		<!-- <define name="ADAPT_MIN_HOVER_THROTTLE" value="0.50" /> <define name="ADAPT_MAX_HOVER_THROTTLE" 
-			value="0.65" /> -->
+		<define name="ADAPT_INITIAL_HOVER_THROTTLE" value="0.655" unit="%" />
+		<define name="ADAPT_MIN_HOVER_THROTTLE" value="0.55" unit="%" /> 
+		<define name="ADAPT_MAX_HOVER_THROTTLE" value="0.70" unit="%" />
 	</section>
 
 	<section name="GUIDANCE_H" prefix="GUIDANCE_H_">
 		<!-- Good weather 20deg / Bad weather 32 deg -->
 		<define name="MAX_BANK" value="32" unit="deg" />
-		<define name="REF_MAX_SPEED" value="2" unit="m/s" />
-		<define name="PGAIN" value="60" />
-		<define name="DGAIN" value="170" />
+		<define name="REF_MAX_SPEED" value="3" unit="m/s" />
+		<define name="PGAIN" value="120" />
+		<define name="DGAIN" value="100" />
 		<define name="IGAIN" value="30" />
 	</section>
 
 
 	<section name="NAVIGATION" prefix="NAV_">
-		<define name="CLIMB_VSPEED" value="1.0" />
-		<define name="DESCEND_VSPEED" value="-1.0" />
+		<define name="CLIMB_VSPEED" value="1.5" />
+		<define name="DESCEND_VSPEED" value="-1.5" />
 	</section>
 
 	<section name="SIMULATOR" prefix="NPS_">

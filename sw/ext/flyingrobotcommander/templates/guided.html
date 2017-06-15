@@ -1,0 +1,289 @@
+{% extends "layout.html" %}
+
+{% macro case_command(id, row, col) %}
+  case {{id}}:    aReq.open("GET", cmd_guidance + aircraft_id[{{row}}] + '/' + flag_mask[2] + '/' + ned_params[{{col}}], true);  aReq.send(); break;
+{% endmacro %}
+
+{% macro case_command_mode(id, row, col) %}
+  case {{id}}:    aReq.open("GET", cmd_setmode  + aircraft_id[{{row}}] + '/' + mode[{{col}}], true);  aReq.send(); break;
+{% endmacro %}
+
+{% macro case_command_group(id, col) %}
+  case {{id}}:    bReq.open("GET", cmd_guidance + flag_mask[2] + '/' + ned_params[{{col}}], true); bReq.send(); break;
+{% endmacro %}
+
+{% macro case_command_group_mode(id, col) %}
+  case {{id}}:    bReq.open("GET", cmd_setmode + mode[{{col}}], true); bReq.send(); break;
+{% endmacro %}
+
+{% block head %}
+<head>
+
+<title>Guided: Flying Robot Commander</title>
+<link rel="stylesheet" type="text/css" href="{{ url_for('static', filename='style.css') }}">
+
+<script>
+
+var row_count       = {{ p_row_count }} + 1;  // Number of rows + 1 to accomodate group action button row
+var col_count       = {{ p_col_count }};      // Number of columns = number of guided commands + two extra(one for each mode)
+var msg_btn_id      = "999";                  // Id of the message id status button
+
+// Assign defaults for ip address, port number
+var ip_addr         = '{{ p_host }}';
+var port_number     = '{{ p_port }}';
+var ip_cmd_prefix   = 'http://' + ip_addr + ':' + port_number;  // Prefix for URL commands that includes the ip address and port
+
+// Guidance Command Example: http://127.0.0.1:5000/guidance/217/3//10.0/0.0/0.0/0.0
+var cmd_guidance    = ip_cmd_prefix + '/guidance/';
+var aircraft_id     = '{{ p_row_list }}'.replace( / |\[|\]/g, '' ).split(',');    // Strips space and square brackets from list before splitting
+var flag_mask       = ['0', '13', '14', '96'];  // Velocity flag: 96 = 0x60
+
+// Default Units: Distance in meters; Rotation in degrees (1 degree = 0.0174533 radians) 
+var ned_params      = [
+                        '1.0/0.0/0.0/0.0', 
+                        '-1.0/0.0/0.0/0.0', 
+                        '0.0/-1.0/0.0/0.0', 
+                        '0.0/1.0/0.0/0.0', 
+                        '0.0/0.0/-1.0/0.0', 
+                        '0.0/0.0/1.0/0.0', 
+                        '0.0/0.0/0.0/-0.0174533',
+                        '0.0/0.0/0.0/0.0174533',
+                        '0.0/0.0/0.0/0.0', 
+                        '0.0/0.0/0.0/0.0'
+                      ];
+
+var scalar_distance   = [0.1, 0.5, 1.0, 2.0, 5.0, 10.0];                 // Meters
+var scalar_rotation   = [1, 5, 15, 30, 45, 60, 90, 120, 135, 150, 180];  // Degrees
+var scalar_tuple      = [2, 2, 2, 0];  // Scalar Index Order -- 0: North(South); 1: East(West); 2: Up(Down); 3: CounterClock(Clockwise)
+
+// Setmode Command Example: http://127.0.0.1:5000/guidance/setmode/217/13
+// Note: uses the aircraft_id values as part of the command, see above
+var cmd_setmode     = ip_cmd_prefix + '/guidance/setmode/';
+var mode            = ['19', '13'];  // GUIDED = 19, NAV = 13
+
+function initView() {
+  document.getElementById(200).innerHTML = scalar_distance[scalar_tuple[0]];
+  document.getElementById(201).innerHTML = scalar_distance[scalar_tuple[1]];
+  document.getElementById(202).innerHTML = scalar_distance[scalar_tuple[2]];
+  document.getElementById(203).innerHTML = scalar_rotation[scalar_tuple[3]];
+}
+
+function displayTriggerMessage(msg) {
+
+  var aReq = new XMLHttpRequest();
+  var bReq = new XMLHttpRequest();
+
+  switch(parseInt(msg)) {
+
+    {% for row in range(1,p_row_count+1)  %}
+        {% set rowloop = loop %}
+        {% for col in range(1,(p_col_count-2)+1)  %}
+            {{ case_command( ((rowloop.index-1)*p_col_count)+(col-1), rowloop.index-1, col-1 ) }}
+        {% endfor %}
+        {% for col in range(1,3)  %}
+            {{ case_command_mode( ((rowloop.index-1)*p_col_count)+(p_col_count-2)+(col-1), rowloop.index-1, col-1 ) }}
+        {% endfor %}
+    {% endfor %}
+
+
+    {% for col in range(1,(p_col_count-2)+1)  %}
+        {{ case_command_group( (p_row_count*p_col_count)+(col-1), col-1 ) }}
+    {% endfor %}
+    {% for col in range(1,3)  %}
+        {{ case_command_group_mode( (p_row_count*p_col_count)+(p_col_count-2)+(col-1), col-1 ) }}
+    {% endfor %}
+
+
+    case 200:  
+               scalar_tuple[0] = (scalar_tuple[0] + 1) % scalar_distance.length;
+               ned_params[0]   = scalar_distance[scalar_tuple[0]].toString() + "/0.0/0.0/0.0";
+               ned_params[1]   = "-" + scalar_distance[scalar_tuple[0]].toString() + "/0.0/0.0/0.0";
+               document.getElementById(200).innerHTML = scalar_distance[scalar_tuple[0]];
+               break;
+    case 201:  
+               scalar_tuple[1] = (scalar_tuple[1] + 1) % scalar_distance.length;
+               ned_params[2]   = "0.0/-" + scalar_distance[scalar_tuple[1]].toString() + "/0.0/0.0";
+               ned_params[3]   = "0.0/"  + scalar_distance[scalar_tuple[1]].toString() + "/0.0/0.0";
+               document.getElementById(201).innerHTML = scalar_distance[scalar_tuple[1]];
+               break;
+    case 202:  
+               scalar_tuple[2] = (scalar_tuple[2] + 1) % scalar_distance.length;
+               ned_params[4]   = "0.0/0.0/-" + scalar_distance[scalar_tuple[2]].toString() + "/0.0";
+               ned_params[5]   = "0.0/0.0/"  + scalar_distance[scalar_tuple[2]].toString() + "/0.0";
+               document.getElementById(202).innerHTML = scalar_distance[scalar_tuple[2]];
+               break;
+    case 203:  
+               scalar_tuple[3] = (scalar_tuple[3] + 1) % scalar_rotation.length;
+               ned_params[6]   = "0.0/0.0/0.0/-" + (scalar_rotation[scalar_tuple[3]] * 0.0174533).toString();
+               ned_params[7]   = "0.0/0.0/0.0/"  + (scalar_rotation[scalar_tuple[3]] * 0.0174533).toString();
+               document.getElementById(203).innerHTML = scalar_rotation[scalar_tuple[3]];
+               break;
+    default:   aReq.open("GET", cmd_guidance + '', true); aReq.send();
+  }
+
+  document.getElementById(msg_btn_id).style.color = "black";
+  document.getElementById(msg_btn_id).innerHTML = "Id: " + msg;
+
+}
+
+function clearRowBoarders(row) {
+
+  for (var i = 0; i < col_count; i++) {
+    var tid = ((row - 1)*col_count) + i;
+    document.getElementById(tid).style.borderColor = "black";
+    document.getElementById(tid).style.color = "black";
+  }  
+
+}
+
+function setRowColumnBoarder(row, col) {
+  var tid = ((row - 1)*col_count) + (col-1);
+  document.getElementById(tid).style.borderColor = "white";
+  document.getElementById(tid).style.color = "white";
+}
+
+function mousedownButton(btn) {
+  var row = Math.trunc(btn.id / col_count) + 1;
+  var col = (btn.id % col_count) + 1;
+
+  // Clear row borders
+  clearRowBoarders(row);
+  btn.style.borderColor = "black";
+  btn.style.color = "black";
+
+  // Clear message status as a visual cue
+  // CURRENTLY NOT USED
+  //document.getElementById(msg_btn_id).innerHTML = "";
+}
+
+function selectButton(btn) {
+  var row = Math.trunc(btn.id / col_count) + 1;
+  var col = (btn.id % col_count) + 1;
+
+  // Set the text of the button. Useful for testing
+  //btn.innerHTML = "X" + row + "Y" + col;
+
+  // Clear row borders
+  clearRowBoarders(row);
+  btn.style.borderColor = "white";
+  btn.style.color = "white";
+  displayTriggerMessage(btn.id);
+
+  // If a button in the bottom row selected, clear borders on preceeding rows
+  if (row == row_count) {
+    for (var i = 1; i < row_count; i++) {
+      clearRowBoarders(i);
+      setRowColumnBoarder(i, col);
+    }
+
+  }
+
+  /*
+  // UNUSED CODE BLOCKS
+
+  // Toggle border color
+  if (btn.style.borderColor == "white") {
+    btn.style.borderColor = "black";
+  }
+  else {
+    btn.style.borderColor = "white";
+  }
+
+  // Set the background to white
+  btn.style.background = "white";
+  */
+}
+
+function clearPageRowBoarders() {
+
+  // Leverage button id sequence to simplify clear operation logic
+  for (var tid = 200; tid < 203; tid++) {
+    document.getElementById(tid).style.borderColor = "black";
+    document.getElementById(tid).style.color = "black";
+  }
+
+}
+
+
+function selectPageButton(btn) {
+
+  // Clear row borders
+  clearPageRowBoarders();
+  btn.style.borderColor = "white";
+  btn.style.color = "white";
+  displayTriggerMessage(btn.id);
+}
+
+</script>
+
+<style>
+
+.button-container {
+  {{ btn_container_style( (p_col_count*(p_button_size+8)) ) }}
+}
+
+.button-container > button {
+  {{ btn_style( p_button_size ) }}
+}
+
+.command-button-container {
+  {{ btn_container_style( (p_col_count*(p_button_size+8)) ) }}
+}
+
+.command-button-container > button {
+  {{ cmd_btn_style( p_button_size ) }}
+}
+
+</style>
+
+
+</head>
+{% endblock %}
+
+{% block body %}
+<body onload="initView();">
+
+<div class="menu-container">
+  <div class="button-container">
+
+  {% set ac_tooltip = cycler(*p_ac_tooltip_list) %}
+  {% set ac_color   = cycler(*p_ac_color_list) %}
+  {% set ac_label   = cycler(*p_ac_label_list) %}
+  {% set ac_icon    = cycler(*p_ac_icon_list) %}
+  {% set tooltip    = cycler(*p_tooltip_list) %}
+  {% set color      = cycler(*p_color_list) %}
+  {% set label      = cycler(*p_label_list) %}
+  {% set icon       = cycler(*p_icon_list) %}
+  {% for row in range(1,p_row_count+1)  %}
+        {% set rowloop    = loop %}
+        {% set rowtooltip = ac_tooltip.next() %}
+        {% set rowcolor   = ac_color.next() %}
+        {% set rowlabel   = ac_label.next() %}
+        {% set rowicon    = ac_icon.next() %}
+        {% for col in range(1,p_col_count+1)  %}
+            {% set curcolor   = color.next() %}
+            {% set curtooltip = tooltip.next() %}
+            {% if p_view_mode is equalto "row" %}
+                {% set curtooltip = rowtooltip %}
+                {% set curcolor   = rowcolor %}
+            {% endif %}
+            {{ btn_link( ((rowloop.index-1)*p_col_count)+(col-1),  curtooltip, curcolor, rowlabel, rowicon ) }}
+        {% endfor %}      
+  {% endfor %}
+
+  {% for col in range(1,p_col_count+1)  %}
+        {{ btn_link( (p_row_count*p_col_count)+(col-1),  tooltip.next(), color.next(), label.next(), icon.next() ) }}
+  {% endfor %}      
+
+  </div>
+  <div class="command-button-container">
+  <button id="200" style="background:magenta; color:black; font-size: 30px"   onmousedown="mousedownButton(this)" onclick="selectPageButton(this)">N/S</button>
+  <button id="201" style="background:deepskyblue; color:black; font-size: 30px" onmousedown="mousedownButton(this)" onclick="selectPageButton(this)">E/W</button>
+  <button id="202" style="background:lime; color:black; font-size: 30px"    onmousedown="mousedownButton(this)" onclick="selectPageButton(this)">U/D</button>
+  <button id="203" style="background:gold; color:black; font-size: 30px"    onmousedown="mousedownButton(this)" onclick="selectPageButton(this)">Yaw</button>
+  <button id="999" style="color:black">Id: x</button>
+  </div>
+</div>
+
+</body>
+{% endblock %}

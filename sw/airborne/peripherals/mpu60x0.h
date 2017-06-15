@@ -54,8 +54,9 @@
 /** default gyro sensitivy from the datasheet
  * sens = 1/ [LSB/(deg/s)] * pi/180 * 2^INT32_RATE_FRAC
  * ex: MPU with 1000 deg/s has 32.8 LSB/(deg/s)
- *     sens = 1/32.8 * pi/180 * 4096 = 2.17953
+ *     sens = 1/32.8 * pi/180 * 4096 = 2.17953 ... 3114685
  */
+
 #define MPU60X0_GYRO_SENS_250 0.544883
 #define MPU60X0_GYRO_SENS_250_NUM 19327
 #define MPU60X0_GYRO_SENS_250_DEN 35470
@@ -64,6 +65,10 @@
 #define MPU60X0_GYRO_SENS_500_DEN 52913
 #define MPU60X0_GYRO_SENS_1000 2.17953
 #define MPU60X0_GYRO_SENS_1000_NUM 18271
+/* 18271 -> 10x rotate 20 deg too little      --> 3600 / 3580  --> 18373  (bebop2-48)
+ *
+ */
+//#define MPU60X0_GYRO_SENS_1000_NUM 18373
 #define MPU60X0_GYRO_SENS_1000_DEN 8383
 #define MPU60X0_GYRO_SENS_2000 4.35906
 #define MPU60X0_GYRO_SENS_2000_NUM 36542

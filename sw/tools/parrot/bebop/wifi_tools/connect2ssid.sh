@@ -9,8 +9,8 @@ IP="$1"
 echo "Drone ID specified, using ($IP)"
 fi
 
-wput -u ./pprz_swarmhub.conf ftp://$IP/internal_000/scripts/pprz.conf
-wput -u ./scripts/config_network.script ftp://$IP/internal_000/scripts/config_network.script
-wput -u ./scripts/button_switch ftp://$IP/internal_000/scripts/button_switch
-wput -u ./scripts/connect2hub ftp://$IP/internal_000/scripts/connect2hub
+wput -nc -u ./pprz_swarmhub.conf ftp://$IP/internal_000/scripts/pprz.conf
+wput -nc -u ./scripts/config_network.script ftp://$IP/internal_000/scripts/config_network.script
+wput -nc -u ./scripts/button_switch ftp://$IP/internal_000/scripts/button_switch
+wput -nc -u ./scripts/connect2hub ftp://$IP/internal_000/scripts/connect2hub
 { echo "mount -o remount,rw /";  echo "sed -i 's|^exit 0|/data/ftp/internal_000/scripts/connect2hub \& exit 0|' /etc/init.d/rcS"; echo "chmod a+x /etc/init.d/rcS"; echo "chmod a+x /data/ftp/internal_000/scripts/connect2hub"; echo "chmod a+x /data/ftp/internal_000/scripts/button_switch"; echo "chmod a+x /data/ftp/internal_000/scripts/config_network.script"; echo "dos2unix /data/ftp/internal_000/scripts/button_switch"; echo "dos2unix /data/ftp/internal_000/scripts/connect2hub"; echo "dos2unix /data/ftp/internal_000/scripts/pprz.conf"; echo "echo '#!/bin/sh' > /bin/onoffbutton/shortpress_4.sh"; echo "echo '' >> /bin/onoffbutton/shortpress_4.sh"; echo "echo '/data/ftp/internal_000/scripts/button_switch' >> /bin/onoffbutton/shortpress_4.sh"; echo "/sbin/reboot"; sleep 10; } | telnet $IP

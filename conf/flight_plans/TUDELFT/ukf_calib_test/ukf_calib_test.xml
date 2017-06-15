@@ -1,7 +1,7 @@
 <!DOCTYPE flight_plan SYSTEM "../../flight_plan.dtd">
 
-<flight_plan alt="1.75" ground_alt="0.0" lat0="51.9908030" lon0="4.3784856" max_dist_from_home="20" name="UKF Magnetometer Calibration test" security_height="1.25">
-  <header>
+<flight_plan alt="2.0" ground_alt="0.0" lat0="51.9794839" lon0="4.3604089" max_dist_from_home="10" name="UKF Magnetometer Calibration test" security_height="1.0">
+  <header>	
     #include "autopilot.h"
     #include "subsystems/datalink/datalink.h"
     #include "subsystems/electrical.h"
@@ -19,16 +19,16 @@
     <waypoint name="GLOBAL" x="0.0" y="-1.0"/>
     <waypoint name="_TD"    x="0.0" y="0.0"/>
     
-    <waypoint name="p1"    x="-5.0" y="5.0"/>
-    <waypoint name="p2"    x="-5.0" y="10.0"/>
-    <waypoint name="p3"    x="5.0" y="10.0"/>
-    <waypoint name="p4"    x="5.0" y="5.0"/>
+    <waypoint name="p1"    x="51.9795102" y="4.3604651"/>	
+    <waypoint name="p2"    x="51.9795268" y="4.3605636"/>	
+    <waypoint name="p3"    x="51.9794725" y="4.3605777"/>
+    <waypoint name="p4"    x="51.9794601" y="4.3604950"/>
     <waypoint name="CAM"   x="0.0" y="7.5"/>
     
-    <waypoint name="s1"    x="-7.5" y="-2.5"/>
-    <waypoint name="s2"    x="-7.5" y="12.5"/>
-    <waypoint name="s3"    x="7.5" y="12.5"/>
-    <waypoint name="s4"    x="7.5" y="-2.5"/>
+    <waypoint name="s1"    lat="51.9795432" lon="4.3603986"/>
+    <waypoint name="s2"    lat="51.9795749" lon="4.3606116"/>	
+    <waypoint name="s3"    lat="51.9794495" lon="4.3607020"/>	
+    <waypoint name="s4"    lat="51.9794028" lon="4.3604659"/>
   </waypoints>
   <sectors>
     <sector color="red" name="Safety">
@@ -42,17 +42,21 @@
     <!-- RC-Loss -->
     <!-- GPS loss -->
     <!-- Not done from flight plan, main.c goes to AP_MODE_FAILSAFE hardcoded -->
-    <!-- Geofence -->
+    <!-- Geofence
     <exception cond="(!InsideSafety(GetPosX(), GetPosY()) &&
       !(IndexOfBlock('Takeoff') > nav_block) &&
       !(nav_block >= IndexOfBlock('land')) &&
-      (autopilot_in_flight() == true) )" deroute="EmergencyLanding"/>
+      (autopilot_in_flight() == true) )" deroute="EmergencyLanding"/> -->
     <!-- Datalink loss -->
-    <exception cond="(datalink_time > 3 &&
-      !(datalink_time > 8) &&
+    <exception cond="(datalink_time > 10 &&
+      !(datalink_time > 15) &&
       !(IndexOfBlock('Takeoff') > nav_block) &&
       !(nav_block >= IndexOfBlock('land')) &&
       (autopilot_in_flight() == true) )" deroute="DatalinkLoss"/>
+    <exception cond="(datalink_time > 20 &&
+      !(IndexOfBlock('Takeoff') > nav_block) &&
+      !(nav_block >= IndexOfBlock('land')) &&
+      (autopilot_in_flight() == true) )" deroute="EmergencyLanding"/>
     <!-- Battery loss -->
     <exception cond="(electrical.bat_low &&
     !(IndexOfBlock('Holding point') > nav_block) &&
@@ -85,7 +89,7 @@
     <block name="Takeoff" strip_button="Takeoff" strip_icon="takeoff.png">
       <call_once fun="NavSetWaypointHere(WP_CLIMB)"/>
       <call_once fun="NavSetWaypointHere(WP_TD)"/>
-      <attitude pitch="0" roll="0" until="GetPosAlt() > WaypointAlt(WP_STDBY)" vmode="climb" climb="nav_climb_vspeed"/>
+      <stay wp="STDBY" until="GetPosAlt() > WaypointAlt(WP_STDBY)" vmode="climb" climb="nav_climb_vspeed"/>
     </block>
     <block name="Standby" strip_button="Standby" strip_icon="home.png">
       <call_once fun="NavSetWaypointHere(WP_STDBY)"/>
@@ -154,7 +158,6 @@
       <deroute block="land here"/>
     </block>
     <block name="DatalinkLoss">
-      <exception cond="LessThan(datalink_time,2)" deroute="Standby"/>
       <call_once fun="NavSetWaypointHere(WP_TD)"/>
       <stay until="stage_time > 5" wp="TD"/>
       <deroute block="ComeBackAndLand"/>
