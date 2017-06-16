@@ -33,6 +33,7 @@
 #include "math/pprz_algebra_int.h"
 #include "math/pprz_simple_matrix.h"
 #include "generated/airframe.h"
+#include "modules/calibration/mag_calib_ukf.h"
 #if USE_GPS
 #include "subsystems/gps.h"
 #endif
@@ -297,7 +298,16 @@ void ahrs_fc_update_mag_full(struct FloatVect3 *mag, float dt)
 {
 
   struct FloatVect3 expected_imu;
+#if BEBOP_VERSION2
+  struct FloatQuat ltp_to_body_quat, *body_to_imu_quat = orientationGetQuat_f(&ahrs_fc.body_to_imu);
+  float_quat_comp_inv(&ltp_to_body_quat, &ahrs_fc.ltp_to_imu_quat, body_to_imu_quat);
+  struct FloatRMat ltp_to_body_rmat;
+  float_rmat_of_quat(&ltp_to_body_rmat, &ltp_to_body_quat);
+  float_rmat_vmult(&expected_imu, &ltp_to_body_rmat, &ahrs_fc.mag_h);
+#else
   float_rmat_vmult(&expected_imu, &ahrs_fc.ltp_to_imu_rmat, &ahrs_fc.mag_h);
+#endif
+
 
   struct FloatVect3 measured_imu = *mag;
   struct FloatVect3 residual_imu;
@@ -333,7 +343,19 @@ void ahrs_fc_update_mag_2d(struct FloatVect3 *mag, float dt)
 
   struct FloatVect3 measured_imu = *mag;
   struct FloatVect3 measured_ltp;
-  float_rmat_transp_vmult(&measured_ltp, &ahrs_fc.ltp_to_imu_rmat, &measured_imu);
+
+#if BEBOP_VERSION2
+    struct FloatQuat ltp_to_body_quat, *body_to_imu_quat = orientationGetQuat_f(&ahrs_fc.body_to_imu);
+    float_quat_comp_inv(&ltp_to_body_quat, &ahrs_fc.ltp_to_imu_quat, body_to_imu_quat);
+    struct FloatRMat ltp_to_body_rmat;
+    float_rmat_of_quat(&ltp_to_body_rmat, &ltp_to_body_quat);
+    float_rmat_transp_vmult(&measured_ltp, &ltp_to_body_rmat, mag);
+    struct FloatEulers ahrs_eulers;
+    float_eulers_of_quat(&ahrs_eulers, &ltp_to_body_quat);
+    printf("yaw: %0.2f  --  %0.2f  --  %0.2f\n", ahrs_eulers.psi / M_PI * 180.0, magneto_psi_f / M_PI * 180.0, ahrs_eulers.psi / M_PI * 180.0 - magneto_psi_f / M_PI * 180.0);
+#else
+    float_rmat_transp_vmult(&measured_ltp, &ahrs_fc.ltp_to_imu_rmat, &measured_imu);
+#endif
 
   struct FloatVect2 measured_ltp_2d = {measured_ltp.x, measured_ltp.y};
 

@@ -13,9 +13,9 @@
 			delayed -->
 		<define name="CATASTROPHIC_BATTERY_KILL_DELAY" value="30" unit="s/10" /> <!-- in tenth of seconds for engine kill -->
 
-		<!-- swarmhub -->
+		<!-- swarmhub 
 		<configure name="HOST" value="192.168.0.$(AC_ID)" />
-		<configure name="MODEM_HOST" value="192.168.255.255" />
+		<configure name="MODEM_HOST" value="192.168.255.255" /> -->
 		<!-- Baro, Sonar, RTK -->
 		<configure name="USE_SONAR" value="TRUE" />
 		<configure name="USE_MAGNETOMETER" value="TRUE" />
@@ -52,9 +52,9 @@
 		<module name="gps" type="ublox" />
 		<module name="stabilization" type="indi_simple" />
 		<module name="guidance" type="indi" />
-		<module name="ahrs" type="int_cmpl_quat">
+		<module name="ahrs" type="float_cmpl_quat">
 			<define name="AHRS_MAG_OMEGA" value="0.2"/>
-			<define name="AHRS_MAG_ZETA" value="3.5"/>
+			<define name="AHRS_MAG_ZETA" value="75.0"/>
 			<define name="AHRS_MAG_UPDATE_ALL_AXES" value="FALSE" />
 			<define name="AHRS_USE_GPS_HEADING" value="FALSE" />
 			<define name="AHRS_GRAVITY_UPDATE_COORDINATED_TURN" value="FALSE" />
@@ -231,6 +231,7 @@
 
 	<section name="MAG_CALIB_UKF" prefix="MAG_CALIB_UKF_">
 		<define name="HOTSTART" value="TRUE" />
+		<define name="FILTER_MAG" value="FALSE" />
 		<define name="HOTSTART_SAVE_FILE" value="/data/ftp/internal_000/mag_ukf_calib.txt" />
 		<define name="CLEAN_START" value="FALSE" />
 	</section>

@@ -37,7 +37,8 @@
 #include "subsystems/datalink/telemetry.h"
 #include "subsystems/ahrs/ahrs_int_utils.h"
 #include "subsystems/ahrs/ahrs_aligner.h"
-#include "subsystems/ahrs/ahrs_int_cmpl_quat.h"
+//#include "subsystems/ahrs/ahrs_int_cmpl_quat.h"
+#include "subsystems/ahrs/ahrs_float_cmpl.h"
 #include "filters/low_pass_filter.h"
 
 //
@@ -134,7 +135,13 @@ struct Int32Vect3 calibrated_mag;
 float angle_diff_f;
 float magneto_psi_f;
 
+#ifndef MAG_CALIB_UKF_FILTER_MAG
+#define MAG_CALIB_UKF_FILTER_MAG FALSE
+#endif
+PRINT_CONFIG_VAR(MAG_CALIB_UKF_FILTER_MAG)
+#if MAG_CALIB_UKF_FILTER_MAG
 Butterworth2LowPass mag_lowpass_filters[3];
+#endif
 
 TRICAL_instance_t mag_calib;
 static abi_event mag_ev;
@@ -161,12 +168,13 @@ void mag_calib_ukf_init(void)
 #endif
   AbiBindMsgIMU_MAG_INT32(MAG_CALIB_UKF_ABI_BIND_ID, &mag_ev, mag_calib_ukf_run);
   AbiBindMsgGEO_MAG(ABI_BROADCAST, &h_ev, mag_calib_update_field);
-
+#if MAG_CALIB_UKF_FILTER_MAG
   float tau = 1.0/(2.0*M_PI*3.0);
   float sample_time = 1.0/50.0;
   init_butterworth_2_low_pass(&mag_lowpass_filters[0], tau, sample_time, 0.0);
   init_butterworth_2_low_pass(&mag_lowpass_filters[1], tau, sample_time, 0.0);
   init_butterworth_2_low_pass(&mag_lowpass_filters[2], tau, sample_time, 0.0);
+#endif
 }
 
 /** Callback function run for every new mag measurement
@@ -193,7 +201,7 @@ void mag_calib_ukf_run(uint8_t sender_id, uint32_t stamp, struct Int32Vect3 *mag
       measurement[0] = MAG_FLOAT_OF_BFP(mag->x);
       measurement[1] = MAG_FLOAT_OF_BFP(mag->y);
       measurement[2] = MAG_FLOAT_OF_BFP(mag->z);
-
+#if MAG_CALIB_UKF_FILTER_MAG
       update_butterworth_2_low_pass(&mag_lowpass_filters[0], measurement[0]);
       update_butterworth_2_low_pass(&mag_lowpass_filters[1], measurement[1]);
       update_butterworth_2_low_pass(&mag_lowpass_filters[2], measurement[2]);
@@ -201,6 +209,7 @@ void mag_calib_ukf_run(uint8_t sender_id, uint32_t stamp, struct Int32Vect3 *mag
       measurement[0] = mag_lowpass_filters[0].o[0];
       measurement[1] = mag_lowpass_filters[1].o[0];
       measurement[2] = mag_lowpass_filters[2].o[0];
+#endif
       /** Update magnetometer UKF **/
 #if 1
       /*
@@ -246,19 +255,19 @@ void mag_calib_ukf_run(uint8_t sender_id, uint32_t stamp, struct Int32Vect3 *mag
       VERBOSE_PRINT("calibrated   measurement (x: %4.2f  y: %4.2f  z: %4.2f) norm: %4.2f\n\n", calibrated_measurement[0],
                     calibrated_measurement[1], calibrated_measurement[2], hypot(hypot(calibrated_measurement[0], calibrated_measurement[1]),
                         calibrated_measurement[2]));
-      struct Int32Eulers e;
-      ahrs_int_get_euler_from_accel_mag(&e, &imu.accel, &imu.mag);
-      magneto_psi_f = ANGLE_FLOAT_OF_BFP(e.psi);
+      struct FloatEulers e;
+      struct FloatVect3 mag_f;
+      MAGS_FLOAT_OF_BFP(mag_f, imu.mag);
+      struct FloatVect3 accel_f;
+      ACCELS_FLOAT_OF_BFP(accel_f, imu.accel);
+      ahrs_float_get_euler_from_accel_mag(&e, &accel_f, &mag_f);
+      magneto_psi_f = e.psi;
       if(runCount < 150){
         avg_heading += e.psi;
       }else if(runCount == 150){
-        ahrs_icq_realign_heading(avg_heading / ((float) runCount));
+        //ahrs_icq_realign_heading(avg_heading / ((float) runCount));
+        ahrs_fc_realign_heading(avg_heading / ((float) runCount));
       }
-      /*else {
-        ahrs_icq_update_heading(e.psi);
-      }*/
-      //printf("e.psi: %0.2f  (%d  %d  %d)\n", magneto_psi_f / M_PI * 180.0, calibrated_mag.x, calibrated_mag.y, calibrated_mag.z);
-
       /** Forward calibrated data */
       AbiSendMsgIMU_MAG_INT32(MAG_CALIB_UKF_ID, stamp, &calibrated_mag);
     }
@@ -273,7 +282,8 @@ void mag_calib_update_field(uint8_t __attribute__((unused)) sender_id, struct Fl
     H.y = (float)(h->y / n);
     H.z = (float)(h->z / n);
     ahrs_int_set_H(&H);
-    VECT3_ASSIGN(ahrs_icq.mag_h, MAG_BFP_OF_REAL(H.x),MAG_BFP_OF_REAL(H.y), MAG_BFP_OF_REAL(H.z));
+    //VECT3_ASSIGN(ahrs_icq.mag_h, MAG_BFP_OF_REAL(H.x),MAG_BFP_OF_REAL(H.y), MAG_BFP_OF_REAL(H.z));
+    VECT3_ASSIGN(ahrs_fc.mag_h, H.x, H.y, H.z);
     PRINT("Updating local magnetic field from geo_mag module (Hx: %4.4f, Hy: %4.4f, Hz: %4.4f)\n", H.x, H.y, H.z);
   }
 }
