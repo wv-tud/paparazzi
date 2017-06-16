@@ -128,6 +128,7 @@ PRINT_CONFIG_VAR(MAG_CALIB_UKF_CLEAN_START)
 #endif
 PRINT_CONFIG_VAR(MAG_CALIB_UKF_VERBOSE)
 
+bool mag_calib_ukf_update_filter = false;
 bool mag_calib_ukf_reset_state = false;
 bool mag_calib_ukf_send_state = false;
 struct Int32Vect3 calibrated_mag;
@@ -216,7 +217,9 @@ void mag_calib_ukf_run(uint8_t sender_id, uint32_t stamp, struct Int32Vect3 *mag
        * Norm only:
        * Please checkout branch norm_only of wv-tud/TRICAL
        */
-      TRICAL_estimate_update(&mag_calib, measurement);
+      if(mag_calib_ukf_update_filter){
+    	  TRICAL_estimate_update(&mag_calib, measurement);
+      }
 #else
       /* Full 3x3 support:
        * Please checkout branch master of wv-tud/TRICAL

@@ -25,10 +25,10 @@
 		<define name="TRICAL_FULL_3X3" value="0" />
 		<define name="AHRS_ICQ_MAG_ID" value="MAG_CALIB_UKF_ID" />
 		
-		<!-- Still to be tested 
+		<!-- Was flying OK, just no real improvement maybe accel noise too high? -->
 		<configure name="USE_HFF" value="true" /> 
 		<configure name="HFF_ACCEL_NOISE" value="0.75" /> 
-		<configure name="VFF_EXTENDED_ACCEL_NOISE" value="0.75" /> -->
+		<configure name="VFF_EXTENDED_ACCEL_NOISE" value="0.75" />
 		
 		<define name="GPS_TIMEOUT" value="1" />
 		<!-- Camera parameters -->
@@ -53,13 +53,13 @@
 		<module name="stabilization" type="indi_simple" />
 		<module name="guidance" type="indi" />
 		<module name="ahrs" type="float_cmpl_quat">
-			<define name="AHRS_MAG_OMEGA" value="0.2"/>
-			<define name="AHRS_MAG_ZETA" value="75.0"/>
+			<define name="AHRS_MAG_OMEGA" value="0.04"/>
+			<define name="AHRS_MAG_ZETA" value="36.0"/>
 			<define name="AHRS_MAG_UPDATE_ALL_AXES" value="FALSE" />
 			<define name="AHRS_USE_GPS_HEADING" value="FALSE" />
 			<define name="AHRS_GRAVITY_UPDATE_COORDINATED_TURN" value="FALSE" />
 			<!-- <define name="AHRS_PROPAGATE_LOW_PASS_RATES" value="FALSE" /> -->
-			<define name="AHRS_GRAVITY_HEURISTIC_FACTOR" value="0" />
+			<define name="AHRS_GRAVITY_HEURISTIC_FACTOR" value="8" />
 		</module>
 		<module name="ins" type="extended" /> <!-- Concider switching to invariant ins? -->
 	</firmware>
@@ -155,9 +155,9 @@
 		<!-- local magnetic field (Delft) -->
 		<!-- http://wiki.paparazziuav.org/wiki/Subsystem/ahrs#Local_Magnetic_Field -->
 		<!-- Delft (51°59'27.6"N 4°22'41.4"E) - last update 20170504  -->
-    	<define name="H_X" value="0.390081445"/>
-    	<define name="H_Y" value="0.006383744"/>
-    	<define name="H_Z" value="0.920758228"/>
+    	        <define name="H_X" value="0.390081445"/>
+    	        <define name="H_Y" value="0.006383744"/>
+    	        <define name="H_Z" value="0.920758228"/>
 	</section>
 
 	<section name="INS" prefix="INS_">
@@ -231,7 +231,7 @@
 
 	<section name="MAG_CALIB_UKF" prefix="MAG_CALIB_UKF_">
 		<define name="HOTSTART" value="TRUE" />
-		<define name="FILTER_MAG" value="FALSE" />
+		<define name="FILTER_MAG" value="TRUE" />
 		<define name="HOTSTART_SAVE_FILE" value="/data/ftp/internal_000/mag_ukf_calib.txt" />
 		<define name="CLEAN_START" value="FALSE" />
 	</section>
@@ -298,8 +298,8 @@
 	<section name="BAT">
 		<define name="MILLIAMP_AT_FULL_THROTTLE" value="8700" />
 		<define name="CATASTROPHIC_BAT_LEVEL" value="9.9" unit="V" />
-		<define name="CRITIC_BAT_LEVEL" value="11.0" unit="V" />
-		<define name="LOW_BAT_LEVEL" value="11.2" unit="V" />
+		<define name="CRITIC_BAT_LEVEL" value="10.4" unit="V" />
+		<define name="LOW_BAT_LEVEL" value="10.7" unit="V" />
 		<define name="MAX_BAT_LEVEL" value="12.4" unit="V" />
 	</section>
 

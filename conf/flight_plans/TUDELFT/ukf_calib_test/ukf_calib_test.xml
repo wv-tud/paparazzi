@@ -1,6 +1,6 @@
 <!DOCTYPE flight_plan SYSTEM "../../flight_plan.dtd">
 
-<flight_plan alt="5.0" ground_alt="3.0" lat0="51.9794839" lon0="4.3604089" max_dist_from_home="10" name="UKF Magnetometer Calibration test" security_height="1.0">
+<flight_plan alt="2.0" ground_alt="0.0" lat0="51.9794839" lon0="4.3604089" max_dist_from_home="10" name="UKF Magnetometer Calibration test" security_height="1.0">
   <header>	
     #include "autopilot.h"
     #include "subsystems/datalink/datalink.h"
@@ -155,7 +155,8 @@
     </block>
     <block name="ComeBackAndLand">
       <go wp="HOME"/>
-      <deroute block="land here"/>
+      <call_once fun="NavSetWaypointHere(WP_TD)"/>
+      <deroute block="land"/>
     </block>
     <block name="DatalinkLoss">
       <call_once fun="NavSetWaypointHere(WP_TD)"/>
