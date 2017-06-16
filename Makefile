@@ -102,7 +102,7 @@ MAVLINK_PROTOCOL_H=$(MAVLINK_DIR)protocol.h
 
 GEN_HEADERS = $(UBX_PROTOCOL_H) $(MTK_PROTOCOL_H) $(XSENS_PROTOCOL_H) $(ABI_MESSAGES_H) $(MAVLINK_PROTOCOL_H)
 
-all: ground_segment ext lpctools opencv_bebop
+all: ground_segment ext lpctools
 
 _print_building:
 	@echo "------------------------------------------------------------"
@@ -169,7 +169,6 @@ ext:
 
 opencv_bebop:
 	$(MAKE) -C $(EXT) opencv_bebop
-	$(MAKE) -C $(EXT)/opencv_bebop
 
 #
 # make misc subdirs

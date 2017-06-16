@@ -13,9 +13,9 @@
 			delayed -->
 		<define name="CATASTROPHIC_BATTERY_KILL_DELAY" value="30" unit="s/10" /> <!-- in tenth of seconds for engine kill -->
 
-		<!-- swarmhub 
+		<!-- swarmhub -->
 		<configure name="HOST" value="192.168.0.$(AC_ID)" />
-		<configure name="MODEM_HOST" value="192.168.255.255" /> -->
+		<configure name="MODEM_HOST" value="192.168.255.255" />
 		<!-- Baro, Sonar, RTK -->
 		<configure name="USE_SONAR" value="TRUE" />
 		<configure name="USE_MAGNETOMETER" value="TRUE" />
