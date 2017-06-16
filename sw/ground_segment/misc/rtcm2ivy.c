@@ -65,7 +65,7 @@ uint32_t serial_baud  = B9600;
 uint32_t packet_size  = 100;    // 802.15.4 (Series 1) XBee 100 Bytes payload size
 uint32_t ivy_size     = 0;
 uint16_t min_dur_s    = 240;
-uint16_t min_acc_mm   = 250;
+uint16_t min_acc_m   = 1.5;
 bool svin = false;
 
 /* For sending ubx msg to ground station gps */
@@ -215,7 +215,8 @@ static void ubx_navsvin_callback(uint8_t len, uint8_t msg[])
     float meanAcc = (float) 0.1 * UBX_NAV_SVIN_meanACC(msg);
     u8 valid      = UBX_NAV_SVIN_Valid(msg);
     u8 active     = UBX_NAV_SVIN_Active(msg);
-    printf("iTow: %u \t dur: %u \t meaAcc: %f \t valid: %u \t active: %u \n", iTow, dur, meanAcc, valid, active);
+    printf("\033[A\33[2K\r");
+    printf("iTow: %10u \t dur: %5u \t meaAcc: %15.5f \t valid: %1u \t active: %1u\n", iTow, dur, meanAcc, valid, active);
   }
 }
 /**
@@ -286,7 +287,7 @@ int main(int argc, char **argv)
           min_dur_s = atoi(optarg);
           break;
       case 'a':
-          min_acc_mm = atoi(optarg);
+          min_acc_m = atoi(optarg);
           break;
       case 'p':
         packet_size = atoi(optarg);
@@ -355,7 +356,7 @@ int main(int argc, char **argv)
       uint8_t lla = 1;                              ///< 0: ECEF,  1: LLA
       uint8_t mode = 1;                             ///< 0: Disabled,  1: Suvery-in  2: Fixed mode
       uint16_t ubx_flags = (lla<<8)+mode;           // FIXME : mind the reserve bytes get shifted
-      uint32_t svinacclimit = min_acc_mm * 10;    ///< Minimum accuracy in 1000 mm
+      uint32_t svinacclimit = min_acc_m * 10000;    ///< Minimum accuracy in 0.1 mm
       uint32_t svinmindur = min_dur_s;              ///< Minimum duration in seconds
       UbxSend_CFG_TMODE3(0,0, ubx_flags,0,0,0,0,0,0,0,0,svinmindur,svinacclimit,0,0);
   }
@@ -456,7 +457,7 @@ uint8_t uart_write(uint8_t *p)
       } while(ret < 1 && errno == EAGAIN); //FIXME: max retry
 
     if(ret > 0){
-        printf ("Byte content: 0x%X \n", *p);
+        //printf ("Byte content: 0x%X \n", *p);
         return ret;
     }
     else

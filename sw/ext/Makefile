@@ -33,7 +33,7 @@ EXT_DIR=$(PAPARAZZI_SRC)/sw/ext
 include $(PAPARAZZI_SRC)/conf/Makefile.arm-embedded-toolchain
 
 
-all: libopencm3 luftboot chibios fatfs libsbp mavlink TRICAL
+all: libopencm3 luftboot chibios fatfs libsbp mavlink opencv_bebop TRICAL flyingrobotcommander libopengles
 
 # update (and init if needed) all submodules
 update_submodules:
@@ -69,6 +69,13 @@ chibios: chibios.update
 
 TRICAL: TRICAL.update
 
+flyingrobotcommander: flyingrobotcommander.update
+
+libopengles: libopengles.build
+
+libopengles.build:
+	$(Q)$(MAKE) -C libopengles/lib/arm
+
 fatfs: fatfs.update
 
 mavlink: mavlink.update mavlink.build
@@ -103,4 +110,4 @@ clean_opencv_bebop:
 	fi
 
 .NOTPARALLEL: libopencm3 luftboot
-.PHONY: all clean update_submodules libopencm3 luftboot chibios fatfs luftboot_flash libopencm3.build luftboot.build mavlink.build libsbp pprzlink pprzlink.build opencv_bebop opencv_bebop.build clean_opencv_bebop TRICAL
+.PHONY: all clean update_submodules libopencm3 luftboot chibios fatfs luftboot_flash libopencm3.build luftboot.build mavlink.build libsbp pprzlink pprzlink.build opencv_bebop opencv_bebop.build clean_opencv_bebop TRICAL libopengles

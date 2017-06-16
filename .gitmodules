@@ -24,10 +24,10 @@
 	url = https://github.com/paparazzi/pprzlink.git
 [submodule "sw/ext/opencv_bebop"]
 	path = sw/ext/opencv_bebop
-	url = https://github.com/tudelft/opencv_bebop.git
+	url = https://github.com/wv-tud/opencv_bebop.git
 [submodule "sw/ext/TRICAL"]
 	path = sw/ext/TRICAL
-	url = https://github.com/sfwa/TRICAL.git
+	url = https://github.com/wv-tud/TRICAL.git
 [submodule "sw/ext/flyingrobotcommander"]
 	path = sw/ext/flyingrobotcommander
 	url = https://github.com/paparazzi/flyingrobotcommander

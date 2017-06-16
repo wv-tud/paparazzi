@@ -349,10 +349,10 @@ void ahrs_fc_update_mag_2d(struct FloatVect3 *mag, float dt)
     float_quat_comp_inv(&ltp_to_body_quat, &ahrs_fc.ltp_to_imu_quat, body_to_imu_quat);
     struct FloatRMat ltp_to_body_rmat;
     float_rmat_of_quat(&ltp_to_body_rmat, &ltp_to_body_quat);
-    float_rmat_transp_vmult(&measured_ltp, &ltp_to_body_rmat, mag);
-    struct FloatEulers ahrs_eulers;
-    float_eulers_of_quat(&ahrs_eulers, &ltp_to_body_quat);
-    printf("yaw: %0.2f  --  %0.2f  --  %0.2f\n", ahrs_eulers.psi / M_PI * 180.0, magneto_psi_f / M_PI * 180.0, ahrs_eulers.psi / M_PI * 180.0 - magneto_psi_f / M_PI * 180.0);
+    float_rmat_transp_vmult(&measured_ltp, &ltp_to_body_rmat, &measured_imu);
+    //struct FloatEulers ahrs_eulers;
+    //float_eulers_of_quat(&ahrs_eulers, &ltp_to_body_quat);
+    //printf("yaw: %0.2f  --  %0.2f  --  %0.2f\n", ahrs_eulers.psi / M_PI * 180.0, magneto_psi_f / M_PI * 180.0, ahrs_eulers.psi / M_PI * 180.0 - magneto_psi_f / M_PI * 180.0);
 #else
     float_rmat_transp_vmult(&measured_ltp, &ahrs_fc.ltp_to_imu_rmat, &measured_imu);
 #endif

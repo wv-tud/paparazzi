@@ -145,7 +145,7 @@
 	<section name="AIR_DATA" prefix="AIR_DATA_">
 		<define name="CALC_AIRSPEED" value="FALSE" />
 		<define name="CALC_TAS_FACTOR" value="FALSE" />
-		<define name="CALC_AMSL_BARO" value="TRUE" />
+		<define name="CALC_AMSL_BARO" value="FALSE" />
 	</section>
 
 	<section name="AHRS" prefix="AHRS_">
