@@ -149,8 +149,6 @@
 	</section>
 
 	<section name="AHRS" prefix="AHRS_">
-		<!-- For vibrating airframes -->
-		<define name="GRAVITY_HEURISTIC_FACTOR" value="0" />
 		<!-- values used if no GPS fix, on 3D fix is update by geo_mag module -->
 		<!-- local magnetic field (Delft) -->
 		<!-- http://wiki.paparazziuav.org/wiki/Subsystem/ahrs#Local_Magnetic_Field -->

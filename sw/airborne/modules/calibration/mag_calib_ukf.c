@@ -170,7 +170,7 @@ void mag_calib_ukf_init(void)
   AbiBindMsgIMU_MAG_INT32(MAG_CALIB_UKF_ABI_BIND_ID, &mag_ev, mag_calib_ukf_run);
   AbiBindMsgGEO_MAG(ABI_BROADCAST, &h_ev, mag_calib_update_field);
 #if MAG_CALIB_UKF_FILTER_MAG
-  float tau = 1.0/(2.0*M_PI*3.0);
+  float tau = 1.0/(2.0*M_PI*12.0);
   float sample_time = 1.0/50.0;
   init_butterworth_2_low_pass(&mag_lowpass_filters[0], tau, sample_time, 0.0);
   init_butterworth_2_low_pass(&mag_lowpass_filters[1], tau, sample_time, 0.0);
