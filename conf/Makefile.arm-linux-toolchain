@@ -29,6 +29,23 @@ ifndef HARD_FLOAT
       TOOLCHAIN=$(shell find -L /usr/bin -maxdepth 4 -iname "arm-linux-gnueabi-gcc" | sed 's|-gcc||' | head -n 1)
       ifneq ($(TOOLCHAIN),)
         PREFIX=$(TOOLCHAIN)
+      else
+        ifeq ($(BOARD),bebop)
+          ifeq ($(OS),Windows_NT)
+            $(warning Warning: Viewvideo host auto-ip support not enabled for windows os, please configure VIEWVIDEO_HOST in your airframe file)
+          else
+            UNAME_S := $(shell uname -s)
+            ifeq ($(UNAME_S),Linux)
+              $(warning Warning: parrot-tools-linuxgnutools_i386 recommended for compiling H264 features on linubx on bebop 1 and 2...)
+              $(warning Warning: ... to install please run 'gdebi ~/paparazzi/sw/tools/parrot/bebop/parrot-tools-linuxgnutools-2012.03_1.0.0-1_i386.deb')
+            else
+              ifeq ($(UNAME_S),Darwin)
+                $(warning Warning: Mac OS X ARM GNU Linux G++ Lite 2012.03-57 Toolchain recommended for compiling H264 features on OSX bebop 1 and 2...)
+                $(warning Warning: ... to install please visit 'http://www.carlson-minot.com/available-arm-gnu-linux-g-lite-builds-for-mac-os-x/mac-os-x-arm-gnu-linux-g-lite-201203-57-toolchain')
+              endif
+            endif
+          endif
+        endif
       endif
     endif
   endif

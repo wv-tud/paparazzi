@@ -126,6 +126,7 @@
 		<servo name="BOTTOM_LEFT" no="3" min="2500" neutral="2500" max="12000" />
 	</servos>
 
+	<!--  Command laws for full INDI -->
 	<command_laws>
 		<set servo="TOP_LEFT" 		value="autopilot_get_motors_on() ? actuators_pprz[0] : -MAX_PPRZ" />
 		<set servo="TOP_RIGHT" 		value="autopilot_get_motors_on() ? actuators_pprz[1] : -MAX_PPRZ" />
@@ -133,7 +134,7 @@
 		<set servo="BOTTOM_LEFT" 	value="autopilot_get_motors_on() ? actuators_pprz[3] : -MAX_PPRZ" />
 	</command_laws>
 	
-	<!-- 
+	<!-- Full INDI does not need motor mixing
 	<section name="MIXING" prefix="MOTOR_MIXING_">
 		<define name="TRIM_ROLL" value="0" />
 		<define name="TRIM_PITCH" value="0" />

@@ -74,7 +74,7 @@ flyingrobotcommander: flyingrobotcommander.update
 libopengles: libopengles.build
 
 libopengles.build:
-	$(Q)$(MAKE) -C libopengles/lib/arm
+	$(Q)$(MAKE) -C libopengles
 
 fatfs: fatfs.update
 

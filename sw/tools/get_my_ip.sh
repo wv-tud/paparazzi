@@ -1,1 +1,0 @@
-get_my_ip_osx.sh

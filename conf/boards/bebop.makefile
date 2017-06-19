@@ -23,8 +23,21 @@ TARGET_DIR=$(FTP_DIR)/$(SUB_DIR)
 
 # The datalink default uses UDP
 MODEM_HOST         ?= 192.168.42.255
-
-VIEWVIDEO_HOST     ?= $(shell $(PAPARAZZI_SRC)/sw/tools/get_my_ip.sh $(HOST))
+ifeq ($(VIEWVIDEO_HOST),)
+  ifeq ($(OS),Windows_NT)
+    $(warning Warning: Viewvideo host auto-ip support not enabled for windows os, please configure VIEWVIDEO_HOST in your airframe file)
+  else
+    UNAME_S := $(shell uname -s)
+    ifeq ($(UNAME_S),Linux)
+      VIEWVIDEO_HOST     ?= $(shell $(PAPARAZZI_SRC)/sw/tools/get_my_ip_linux.sh $(HOST))
+    else
+      ifeq ($(UNAME_S),Darwin)
+        VIEWVIDEO_HOST     ?= $(shell $(PAPARAZZI_SRC)/sw/tools/get_my_ip_osx.sh $(HOST))
+      endif
+    endif
+    $(info Info: Viewvideo host auto-ip resolved to $(VIEWVIDEO_HOST))
+  endif
+endif
 
 # The GPS sensor is connected internally
 GPS_PORT           ?= UART1

@@ -23,17 +23,32 @@ ifneq ($(V),1)
 Q := @
 endif
 
-PREFIX	  ?= arm-none-eabi
-CC		 		= $(PREFIX)-gcc
-CFLAGS 		= -Wall
+VPATH = lib/arm
+
+
+ifeq ($(OS),Windows_NT)
+  $(warning Warning: OpenGL ES dummy compilation on Windows not supported)
+else
+  UNAME_S := $(shell uname -s)
+  ifeq ($(UNAME_S),Linux)
+    PREFIX    ?= /opt/arm-2012.03/bin/arm-none-linux-gnueabi
+  else
+    ifeq ($(UNAME_S),Darwin)
+      PREFIX    ?= /usr/local/carlson-minot/crosscompilers/bin/arm-none-linux-gnueabi
+    endif
+  endif
+endif
+
+CC        = $(PREFIX)-gcc
+CFLAGS    = -Wall
 LDFLAGS   =
 
 
 all: GLESv2.so EGL.so GLESv1_CM.so
 
 %.so: %.o
-	@printf "  CC -shared      $(<F)\n"
-	$(Q)$(CC) -shared $(LDLAGS) -o $@ $<
+	@printf "  LIB     $(<F)\n"
+	$(Q)$(CC) -shared $(LDLAGS) $< -o $(VPATH)/lib$@
 
 %.o: %.c
 	@printf "  CC      $(<F)\n"
@@ -43,3 +58,4 @@ clean:
 	$(Q)rm -f *.o *.d *.so
 
 .PHONY: clean
+
