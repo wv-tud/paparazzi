@@ -3,7 +3,7 @@
 <airframe name="bebop2_swarm">
 	<firmware name="rotorcraft">
 		<target name="ap" board="bebop2">
-			
+
 		</target>
 		<!-- amount of time it take for the bat to trigger check -->
 		<!-- to avoid bat low spike detection when strong pullup withch draws short 
@@ -13,19 +13,18 @@
 			delayed -->
 		<define name="CATASTROPHIC_BATTERY_KILL_DELAY" value="30" unit="s/10" /> <!-- in tenth of seconds for engine kill -->
 
-		<!-- swarmhub --
-		<configure name="HOST" value="192.168.0.$(AC_ID)" />
-		<configure name="MODEM_HOST" value="192.168.255.255" />-->
+		<!-- swarmhub -- <configure name="HOST" value="192.168.0.$(AC_ID)" /> <configure 
+			name="MODEM_HOST" value="192.168.255.255" /> -->
 		<!-- Baro, Sonar, RTK -->
 		<configure name="USE_SONAR" value="TRUE" />
 		<configure name="USE_MAGNETOMETER" value="TRUE" />
 		<define name="USE_GPS_UBX_RTCM" value="TRUE" />
-		
+
 		<define name="AHRS_FC_MAG_ID" value="MAG_CALIB_UKF_ID" />
-		
+
 		<!-- Was flying OK, just no real improvement maybe accel noise too high? -->
 		<configure name="USE_HFF" value="true" />
-		
+
 		<define name="GPS_TIMEOUT" value="1" />
 		<!-- Camera parameters -->
 		<define name="USE_H264" value="TRUE" />
@@ -42,17 +41,20 @@
 		<!-- Subsystem section -->
 		<module name="telemetry" type="transparent_udp" />
 		<module name="radio_control" type="datalink" />
-		<module name="motor_mixing" />
+		<!-- <module name="motor_mixing" /> -->
 		<module name="actuators" type="bebop" />
 		<module name="imu" type="bebop" />
 		<module name="gps" type="ublox" />
-		<module name="stabilization" type="indi" />
+		<module name="stabilization" type="indi">
+			<define name="INDI_RPM_FEEDBACK" value="TRUE" />
+		</module>
+		<module name="stabilization" type="rate_indi" />
 		<module name="guidance" type="indi" />
 		<module name="ahrs" type="float_cmpl_quat">
-			<define name="AHRS_MAG_OMEGA" value="0.04"/>
-			<define name="AHRS_MAG_ZETA" value="36.0"/>
-			<!-- <define name="AHRS_ACCEL_OMEGA" value="0.0"/>
-			<define name="AHRS_ACCEL_ZETA" value="0.0"/> -->
+			<define name="AHRS_MAG_OMEGA" value="0.04" />
+			<define name="AHRS_MAG_ZETA" value="36.0" />
+			<!-- <define name="AHRS_ACCEL_OMEGA" value="0.0"/> <define name="AHRS_ACCEL_ZETA" 
+				value="0.0"/> -->
 			<define name="AHRS_MAG_UPDATE_ALL_AXES" value="TRUE" />
 			<define name="AHRS_USE_GPS_HEADING" value="FALSE" />
 			<define name="AHRS_GRAVITY_UPDATE_COORDINATED_TURN" value="FALSE" />
@@ -71,7 +73,7 @@
 		<module name="imu_temp_ctrl" />
 		<module name="bebop_accel_calib_flat" />
 		<module name="nav_rotorcraft_shake_throw" />
-		<!-- Modules for swarming  -->
+		<!-- Modules for swarming -->
 		<module name="pose_history">
 			<define name="POSE_HISTORY_SIZE" value="128" />
 		</module>
@@ -124,6 +126,14 @@
 		<servo name="BOTTOM_LEFT" no="3" min="2500" neutral="2500" max="12000" />
 	</servos>
 
+	<command_laws>
+		<set servo="TOP_LEFT" 		value="autopilot_get_motors_on() ? actuators_pprz[0] : -MAX_PPRZ" />
+		<set servo="TOP_RIGHT" 		value="autopilot_get_motors_on() ? actuators_pprz[1] : -MAX_PPRZ" />
+		<set servo="BOTTOM_RIGHT" 	value="autopilot_get_motors_on() ? actuators_pprz[2] : -MAX_PPRZ" />
+		<set servo="BOTTOM_LEFT" 	value="autopilot_get_motors_on() ? actuators_pprz[3] : -MAX_PPRZ" />
+	</command_laws>
+	
+	<!-- 
 	<section name="MIXING" prefix="MOTOR_MIXING_">
 		<define name="TRIM_ROLL" value="0" />
 		<define name="TRIM_PITCH" value="0" />
@@ -131,7 +141,6 @@
 		<define name="REVERSE" value="TRUE" />
 		<define name="TYPE" value="QUAD_X" />
 	</section>
-
 	<command_laws>
 		<call fun="motor_mixing_run(autopilot_get_motors_on(),FALSE,values)" />
 		<set servo="TOP_LEFT" value="motor_mixing.commands[MOTOR_FRONT_LEFT]" />
@@ -139,6 +148,7 @@
 		<set servo="BOTTOM_RIGHT" value="motor_mixing.commands[MOTOR_BACK_RIGHT]" />
 		<set servo="BOTTOM_LEFT" value="motor_mixing.commands[MOTOR_BACK_LEFT]" />
 	</command_laws>
+	 -->
 
 	<section name="AIR_DATA" prefix="AIR_DATA_">
 		<define name="CALC_AIRSPEED" value="FALSE" />
@@ -150,10 +160,10 @@
 		<!-- values used if no GPS fix, on 3D fix is update by geo_mag module -->
 		<!-- local magnetic field (Delft) -->
 		<!-- http://wiki.paparazziuav.org/wiki/Subsystem/ahrs#Local_Magnetic_Field -->
-		<!-- Delft (51°59'27.6"N 4°22'41.4"E) - last update 20170504  -->
-    	        <define name="H_X" value="0.390081445"/>
-    	        <define name="H_Y" value="0.006383744"/>
-    	        <define name="H_Z" value="0.920758228"/>
+		<!-- Delft (51°59'27.6"N 4°22'41.4"E) - last update 20170504 -->
+		<define name="H_X" value="0.390081445" />
+		<define name="H_Y" value="0.006383744" />
+		<define name="H_Z" value="0.920758228" />
 	</section>
 
 	<section name="INS" prefix="INS_">
@@ -191,12 +201,12 @@
 	</section>
 
 	<section name="STABILIZATION_ATTITUDE_INDI" prefix="STABILIZATION_INDI_">
-		<define name="G1_ROLL" 		value="{17.541, 	-14.466, 	-16.632, 	23.559 }" />
-		<define name="G1_PITCH" 	value="{14.673, 	12.930, 	-16.854, 	-17.459 }" />
-		<define name="G1_YAW" 		value="{0.413, 		-1.071, 	0.573, 		-0.711}" />
-		<define name="G1_THRUST" 	value="{-0.561, 	-0.507, 	-0.566, 	-0.554}" />
-		<define name="G2" 			value="{112.015, 	-131.258, 	154.486, 	-66.862}" />
-	
+		<define name="G1_ROLL" value="{17.541, 	-14.466, 	-16.632, 	23.559 }" />
+		<define name="G1_PITCH" value="{14.673, 	12.930, 	-16.854, 	-17.459 }" />
+		<define name="G1_YAW" value="{0.413, 		-1.071, 	0.573, 		-0.711}" />
+		<define name="G1_THRUST" value="{-0.561, 	-0.507, 	-0.566, 	-0.554}" />
+		<define name="G2" value="{112.015, 	-131.258, 	154.486, 	-66.862}" />
+
 		<!-- For the bebop2 we need to filter the roll rate due to the dampers -->
 		<define name="FILTER_ROLL_RATE" value="FALSE" />
 		<define name="FILTER_PITCH_RATE" value="FALSE" />
@@ -225,10 +235,11 @@
 		<!--Maxium yaw rate, to avoid instability -->
 		<define name="MAX_R" value="240" unit="deg/s" />
 	</section>
-	
+
 	<section name="GUIDANCE_INDI" prefix="GUIDANCE_INDI_">
 		<define name="SPECIFIC_FORCE_GAIN" value="-300.0" />
 		<define name="THRUST_DYNAMICS" value="0.1" /> <!-- defaults to STABILIZATION_INDI_ACT_DYN_P which is only defined for indi_simple -->
+		<define name="RC_DEBUG" value="FALSE" />
 	</section>
 
 	<include href="conf/airframes/TUDELFT/calibrations/bebop2_$AC_ID.xml" />
@@ -258,10 +269,10 @@
 		<define name="HOVER_KP" value="550" />
 		<define name="HOVER_KD" value="255" />
 		<define name="HOVER_KI" value="160" />
-		<define name="NOMINAL_HOVER_THROTTLE" value="0.655" unit="%"/>
+		<define name="NOMINAL_HOVER_THROTTLE" value="0.655" unit="%" />
 		<define name="ADAPT_THROTTLE_ENABLED" value="TRUE" />
 		<define name="ADAPT_INITIAL_HOVER_THROTTLE" value="0.655" unit="%" />
-		<define name="ADAPT_MIN_HOVER_THROTTLE" value="0.55" unit="%" /> 
+		<define name="ADAPT_MIN_HOVER_THROTTLE" value="0.55" unit="%" />
 		<define name="ADAPT_MAX_HOVER_THROTTLE" value="0.70" unit="%" />
 	</section>
 
@@ -276,8 +287,8 @@
 
 
 	<section name="NAVIGATION" prefix="NAV_">
-		<define name="CLIMB_VSPEED" value="1.5" />
-		<define name="DESCEND_VSPEED" value="-1.5" />
+		<define name="CLIMB_VSPEED" value="1.0" />
+		<define name="DESCEND_VSPEED" value="-1.0" />
 	</section>
 
 	<section name="SIMULATOR" prefix="NPS_">
