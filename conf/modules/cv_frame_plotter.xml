@@ -1,0 +1,63 @@
+<!DOCTYPE module SYSTEM "module.dtd">
+
+<module name="cv_frame_plotter_wrapper" dir="computer_vision/">
+  <doc>
+    <description>Frame Plotter</description>
+  </doc>
+	<settings>
+		<dl_settings>
+			<dl_settings NAME="FPlotter">
+				<dl_setting var="cv_frame_plotter_show_as_totv" min="0" step="1"
+					max="1" module="computer_vision/cv_frame_plotter_wrapper"
+					shortname="AS totV" values="OFF|ON" type="bool" />
+					<dl_setting var="cv_frame_plotter_show_arf_ball_circles" min="0" step="1"
+					max="1" module="computer_vision/cv_frame_plotter_wrapper"
+					shortname="ARF circles" values="OFF|ON" type="bool" />
+					<dl_setting var="cv_frame_plotter_show_arf_gate_corners" min="0" step="1"
+					max="1" module="computer_vision/cv_frame_plotter_wrapper"
+					shortname="ARF corners" values="OFF|ON" type="bool" />
+					<dl_setting var="cv_frame_plotter_show_arf_obj_coords" min="0" step="1"
+					max="1" module="computer_vision/cv_frame_plotter_wrapper"
+					shortname="ARF coords" values="OFF|ON" type="bool" />
+					<dl_setting var="cv_frame_plotter_show_arf_obj_distance" min="0" step="1"
+					max="1" module="computer_vision/cv_frame_plotter_wrapper"
+					shortname="ARF distance" values="OFF|ON" type="bool" />
+					<dl_setting var="cv_frame_plotter_show_arf_stats" min="0" step="1"
+					max="1" module="computer_vision/cv_frame_plotter_wrapper"
+					shortname="ARF stats" values="OFF|ON" type="bool" />
+					<dl_setting var="cv_frame_plotter_show_ae_awb_info" min="0" step="1"
+					max="1" module="computer_vision/cv_frame_plotter_wrapper"
+					shortname="AE/AWB stats" values="OFF|ON" type="bool" />
+					<dl_setting var="cv_frame_plotter_show_ae_awb_histogram" min="0" step="1"
+					max="1" module="computer_vision/cv_frame_plotter_wrapper"
+					shortname="AE/AWB histogram" values="OFF|ON" type="bool" />
+					<dl_setting var="cv_frame_plotter_show_fps" min="0" step="1"
+					max="1" module="computer_vision/cv_frame_plotter_wrapper"
+					shortname="FPS" values="OFF|ON" type="bool" />
+			</dl_settings>
+		</dl_settings>
+	</settings>
+  <depends>cv_active_random_filter.xml,cv_ae_awb.xml,autoswarm.xml</depends>
+  <header>
+    <file name="cv_frame_plotter_wrapper.h"/>
+  </header>
+  <init fun="cv_frame_plotter_wrapper_init()"/>
+  <makefile>
+    <file name="cv_frame_plotter_wrapper.c"/>
+    <file name="cv_frame_plotter.cpp"/>
+    <flag name="CXXFLAGS" value="I$(PAPARAZZI_SRC)/sw/ext/opencv_bebop/install/include"/>
+    <flag name="LDFLAGS" value="L$(PAPARAZZI_HOME)/sw/ext/opencv_bebop/install/lib" />
+	<flag name="LDFLAGS" value="lopencv_world" />
+	<flag name="LDFLAGS" value="L$(PAPARAZZI_HOME)/sw/ext/opencv_bebop/install/share/OpenCV/3rdparty/lib" />
+	<flag name="LDFLAGS" value="ltegra_hal" />
+	<flag name="LDFLAGS" value="lzlib" />
+	<flag name="LDFLAGS" value="llibjpeg" />
+	<flag name="LDFLAGS" value="llibpng" />
+	<flag name="LDFLAGS" value="llibtiff" />
+	<flag name="LDFLAGS" value="lstdc++" />
+	<flag name="LDFLAGS" value="ldl" />
+	<flag name="LDFLAGS" value="lm" />
+	<flag name="LDFLAGS" value="lpthread" />
+	<flag name="LDFLAGS" value="lrt" />
+  </makefile>
+</module>

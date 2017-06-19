@@ -99,6 +99,12 @@ extern double       ARF_MIN_CIRCLE_PERC;
 extern double       ARF_MAX_CIRCLE_DEF;
 extern uint16_t     default_calArea;
 
+extern uint16_t           pixCount;                    ///< Total pixels processed (resets to 0 before each frame)
+extern uint16_t           pixSucCount;                    ///< Total pixels passing pixTest whilst following contours (resets to 0 before each frame)
+extern uint16_t             pixDupCount;                    ///< Total pixels processed whilst being a duplicate contour (resets to 0 before each frame)
+extern uint16_t             pixSrcCount;                    ///< Total pixels processed during search for contours (resets to 0 before each frame)
+extern uint16_t             pixNofCount;
+
 // Filter sample styles
 #define ARF_STYLE_FULL   0
 #define ARF_STYLE_GRID   1
@@ -122,6 +128,16 @@ extern uint16_t     default_calArea;
 #define ARF_NO_FOUND   0
 #define ARF_DUPLICATE -1
 #define ARF_ERROR     -2
+
+
+/** Set up Remaining parameters **/
+extern double      ARF_CROP_X;                  ///< Crop margin for blobs when using omni detection
+extern uint8_t     ARF_MEMORY;                   ///< Frames to keep neighbours in memory
+extern double      ARF_VMAX;                  ///< Maximum estimated velocity of a neighbour (account for some noise)
+extern double      ARF_MIN_CIRCLE_SIZE;                                        ///< Minimum contour area
+extern uint16_t    ARF_MIN_LAYERS;                                             ///< Miminum recursive depth of CW flood
+extern uint16_t    ARF_LARGE_LAYERS;                                           ///< Miminum recursive depth of CW flood before classified as a large contour
+extern uint16_t    ARF_MIN_POINTS;                                             ///< Mimimum contour length
 
 #ifdef __cplusplus
 extern "C" {

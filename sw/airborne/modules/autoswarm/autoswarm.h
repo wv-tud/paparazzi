@@ -60,7 +60,7 @@ extern double AS_GN;
 
 // Initialize global attractor
 struct originPoint { double cx; double cy; double cz;};
-struct originPoint globalOrigin;
+extern struct originPoint globalOrigin;
 static inline void setGlobalOrigin  (double x, double y, double z){ globalOrigin.cx = x; globalOrigin.cy = y; globalOrigin.cz = z;};
 static inline bool setGlobalMode    (int mode){ settings_as_attractor = mode; return false; };
 static inline bool setSwarmMode     (int mode){ settings_as_heading_mode = mode; return false; };

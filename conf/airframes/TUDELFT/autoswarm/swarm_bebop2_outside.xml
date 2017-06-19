@@ -98,6 +98,7 @@
 		</module>
 		<module name="cv_bebop_camera_stabilization" />
 		<module name="cv_active_random_filter" />
+		<module name="cv_frame_plotter" />
 		<module name="video_rtp_stream">
 			<configure name="VIEWVIDEO_BROADCAST" value="FALSE" />
 			<define name="VIEWVIDEO_CAMERA" value="front_camera" />

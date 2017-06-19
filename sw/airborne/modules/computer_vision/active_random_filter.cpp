@@ -60,15 +60,7 @@ using namespace cv;
 
 #define xSign(x) ( ( x ) >= ( 0 ) ? ( 1 ) : ( -1 ) )
 
-#define ARF_SHOW_TOTV       1                       ///< Show the desired velocity vector from the autoswarm module
 #define ARF_MARK_CONTOURS   0                       ///< Mark all contour pixels green on sourceframe
-#define ARF_BALL_CIRCLES    1                       ///< Draw circles around balls
-#define ARF_GATE_CORNERS    1                       ///< Plot corner points of Gates
-#define ARF_PLOT_COORDS     1                       ///< Plot the coordinates of balls on frame
-#define ARF_DISTANCE_PLOT   1                       ///< Plot lines with distance on frame
-#define ARF_CROSSHAIR       0                       ///< Plot horizon
-#define ARF_SHOW_CAM_INFO   1                       ///< Show colour gains and exposure on frame
-#define ARF_SHOW_STATS      0                       ///< Show statistics on the performance of the contour detection
 
 #define ARF_MEASURE_FPS     1                       ///< Measure average FPS
 #define ARF_TIMEOUT         150                      ///< Frames from start
@@ -89,7 +81,7 @@ using namespace cv;
 #endif
 
 #define ARF_SHOW_REJECT     0                       ///< Print why shapes are rejected
-#define ARF_MOD_VIDEO       1                       ///< Modify the frame to show relevant info
+#define ARF_MOD_VIDEO       0                       ///< Modify the frame to show relevant info
 #define ARF_DRAW_BOXES 	    1                       ///< Draw boxes
 #define ARF_SHOW_MEM        0                       ///< Print object locations to terminal
 
@@ -101,8 +93,6 @@ using namespace cv;
 #define     ARF_OBJ_X_OFFSET      0.0                                   ///< Offset x from object centre to object c.g. in world frame
 #define     ARF_OBJ_Y_OFFSET      0.0                                   ///< Offset y from object centre to object c.g. in world frame
 #define     ARF_OBJ_Z_OFFSET      0.1                                   ///< Offset z from object centre to object c.g. in world frame
-
-extern void             plotHorizon         ( Mat& sourceFrameCrop, struct FloatEulers*  eulerAngles );
 
 static void             active_random_filter_header ( void );
 static void             active_random_filter_footer ( void );
@@ -148,10 +138,6 @@ static bool             trackRes_clear      ( void );
 uint8_t                 neighbourMem_size = 0;
 static bool             neighbourMem_findMax( void );
 static bool             neighbourMem_add    ( memoryBlock newRes, uint8_t overwriteId = neighbourMem_size);
-/** Optional functions **/
-#if ARF_MOD_VIDEO
-static void             mod_video           (Mat& sourceFrame, Mat& frameGrey);
-#endif
 
 /** Set up tracking parameters **/
 uint16_t    default_calArea                     = 7650;                 ///< Area of a ball at 1m resolution on full sensor resolution
@@ -164,12 +150,16 @@ double 	    ARF_MAX_CIRCLE_DEF 	                = 0.11;                ///< Maxi
 double      ARF_MIN_CIRCLE_PERC                 = 0.55;                 ///< Minimum percentage of circle in view
 double      ARF_LARGE_SKIP_FACTOR               = 1.0 / 10.0;           ///< Percentage of length large contours are allowed to snap back to starting pos
 /** Automatically calculated tracking parameters **/
-uint16_t    ARF_MIN_POINTS;                                             ///< Mimimum contour length
+double      ARF_CROP_X                      = 1.2;                  ///< Crop margin for blobs when using omni detection
+uint8_t     ARF_MEMORY                      = 30;                   ///< Frames to keep neighbours in memory
+double      ARF_FPS                         = 20.0;                 ///< Estimated FPS to estimate lost neighbour decay
+double      ARF_VMAX                        = 7.0;                  ///< Maximum estimated velocity of a neighbour (account for some noise)
 double      ARF_MIN_CIRCLE_SIZE;                                        ///< Minimum contour area
 uint16_t    ARF_MIN_LAYERS;                                             ///< Miminum recursive depth of CW flood
 uint16_t    ARF_LARGE_LAYERS;                                           ///< Miminum recursive depth of CW flood before classified as a large contour
-
+uint16_t    ARF_MIN_POINTS;                                             ///< Mimimum contour length
 uint16_t    ARF_MIN_CROP_AREA                   = 100;                  ///< Minimal area of a crop rectangle
+uint8_t     ARF_MAX_SEARCH_PIXEL_SKIP         = 6;
 
 /** Set up colour filter **/
 #if ARF_OBJECT == ARF_GATE
@@ -202,23 +192,17 @@ int8_t      ARF_GREY_THRES                      = 5;
 */
 #endif
 
-uint8_t     ARF_MAX_SEARCH_PIXEL_SKIP = 6;                              ///< Maximum nr of false pixels to skip whilst searching upwards for contours
-/** Set up Remaining parameters **/
-double 	    ARF_CROP_X 			                = 1.2;                  ///< Crop margin for blobs when using omni detection
-uint8_t     ARF_MEMORY 			                = 30;                   ///< Frames to keep neighbours in memory
-double      ARF_FPS                         = 20.0;                 ///< Estimated FPS to estimate lost neighbour decay
-double      ARF_VMAX                        = 7.0;                  ///< Maximum estimated velocity of a neighbour (account for some noise)
 
 /** Initialize parameters to be assigned during runtime **/
-static uint16_t 	        pixCount            = 0;                    ///< Total pixels processed (resets to 0 before each frame)
-static uint16_t 	        pixSucCount         = 0;                    ///< Total pixels passing pixTest whilst following contours (resets to 0 before each frame)
-static uint16_t             pixDupCount         = 0;                    ///< Total pixels processed whilst being a duplicate contour (resets to 0 before each frame)
-static uint16_t             pixSrcCount         = 0;                    ///< Total pixels processed during search for contours (resets to 0 before each frame)
-static uint16_t             pixNofCount         = 0;                    ///< Total pixels failing pixTest (resets to 0 before each frame)
-static uint16_t 	        layerDepth          = 0;                    ///< Recursive depth of pixel being processed (resets to 0 before each frame)
-static uint16_t 	        sample              = 0;                    ///< Current sample being processed (resets to 0 before each frame)
-static uint16_t 	        runCount            = 0;                    ///< Current frame number
-static uint16_t 	        maxId 		        = 0;                    ///< Highest nr of unique neighbours trackes (used for assigning unique IDs)
+uint16_t 	                  pixCount            = 0;                    ///< Total pixels processed (resets to 0 before each frame)
+uint16_t 	                  pixSucCount         = 0;                    ///< Total pixels passing pixTest whilst following contours (resets to 0 before each frame)
+uint16_t                    pixDupCount         = 0;                    ///< Total pixels processed whilst being a duplicate contour (resets to 0 before each frame)
+uint16_t                    pixSrcCount         = 0;                    ///< Total pixels processed during search for contours (resets to 0 before each frame)
+uint16_t                    pixNofCount         = 0;                    ///< Total pixels failing pixTest (resets to 0 before each frame)
+static uint16_t 	          layerDepth          = 0;                    ///< Recursive depth of pixel being processed (resets to 0 before each frame)
+static uint16_t 	          sample              = 0;                    ///< Current sample being processed (resets to 0 before each frame)
+static uint16_t 	          runCount            = 0;                    ///< Current frame number
+static uint16_t 	          maxId 		        = 0;                    ///< Highest nr of unique neighbours trackes (used for assigning unique IDs)
 static uint8_t              trackRes_maxId      = 0;                    ///< Index of current farthest tracking result
 static double               trackRes_maxVal     = 0;                    ///< Range of current farthest tracking result
 static uint8_t              trackRes_lastId     = 0;                    ///< Index of last processed tracking result
@@ -234,13 +218,9 @@ extern uint16_t             ispHeight;                                  ///< Max
 extern uint16_t             initialWidth;                               ///< Initial width of ISP after applied scaling
 extern uint16_t             initialHeight;                              ///< Initial height of ISP after applied scaling
 extern double               ispScalar;                                  ///< Applied scalar by the ISP
-static Rect 			    objCrop;                                    ///< Current recangle being processed when using omni search
-static vector<Rect> 	    cropAreas;                                  ///< All the rectangles found
+static Rect 			          objCrop;                                    ///< Current recangle being processed when using omni search
+vector<Rect> 	              cropAreas;                                  ///< All the rectangles found
 struct NedCoor_f*           pos;                                        ///< Current position of the UAV
-
-#ifdef __linux__
-//pthread_mutex_t neighbourMem_mutex;
-#endif
 
 #if ARF_OBJECT == ARF_BALL
 static trackResults         trackRes[ARF_MAX_OBJECTS];                  ///< Array to store the tracking results
@@ -284,58 +264,30 @@ void active_random_filter_init(void){
 }
 
 void active_random_filter(char* buff, uint16_t width, uint16_t height){
-    Mat sourceFrame (height, width, CV_8UC2, buff);                 // Initialize current frame in openCV (UYVY) 2 channel
-    Mat frameGrey   (height, width, CV_8UC1, cvScalar(0.0));        // Initialize an empty 1 channel frame
+  Mat sourceFrame (height, width, CV_8UC2, buff);                 // Initialize current frame in openCV (UYVY) 2 channel
+  Mat frameGrey   (height, width, CV_8UC1, cvScalar(0.0));        // Initialize an empty 1 channel frame
 #if ARF_SAVE_FRAME
-    if(runCount == 25) saveBuffer(sourceFrame, "testBuffer.txt");   // (optional) save a raw UYVY frame
+  if(runCount == 25) saveBuffer(sourceFrame, "testBuffer.txt");   // (optional) save a raw UYVY frame
 #endif // ARF_SAVE_FRAME
-    active_random_filter_header();                                  // Mostly printing and storing
-    Rect crop 	        = setISPvars( width, height); 	            // Calculate ISP related parameters
-    if(runCount < ARF_TIMEOUT) {
-        runCount++;
-        frameGrey.release();
-        sourceFrame.release();
-        return;
-    }
-    Mat sourceFrameCrop = sourceFrame(crop); 				                // Crop the frame
-	trackObjects(sourceFrameCrop, frameGrey);                       // Track objects in sourceFrame
-	eraseMemory();
-	uint8_t r;
-	for(r=0; r < trackRes_size; r++){                             // Convert angles & Write/Print output
+  active_random_filter_header();                                  // Mostly printing and storing
+  Rect crop 	        = setISPvars( width, height); 	            // Calculate ISP related parameters
+  if(runCount < ARF_TIMEOUT) {
+    runCount++;
+    frameGrey.release();
+    sourceFrame.release();
+    return;
+  }
+  Mat sourceFrameCrop = sourceFrame(crop); 				                // Crop the frame
+  trackObjects(sourceFrameCrop, frameGrey);                       // Track objects in sourceFrame
+  eraseMemory();
+  uint8_t r;
+  for(r=0; r < trackRes_size; r++){                             // Convert angles & Write/Print output
 #if ARF_OBJECT == ARF_BALL
-		cam2body(&trackRes[r]);						                // Convert from camera angles to body angles (correct for roll)
-		body2world(&trackRes[r]); 		                            // Convert from body angles to world coordinates (correct yaw and pitch)
+    cam2body(&trackRes[r]);						                // Convert from camera angles to body angles (correct for roll)
+    body2world(&trackRes[r]); 		                            // Convert from body angles to world coordinates (correct yaw and pitch)
 #endif
-		identifyObject(&trackRes[r]);                               // Identify the spotted neighbours
-	}
-
-	/*
-	rectangle(sourceFrameCrop, cvPoint(sourceFrameCrop.cols / 2 - 50, sourceFrameCrop.rows / 2 - 50), cvPoint( sourceFrameCrop.cols / 2 + 50, sourceFrameCrop.rows / 2 + 50), cvScalar(100,255));
-	uint8_t Ymin = 255, Ymax = 0, Umin = 255, Umax = 0, Vmin = 255, Vmax = 0;
-	for(uint16_t r = sourceFrameCrop.rows / 2 - 50; r < sourceFrameCrop.rows / 2 + 50; r++){
-	  for(uint16_t c = sourceFrameCrop.cols / 2 - 50; c < sourceFrameCrop.cols / 2 + 50; c++){
-	    uint8_t Y, U, V;
-	    getYUVColours(sourceFrameCrop, r, c, &Y, &U, &V);
-	    if(Y < Ymin) Ymin = Y;
-	    if(Y > Ymax) Ymax = Y;
-	    if(U < Umin) Umin = U;
-	    if(U > Umax) Umax = U;
-	    if(V < Vmin) Vmin = V;
-	    if(V > Vmax) Vmax = V;
-	  }
-	}
-	char text[200];
-	sprintf(text,"Y[%3d %3d] U[%3d %3d] V[%3d %3d]", Ymin, Ymax, Umin, Umax, Vmin, Vmax);
-	putText(sourceFrame, text, cvPoint( sourceFrameCrop.cols / 2 + 55, sourceFrameCrop.rows / 2 + 70), FONT_HERSHEY_PLAIN, 1, Scalar(0,255,255), 1);
-  */
-
-#if ARF_MOD_VIDEO
-	mod_video(sourceFrameCrop, frameGrey);                              // Modify the sourceframesourceFrame.cols-1
-#endif // ARF_MOD_VIDEO
-#if ARF_CROSSHAIR
-	//circle(sourceFrame,Point(ispHeight/2 - cropCol + crop.x, ispWidth/2), CFG_MT9F002_FISHEYE_RADIUS * ispScalar, cvScalar(0,255), 1);
-	plotHorizon(sourceFrameCrop, &cv_image_pose.eulers);
-#endif
+    identifyObject(&trackRes[r]);                               // Identify the spotted neighbours
+  }
 	frameGrey.release(); 			                                // Release Mat
 	sourceFrameCrop.release();
 	sourceFrame.release();                                          // Release Mat
@@ -381,9 +333,6 @@ void trackObjects(Mat& sourceFrame, Mat& frameGrey){
     else{
         processImage_cw(sourceFrame, frameGrey, ARF_RND_PIX_SAMPLE);
     }
-#if ARF_BENCHMARK
-    addBenchmark("image Thresholded");
-#endif // ARF_BENCHMARK
     return;
 }
 
@@ -394,11 +343,7 @@ void processCrops(Mat& frameGrey){
         if(cropAreas[r].x != 0 && cropAreas[r].width != 0)
         {
             contours.clear();
-#if ARF_MOD_VIDEO && ARF_DRAW_BOXES
-            findContours(frameGrey(cropAreas[r]).clone(), contours, CV_RETR_EXTERNAL, CV_CHAIN_APPROX_SIMPLE);
-#else
             findContours(frameGrey(cropAreas[r]), contours, CV_RETR_EXTERNAL, CV_CHAIN_APPROX_SIMPLE);
-#endif //ARF_MOD_VIDEO && ARF_DRAW_BOXES
             for(unsigned int tc=0; tc < contours.size(); tc++)
             {
                 if(contours[tc].size() > ARF_MIN_POINTS){
@@ -407,15 +352,9 @@ void processCrops(Mat& frameGrey){
             }
         }
     }
-#if ARF_BENCHMARK
-    addBenchmark("Contours found");
-#endif //ARF_BENCHMARK
 }
 
 void eraseMemory(void){
-#ifdef __linux__
-  //pthread_mutex_lock(&neighbourMem_mutex);
-#endif
     uint8_t index   = 0;
     uint8_t i       = 0;
     for(i=0; i < neighbourMem_size; i++){
@@ -427,9 +366,6 @@ void eraseMemory(void){
         }
     }
     neighbourMem_size -= i - index;
-#ifdef __linux__
-  //pthread_mutex_unlock(&neighbourMem_mutex);
-#endif
 }
 
 #if ARF_OBJECT == ARF_BALL
@@ -453,9 +389,6 @@ void identifyObject(trackResults* trackRes){
         }
     }
     if(identified){
-#ifdef __linux__
-  //pthread_mutex_lock(&neighbourMem_mutex);
-#endif
         VERBOSE_PRINT("Identified object %d at (%4d, %4d)p (%5.2f, %5.2f, %5.2f)w\n", neighbourMem[neighbourID].id, trackRes->x_p, trackRes->y_p, trackRes->x_w, trackRes->y_w, trackRes->z_w);
         neighbourMem[neighbourID].lastSeen    = runCount;
         neighbourMem[neighbourID].x_w         = trackRes->x_w;
@@ -466,9 +399,6 @@ void identifyObject(trackResults* trackRes){
         neighbourMem[neighbourID].area_p      = trackRes->area_p;
         neighbourMem[neighbourID].r_c         = trackRes->r_c;
         neighbourMem[neighbourID].r_b         = trackRes->r_b;
-#ifdef __linux__
-  //pthread_mutex_unlock(&neighbourMem_mutex);
-#endif
     }
     else{
         // We haven't identified
@@ -493,9 +423,6 @@ void identifyObject(trackResults* trackRes){
 
 #if ARF_OBJECT == ARF_GATE
 void identifyObject(gateResults* gateRes){
-#ifdef __linux__
-  //pthread_mutex_lock(&neighbourMem_mutex);
-#endif
     bool identified = FALSE;
     for(unsigned int i=0; i < neighbourMem_size; i++)
     {
@@ -540,9 +467,6 @@ void identifyObject(gateResults* gateRes){
         }
         maxId++;
     }
-#ifdef __linux__
-  //pthread_mutex_unlock(&neighbourMem_mutex);
-#endif
     return;
 }
 #endif
@@ -1255,9 +1179,6 @@ int pixFindContour_cw(Mat& sourceFrame, Mat& destFrame, uint16_t row, uint16_t c
             uint8_t d = 0, edge = 0;
             getNextDirection_cw(prevDir, nextDir, &nextDirCnt);
             while(layerDepth < ARF_MAX_LAYERS && d < nextDirCnt && success == false){
-                //cmpY                = Y;
-                //cmpU                = U;
-                //cmpV                = V;
                 newRow              = row;
                 newCol              = col;
                 if(getNewPosition(nextDir[d], &newRow, &newCol, &sourceFrame.rows, &sourceFrame.cols)){
@@ -1290,13 +1211,11 @@ int pixFindContour_cw(Mat& sourceFrame, Mat& destFrame, uint16_t row, uint16_t c
                     }
                     case ARF_DUPLICATE : {
                         pixDupCount++;
-                        //destFrame.at<uint8_t>(row, col) = 0;
                         return ARF_DUPLICATE;
                         break;
                     }
                     case ARF_ERROR : {
                         if(layerDepth > ARF_MAX_LAYERS){
-                            //destFrame.at<uint8_t>(row, col) = 0;
                             return ARF_FINISHED;
                         }
                         else{
@@ -1305,7 +1224,6 @@ int pixFindContour_cw(Mat& sourceFrame, Mat& destFrame, uint16_t row, uint16_t c
                         break;
                     }
                     default : {
-                        //destFrame.at<uint8_t>(row, col) = 0;
                         return ARF_ERROR;
                     }
                     }
@@ -1316,7 +1234,6 @@ int pixFindContour_cw(Mat& sourceFrame, Mat& destFrame, uint16_t row, uint16_t c
                 d++;
             }
             pixNofCount++;
-            //destFrame.at<uint8_t>(row, col) = 0;
             return ARF_NO_FOUND; // Dead end
         }
         else{
@@ -1335,7 +1252,6 @@ int pixFollowContour_cw(Mat& sourceFrame, Mat& destFrame, uint16_t row, uint16_t
     pixCount++;
     if(destFrame.at<uint8_t>(row, col) == 76  // Arrived neatly back at starting pos
             || (destFrame.at<uint8_t>(row, col) == 250 && layerDepth > 5 * ARF_MIN_LAYERS)){
-            //|| ( layerDepth > ARF_LARGE_LAYERS && abs(objCont_sRow - row) < round( layerDepth * ARF_LARGE_SKIP_FACTOR ) && abs(objCont_sCol - col) < round( layerDepth * ARF_LARGE_SKIP_FACTOR ) )){  // Close enough for large contours
         // This is my starting position, finished!
         if(layerDepth > ARF_MIN_LAYERS){
             destFrame.at<uint8_t>(row, col) = 255;
@@ -1739,136 +1655,6 @@ bool getNewPosition(uint8_t nextDir, uint16_t* newRow, uint16_t* newCol, int* ma
 	}
 	return true;
 }
-
-#if ARF_MOD_VIDEO
-void mod_video(Mat& sourceFrame, Mat& frameGrey){
-	char text[200];
-#if ARF_MEASURE_FPS
-    sprintf(text,"%5.2f %5.d %8.2fs", ARF_FPS,(runCount), curT / 1000000.0);
-    putText(sourceFrame, text, Point(10,sourceFrame.rows-20), FONT_HERSHEY_PLAIN, 1, Scalar(0,255,255), 1);
-#endif // CAM_STAB_MEASURE_FPS
-	if(ARF_FLOOD_STYLE != ARF_FLOOD_CW){
-#if ARF_DRAW_BOXES
-		for(unsigned int r=0; r < cropAreas.size(); r++)
-		{
-			if(cropAreas[r].x != 0 && cropAreas[r].width != 0)
-			{
-				vector<Mat> channels;
-				Mat thr_frame(cropAreas[r].height, cropAreas[r].width, CV_8UC2, cvScalar(0.0,0.0));
-				Mat emptyCH(cropAreas[r].height, cropAreas[r].width, CV_8UC1, cvScalar(127.0));
-				channels.push_back(emptyCH);
-				channels.push_back(frameGrey(cropAreas[r]));
-				merge(channels, thr_frame);
-				thr_frame.copyTo(sourceFrame(cropAreas[r])); 			               // Copy threshold result to black frame
-				emptyCH.release();
-				thr_frame.release();
-				rectangle(sourceFrame, cropAreas[r], Scalar(0,255), 2);
-			}
-		}
-#endif //ARF_DRAW_BOXES
-	}
-#if ARF_BALL_CIRCLES && ARF_OBJECT == ARF_BALL
-	for(unsigned int r=0; r < trackRes_size; r++)         // Convert angles & Write/Print output
-	{
-		circle(sourceFrame,cvPoint(trackRes[r].x_p - cropCol, trackRes[r].y_p), sqrt(trackRes[r].area_p / M_PI), cvScalar(100,255), 1, 4);
-	}
-#endif //ARF_BALL_CIRCLES
-#if ARF_GATE_CORNERS && ARF_OBJECT == ARF_GATE
-    for(unsigned int r=0; r < trackRes_size; r++)         // Convert angles & Write/Print output
-    {
-        Point p1, p2;
-        p1.x = trackRes[r].corners[3].x;
-        p1.y = trackRes[r].corners[3].y;
-        for(uint8_t i = 0; i < 4; i++){
-            p2.x = trackRes[r].corners[i].x;
-            p2.y = trackRes[r].corners[i].y;
-            circle(sourceFrame, p2, 5, cvScalar(100,255), 1);
-            line(sourceFrame, p1, p2, Scalar(0,255), 1);
-            p1 = p2;
-        }
-    }
-#endif //ARF_BALL_CIRCLES
-#if ARF_DISTANCE_PLOT
-    for(unsigned int r=0; r < trackRes_size; r++)         // Convert angles & Write/Print output
-    {
-        line(sourceFrame, Point(0,sourceFrame.rows / 2.0), Point(trackRes[r].x_p - cropCol, trackRes[r].y_p), Scalar(0,255), 1, 4);
-        sprintf(text,"%4.2f", trackRes[r].r_b);
-        putText(sourceFrame, text, Point((trackRes[r].x_p - cropCol + 0) / 2.0, (trackRes[r].y_p + sourceFrame.rows / 2.0) / 2.0), FONT_HERSHEY_PLAIN, 1, Scalar(0,255), 1);
-    }
-#endif
-#if ARF_PLOT_COORDS
-	for(unsigned int r=0; r < neighbourMem_size; r++)         // Convert angles & Write/Print output
-	{
-	    if(neighbourMem[r].lastSeen < runCount){
-	        uint8_t tColor = (uint8_t) round(255 * (ARF_MEMORY - (runCount - neighbourMem[r].lastSeen)) / ((float) ARF_MEMORY));
-	        sprintf(text,"x%5.2f", neighbourMem[r].x_w);
-	        putText(sourceFrame, text, Point(neighbourMem[r].x_p - cropCol + sqrt(neighbourMem[r].area_p / M_PI) + 10, neighbourMem[r].y_p - 15), FONT_HERSHEY_PLAIN, 1, Scalar(0,tColor), 1);
-	        sprintf(text,"y%5.2f", neighbourMem[r].y_w);
-	        putText(sourceFrame, text, Point(neighbourMem[r].x_p - cropCol + sqrt(neighbourMem[r].area_p / M_PI) + 10, neighbourMem[r].y_p), FONT_HERSHEY_PLAIN, 1, Scalar(0,tColor), 1);
-	        sprintf(text,"z%5.2f", neighbourMem[r].z_w);
-	        putText(sourceFrame, text, Point(neighbourMem[r].x_p - cropCol + sqrt(neighbourMem[r].area_p / M_PI) + 10, neighbourMem[r].y_p + 15), FONT_HERSHEY_PLAIN, 1, Scalar(0,tColor), 1);
-
-	    }
-	}
-	for(unsigned int r=0; r < trackRes_size; r++)         // Convert angles & Write/Print output
-	{
-	    sprintf(text,"x%5.2f", trackRes[r].x_w);
-	    putText(sourceFrame, text, Point(trackRes[r].x_p - cropCol + sqrt(trackRes[r].area_p / M_PI) + 10, trackRes[r].y_p - 15), FONT_HERSHEY_PLAIN, 1, Scalar(0,255,255), 1);
-	    sprintf(text,"y%5.2f", trackRes[r].y_w);
-	    putText(sourceFrame, text, Point(trackRes[r].x_p - cropCol + sqrt(trackRes[r].area_p / M_PI) + 10, trackRes[r].y_p), FONT_HERSHEY_PLAIN, 1, Scalar(0,255,255), 1);
-	    sprintf(text,"z%5.2f", trackRes[r].z_w);
-	    putText(sourceFrame, text, Point(trackRes[r].x_p - cropCol + sqrt(trackRes[r].area_p / M_PI) + 10, trackRes[r].y_p + 15), FONT_HERSHEY_PLAIN, 1, Scalar(0,255,255), 1);
-	}
-#endif
-#if ARF_SHOW_STATS
-	sprintf(text,"t:%4.1f%% o:%4.1f%%", pixCount/((float) ispHeight * ispWidth) * 100, pixSucCount/((float) pixCount) * 100);
-	putText(sourceFrame, text, Point(10,sourceFrame.rows-80), FONT_HERSHEY_PLAIN, 1, Scalar(0,255,255), 1);
-	sprintf(text,"d:%4.1f%% n:%4.1f%% s:%4.1f%%", pixDupCount/((float) pixCount) * 100, pixNofCount/((float) pixCount) * 100, pixSrcCount/((float) pixCount) * 100);
-	putText(sourceFrame, text, Point(10,sourceFrame.rows-60), FONT_HERSHEY_PLAIN, 1, Scalar(0,255,255), 1);
-#endif
-#if ARF_SHOW_CAM_INFO
-	sprintf(text,"Exp: %2.3f / %2.3f  (%3.1f / %d)", mt9f002.real_exposure, mt9f002.target_exposure, ae_current_level, ae_middle_index);
-	putText(sourceFrame, text, Point(10 , 20), FONT_HERSHEY_PLAIN, 1, Scalar(0,255,255), 1);
-	sprintf(text,"R:%4.3f B:%4.3f G:%4.3f", mt9f002.gain_red, mt9f002.gain_blue, mt9f002.gain_green1);
-	putText(sourceFrame, text, Point(10 , 40), FONT_HERSHEY_PLAIN, 1, Scalar(0,255,255), 1);
-	sprintf(text,"avgU:%5.2f avgV:%5.2f (%d)", awb_avgU, awb_avgV, awb_nb_pixels);
-	putText(sourceFrame, text, Point(10 , 60), FONT_HERSHEY_PLAIN, 1, Scalar(0,255,255), 1);
-#endif
-	if(settings_as_extended){
-	  sprintf(text,"GC: %5.3f", AS_GC);
-	  putText(sourceFrame, text, Point(10 , 80), FONT_HERSHEY_PLAIN, 1, Scalar(0,255,255), 1);
-	}
-	if(histogram_plot[0] > 0){
-	  for(uint16_t i = MIN_HIST_Y; i < MAX_HIST_Y; i++){
-	    if(i < MIN_HIST_Y + ae_dark_bins){
-	      line(sourceFrame, Point(0, 80 + i - MIN_HIST_Y), Point(round((1 - ae_dark_ignore) * histogram_plot[i] / ((float) histogram_plot[0]) * 2000), 80 + i - MIN_HIST_Y), Scalar(0,255), 1, 4);
-	    }else if(i == MIN_HIST_Y + ae_dark_bins){
-	      line(sourceFrame, Point(0, 80 + i - MIN_HIST_Y), Point(75, 80 + i - MIN_HIST_Y), Scalar(127,127), 1, 4);
-	    }else if(i == MAX_HIST_Y - ae_bright_bins){
-	      line(sourceFrame, Point(0, 80 + i - MIN_HIST_Y), Point(75, 80 + i - MIN_HIST_Y), Scalar(127,127), 1, 4);
-	    }else if(i > MAX_HIST_Y - ae_bright_bins){
-	      line(sourceFrame, Point(0, 80 + i - MIN_HIST_Y), Point(round((1 - ae_bright_ignore) * histogram_plot[i] / ((float) histogram_plot[0]) * 2000), 80 + i - MIN_HIST_Y), Scalar(0,255), 1, 4);
-	    }else if(i == ae_middle_index){
-	      line(sourceFrame, Point(0, 80 + i - MIN_HIST_Y), Point(75, 80 + i - MIN_HIST_Y), Scalar(255,255), 1, 4);
-	    }else{
-	      line(sourceFrame, Point(0, 80 + i - MIN_HIST_Y), Point(round(histogram_plot[i] / ((float) histogram_plot[0]) * 2000), 80 + i - MIN_HIST_Y), Scalar(0,255), 1, 4);
-	    }
-	  }
-	}
-
-#if ARF_SHOW_TOTV
-#ifdef __linux__
-  //pthread_mutex_lock(&totV_mutex);
-#endif
-    circle(sourceFrame, Point(sourceFrame.cols / 2.0, sourceFrame.rows / 2.0), 3, cvScalar(100,255), 1, 4);
-	arrowedLine(sourceFrame, Point(sourceFrame.cols / 2.0, sourceFrame.rows / 2.0), Point(sourceFrame.cols / 2.0 + 240.0 / settings_as_vmax * lastTotV[0], sourceFrame.rows / 2.0  + 240.0 / settings_as_vmax * lastTotV[1]), Scalar(100,255), 1, 4);
-#ifdef __linux__
-  //pthread_mutex_unlock(&totV_mutex);
-#endif
-#endif
-	return;
-}
-#endif // ARF_MOD_VIDEO
 
 void active_random_filter_header( void ){
 #if ARF_MEASURE_FPS

@@ -159,6 +159,8 @@ double AS_WN = 0.0;
 double AS_GC = 0.0;
 double AS_GN = 0.0;
 
+struct originPoint globalOrigin;
+
 /// Set up swarm parameters ///
 int     settings_as_extended        = AS_EXTENDED;              ///< Enable Velocity Template extension
 int     settings_as_heading_mode    = AS_HEADING_MODE;          ///< Heading/Camera control modus
