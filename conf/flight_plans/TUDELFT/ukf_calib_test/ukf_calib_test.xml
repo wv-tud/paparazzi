@@ -7,7 +7,6 @@
     #include "subsystems/electrical.h"
     #include "subsystems/radio_control.h"
     #include "modules/loggers/file_logger.h"
-    #include "firmwares/rotorcraft/stabilization/stabilization_indi_simple.h"
   </header>
   <waypoints>
     <waypoint name="HOME"  x="0.0" y="0.0"/>

@@ -23,9 +23,13 @@
   <settings>
     <dl_settings>
       <dl_settings NAME="Magneto">
+        <dl_setting var="mag_calib_ukf_full_3x3" min="0" step="1" max="1" shortname="Full 3x3" values="FALSE|TRUE" type="bool" />
         <dl_setting var="mag_calib_ukf_update_filter" min="0" step="1" max="1" shortname="Update filter" values="FALSE|TRUE" type="bool" />
         <dl_setting var="mag_calib_ukf_send_state" min="0" step="1" max="1" shortname="Send MAG UKF state" values="FALSE|TRUE" type="bool" />
         <dl_setting var="mag_calib_ukf_reset_state" min="0" step="1" max="1" shortname="Reset MAG UKF state" values="FALSE|TRUE" type="bool" />
+        <dl_setting var="mag_calib_calibrate_threshold_scale" min="1.0" step="0.01" max="3.0" shortname="Re-calibrate threshold" type="float" />
+        <dl_setting var="mag_calib_reset_threshold_scale" min="0.0" step="0.01" max="3.0" shortname="Reset scale threshold" type="float" />
+        <dl_setting var="mag_calib_reset_threshold_bias" min="0.0" step="0.01" max="3.0" shortname="Reset bias threshold" type="float" />
       </dl_settings>
     </dl_settings>
   </settings>

@@ -38,9 +38,14 @@ extern bool mag_calib_ukf_update_filter;
 extern bool mag_calib_ukf_reset_state;
 extern bool mag_calib_ukf_send_state;
 
+extern bool mag_calib_ukf_full_3x3;
+
 extern float angle_diff_f;
 extern float magneto_psi_f;
 
+extern float mag_calib_calibrate_threshold_scale;
+extern float mag_calib_reset_threshold_scale;
+extern float mag_calib_reset_threshold_bias;
 extern TRICAL_instance_t mag_calib;
 
 void mag_calib_ukf_init(void);

@@ -68,6 +68,8 @@ PRINT_CONFIG_VAR(BEBOP_LOWPASS_FILTER)
 PRINT_CONFIG_VAR(BEBOP_GYRO_RANGE)
 PRINT_CONFIG_VAR(BEBOP_ACCEL_RANGE)
 
+float imu_bebop_pitch_offset = 8.5;
+
 struct OrientationReps imu_to_mag_bebop;    ///< IMU to magneto rotation
 double gyro_x_sfe =1.0, gyro_y_sfe =1.0, gyro_z_sfe =1.0;
 double accel_x_sfe =1.0, accel_y_sfe =1.0, accel_z_sfe =1.0;
@@ -76,6 +78,7 @@ double accel_x_bias =0.0, accel_y_bias =0.0, accel_z_bias =0.0;
 /** Basic Navstik IMU data */
 struct ImuBebop imu_bebop;
 
+const char* imu_bebop_config_get_field(char* line, int num);
 const char* imu_bebop_config_get_field(char* line, int num)
 {
     const char* tok;
@@ -89,86 +92,88 @@ const char* imu_bebop_config_get_field(char* line, int num)
     return NULL;
 }
 
+void imu_bebop_read_config(void);
 void imu_bebop_read_config(void)
 {
+  printf("Reading bebop factory calibration:\n\n");
   FILE* stream = fopen("/factory/Thermal_IMU_ortho.fact.csv", "r");
-  char line[1024];
-  uint8_t i = 0;
-  while (fgets(line, 1024, stream))
-  {
-    char* tmp = strdup(line);
-    //const char* test = imu_bebop_config_get_field(tmp, 3);
-    //printf("Field 3 would be %s\n", test);
-    // NOTE strtok clobbers tmp
-    //strtod()
-    switch(i)
+  if(stream != NULL){
+    char line[1024];
+    uint8_t i = 0;
+    while (fgets(line, 1024, stream))
     {
-      case 0:
-        gyro_x_sfe = strtod(imu_bebop_config_get_field(tmp, 3), NULL);
-        break;
-      case 1:
-        gyro_y_sfe = strtod(imu_bebop_config_get_field(tmp, 3), NULL);
-        break;
-      case 2:
-        gyro_z_sfe = strtod(imu_bebop_config_get_field(tmp, 3), NULL);
-        break;
-      case 9:
-        accel_x_sfe = strtod(imu_bebop_config_get_field(tmp, 3), NULL);
-        break;
-      case 10:
-        accel_y_sfe = strtod(imu_bebop_config_get_field(tmp, 3), NULL);
-        break;
-      case 11:
-        accel_z_sfe = strtod(imu_bebop_config_get_field(tmp, 3), NULL);
-        break;
+      char* tmp = strdup(line);
+      switch(i)
+      {
+        case 0:
+          gyro_x_sfe = strtod(imu_bebop_config_get_field(tmp, 3), NULL);
+          break;
+        case 1:
+          gyro_y_sfe = strtod(imu_bebop_config_get_field(tmp, 3), NULL);
+          break;
+        case 2:
+          gyro_z_sfe = strtod(imu_bebop_config_get_field(tmp, 3), NULL);
+          break;
+        case 9:
+          accel_x_sfe = strtod(imu_bebop_config_get_field(tmp, 3), NULL);
+          break;
+        case 10:
+          accel_y_sfe = strtod(imu_bebop_config_get_field(tmp, 3), NULL);
+          break;
+        case 11:
+          accel_z_sfe = strtod(imu_bebop_config_get_field(tmp, 3), NULL);
+          break;
+      }
+      free(tmp);
+      i++;
     }
-    free(tmp);
-    i++;
+    printf("gyro  sfe  x: %0.10f  y: %0.10f  z: %0.10f\n", gyro_x_sfe, gyro_y_sfe, gyro_z_sfe);
+    printf("accel sfe  x: %0.10f  y: %0.10f  z: %0.10f\n", accel_x_sfe, accel_y_sfe, accel_z_sfe);
+  }else{
+    printf("Unable to read /factory/Thermal_IMU_ortho.fact.csv\n");
   }
-  printf("gyro   sfe x: %0.10f  y: %0.10f  z: %0.10f\n", gyro_x_sfe, gyro_y_sfe, gyro_z_sfe);
-  printf("accel  sfe x: %0.10f  y: %0.10f  z: %0.10f\n", accel_x_sfe, accel_y_sfe, accel_z_sfe);
-
   stream = fopen("/factory/Thermal_IMU_bias.fact.csv", "r");
-  i = 0;
-  while (fgets(line, 1024, stream))
-  {
-    char* tmp = strdup(line);
-    //const char* test = imu_bebop_config_get_field(tmp, 3);
-    //printf("Field 3 would be %s\n", test);
-    // NOTE strtok clobbers tmp
-    //strtod()
-    switch(i)
+  if(stream != NULL){
+    char line[1024];
+    uint8_t i = 0;
+    while (fgets(line, 1024, stream))
     {
-      case 1:
-        gyro_x_bias = strtod(imu_bebop_config_get_field(tmp, 3), NULL);
-        imu.gyro_neutral.p = (int32_t) round(RATE_BFP_OF_REAL(gyro_x_bias) * IMU_GYRO_P_SIGN * IMU_GYRO_P_SENS_DEN / IMU_GYRO_P_SENS_NUM);
-        break;
-      case 2:
-        gyro_y_bias = strtod(imu_bebop_config_get_field(tmp, 3), NULL);
-        imu.gyro_neutral.q = (int32_t) round(RATE_BFP_OF_REAL(gyro_y_bias) * IMU_GYRO_Q_SIGN * IMU_GYRO_Q_SENS_DEN / IMU_GYRO_Q_SENS_NUM);
-        break;
-      case 3:
-        gyro_z_bias = strtod(imu_bebop_config_get_field(tmp, 3), NULL);
-        imu.gyro_neutral.r = (int32_t) round(RATE_BFP_OF_REAL(gyro_z_bias) * IMU_GYRO_R_SIGN * IMU_GYRO_R_SENS_DEN / IMU_GYRO_R_SENS_NUM);
-        break;
-      case 4:
-        accel_x_bias = strtod(imu_bebop_config_get_field(tmp, 3), NULL);
-        imu.accel_neutral.x = (int32_t) round(ACCEL_BFP_OF_REAL(accel_x_bias) * IMU_ACCEL_X_SIGN * IMU_ACCEL_X_SENS_DEN / IMU_ACCEL_X_SENS_NUM);
-        break;
-      case 5:
-        accel_y_bias = strtod(imu_bebop_config_get_field(tmp, 3), NULL);
-        imu.accel_neutral.y = (int32_t) round(ACCEL_BFP_OF_REAL(accel_y_bias) * IMU_ACCEL_Y_SIGN * IMU_ACCEL_Y_SENS_DEN / IMU_ACCEL_Y_SENS_NUM);
-        break;
-      case 6:
-        accel_z_bias = strtod(imu_bebop_config_get_field(tmp, 3), NULL);
-        imu.accel_neutral.z = (int32_t) round(ACCEL_BFP_OF_REAL(accel_z_bias) * IMU_ACCEL_Z_SIGN * IMU_ACCEL_Z_SENS_DEN / IMU_ACCEL_Z_SENS_NUM);
-        break;
+      char* tmp = strdup(line);
+      switch(i)
+      {
+        case 1:
+          gyro_x_bias = strtod(imu_bebop_config_get_field(tmp, 3), NULL);
+          imu.gyro_neutral.p = (int32_t) round(RATE_BFP_OF_REAL(gyro_x_bias) * IMU_GYRO_P_SIGN * IMU_GYRO_P_SENS_DEN / IMU_GYRO_P_SENS_NUM);
+          break;
+        case 2:
+          gyro_y_bias = strtod(imu_bebop_config_get_field(tmp, 3), NULL);
+          imu.gyro_neutral.q = (int32_t) round(RATE_BFP_OF_REAL(gyro_y_bias) * IMU_GYRO_Q_SIGN * IMU_GYRO_Q_SENS_DEN / IMU_GYRO_Q_SENS_NUM);
+          break;
+        case 3:
+          gyro_z_bias = strtod(imu_bebop_config_get_field(tmp, 3), NULL);
+          imu.gyro_neutral.r = (int32_t) round(RATE_BFP_OF_REAL(gyro_z_bias) * IMU_GYRO_R_SIGN * IMU_GYRO_R_SENS_DEN / IMU_GYRO_R_SENS_NUM);
+          break;
+        case 4:
+          accel_x_bias = strtod(imu_bebop_config_get_field(tmp, 3), NULL);
+          imu.accel_neutral.x = (int32_t) round(ACCEL_BFP_OF_REAL(accel_x_bias) * IMU_ACCEL_X_SIGN * IMU_ACCEL_X_SENS_DEN / IMU_ACCEL_X_SENS_NUM);
+          break;
+        case 5:
+          accel_y_bias = strtod(imu_bebop_config_get_field(tmp, 3), NULL);
+          imu.accel_neutral.y = (int32_t) round(ACCEL_BFP_OF_REAL(accel_y_bias) * IMU_ACCEL_Y_SIGN * IMU_ACCEL_Y_SENS_DEN / IMU_ACCEL_Y_SENS_NUM);
+          break;
+        case 6:
+          accel_z_bias = strtod(imu_bebop_config_get_field(tmp, 3), NULL);
+          imu.accel_neutral.z = (int32_t) round(ACCEL_BFP_OF_REAL(accel_z_bias) * IMU_ACCEL_Z_SIGN * IMU_ACCEL_Z_SENS_DEN / IMU_ACCEL_Z_SENS_NUM);
+          break;
+      }
+      free(tmp);
+      i++;
     }
-    free(tmp);
-    i++;
+    printf("gyro  bias x: %0.10f %d  y: %0.10f %d  z: %0.10f %d\n", gyro_x_bias, imu.gyro_neutral.p, gyro_y_bias, imu.gyro_neutral.q, gyro_z_bias, imu.gyro_neutral.r);
+    printf("accel bias x: %0.10f %d  y: %0.10f %d  z: %0.10f %d\n", accel_x_bias, imu.accel_neutral.x, accel_y_bias, imu.accel_neutral.y, accel_z_bias, imu.accel_neutral.z);
+  }else{
+    printf("Unable to read /factory/Thermal_IMU_bias.fact.csv\n");
   }
-  printf("gyro   bias x: %0.10f %d  y: %0.10f %d  z: %0.10f %d\n", gyro_x_bias, imu.gyro_neutral.p, gyro_y_bias, imu.gyro_neutral.q, gyro_z_bias, imu.gyro_neutral.r);
-  printf("accel  bias x: %0.10f %d  y: %0.10f %d  z: %0.10f %d\n", accel_x_bias, imu.accel_neutral.x, accel_y_bias, imu.accel_neutral.y, accel_z_bias, imu.accel_neutral.z);
 }
 
 /**
@@ -191,7 +196,7 @@ void imu_bebop_init(void)
   //the magnetometer of the bebop2 is located on the gps board,
   //which is under a slight angle
   struct FloatEulers imu_to_mag_eulers =
-  { 0.0, RadOfDeg(8.5), 0.0 };
+  { 0.0, RadOfDeg(imu_bebop_pitch_offset), 0.0 };
   orientationSetEulers_f(&imu_to_mag_bebop, &imu_to_mag_eulers);
 #endif
 }
@@ -202,6 +207,10 @@ void imu_bebop_init(void)
  */
 void imu_bebop_periodic(void)
 {
+  struct FloatEulers imu_to_mag_eulers =
+  { 0.0, RadOfDeg(imu_bebop_pitch_offset), 0.0 };
+  orientationSetEulers_f(&imu_to_mag_bebop, &imu_to_mag_eulers);
+
   // Start reading the latest gyroscope data
   mpu60x0_i2c_periodic(&imu_bebop.mpu);
 

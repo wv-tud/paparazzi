@@ -13,22 +13,18 @@
 			delayed -->
 		<define name="CATASTROPHIC_BATTERY_KILL_DELAY" value="30" unit="s/10" /> <!-- in tenth of seconds for engine kill -->
 
-		<!-- swarmhub -->
+		<!-- swarmhub --
 		<configure name="HOST" value="192.168.0.$(AC_ID)" />
-		<configure name="MODEM_HOST" value="192.168.255.255" />
+		<configure name="MODEM_HOST" value="192.168.255.255" />-->
 		<!-- Baro, Sonar, RTK -->
 		<configure name="USE_SONAR" value="TRUE" />
 		<configure name="USE_MAGNETOMETER" value="TRUE" />
 		<define name="USE_GPS_UBX_RTCM" value="TRUE" />
 		
-		<!-- Use magneto calib with ICQ AHRS -->
-		<define name="TRICAL_FULL_3X3" value="0" />
-		<define name="AHRS_ICQ_MAG_ID" value="MAG_CALIB_UKF_ID" />
+		<define name="AHRS_FC_MAG_ID" value="MAG_CALIB_UKF_ID" />
 		
 		<!-- Was flying OK, just no real improvement maybe accel noise too high? -->
-		<configure name="USE_HFF" value="true" /> 
-		<configure name="HFF_ACCEL_NOISE" value="0.75" /> 
-		<configure name="VFF_EXTENDED_ACCEL_NOISE" value="0.75" />
+		<configure name="USE_HFF" value="true" />
 		
 		<define name="GPS_TIMEOUT" value="1" />
 		<!-- Camera parameters -->
@@ -50,12 +46,14 @@
 		<module name="actuators" type="bebop" />
 		<module name="imu" type="bebop" />
 		<module name="gps" type="ublox" />
-		<module name="stabilization" type="indi_simple" />
+		<module name="stabilization" type="indi" />
 		<module name="guidance" type="indi" />
 		<module name="ahrs" type="float_cmpl_quat">
 			<define name="AHRS_MAG_OMEGA" value="0.04"/>
 			<define name="AHRS_MAG_ZETA" value="36.0"/>
-			<define name="AHRS_MAG_UPDATE_ALL_AXES" value="FALSE" />
+			<!-- <define name="AHRS_ACCEL_OMEGA" value="0.0"/>
+			<define name="AHRS_ACCEL_ZETA" value="0.0"/> -->
+			<define name="AHRS_MAG_UPDATE_ALL_AXES" value="TRUE" />
 			<define name="AHRS_USE_GPS_HEADING" value="FALSE" />
 			<define name="AHRS_GRAVITY_UPDATE_COORDINATED_TURN" value="FALSE" />
 			<!-- <define name="AHRS_PROPAGATE_LOW_PASS_RATES" value="FALSE" /> -->
@@ -193,7 +191,12 @@
 	</section>
 
 	<section name="STABILIZATION_ATTITUDE_INDI" prefix="STABILIZATION_INDI_">
-
+		<define name="G1_ROLL" 		value="{17.541, 	-14.466, 	-16.632, 	23.559 }" />
+		<define name="G1_PITCH" 	value="{14.673, 	12.930, 	-16.854, 	-17.459 }" />
+		<define name="G1_YAW" 		value="{0.413, 		-1.071, 	0.573, 		-0.711}" />
+		<define name="G1_THRUST" 	value="{-0.561, 	-0.507, 	-0.566, 	-0.554}" />
+		<define name="G2" 			value="{112.015, 	-131.258, 	154.486, 	-66.862}" />
+	
 		<!-- For the bebop2 we need to filter the roll rate due to the dampers -->
 		<define name="FILTER_ROLL_RATE" value="FALSE" />
 		<define name="FILTER_PITCH_RATE" value="FALSE" />
@@ -212,10 +215,8 @@
 		<define name="FILT_CUTOFF" value="5.0" />
 		<define name="FILT_CUTOFF_P" value="5.0" />
 
-		<!-- first order actuator dynamics (indi_simple) -->
-		<define name="ACT_DYN_P" value="0.1" />
-		<define name="ACT_DYN_Q" value="0.1" />
-		<define name="ACT_DYN_R" value="0.1" />
+		<!-- first order actuator dynamics -->
+		<define name="ACT_DYN" value="{0.1, 0.1, 0.1, 0.1}" />
 
 		<!-- Adaptive Learning Rate -->
 		<define name="USE_ADAPTIVE" value="TRUE" />
@@ -224,10 +225,16 @@
 		<!--Maxium yaw rate, to avoid instability -->
 		<define name="MAX_R" value="240" unit="deg/s" />
 	</section>
+	
+	<section name="GUIDANCE_INDI" prefix="GUIDANCE_INDI_">
+		<define name="SPECIFIC_FORCE_GAIN" value="-300.0" />
+		<define name="THRUST_DYNAMICS" value="0.1" /> <!-- defaults to STABILIZATION_INDI_ACT_DYN_P which is only defined for indi_simple -->
+	</section>
 
 	<include href="conf/airframes/TUDELFT/calibrations/bebop2_$AC_ID.xml" />
 
 	<section name="MAG_CALIB_UKF" prefix="MAG_CALIB_UKF_">
+		<define name="FULL_3X3" value="0" />
 		<define name="HOTSTART" value="TRUE" />
 		<define name="FILTER_MAG" value="TRUE" />
 		<define name="HOTSTART_SAVE_FILE" value="/data/ftp/internal_000/mag_ukf_calib.txt" />
@@ -245,10 +252,6 @@
 	<section name="BEBOP_ACCEL_CALIB_FLAT" prefix="BEBOP_ACCEL_CALIB_">
 		<define name="AUTOSTART" value="FALSE" />
 		<define name="MEASURE_TIME" value="60.0" />
-	</section>
-
-	<section name="GUIDANCE_INDI" prefix="GUIDANCE_INDI_">
-		<define name="SPECIFIC_FORCE_GAIN" value="-300.0" />
 	</section>
 
 	<section name="GUIDANCE_V" prefix="GUIDANCE_V_">

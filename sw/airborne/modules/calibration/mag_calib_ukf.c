@@ -97,7 +97,7 @@ PRINT_CONFIG_VAR(MAG_CALIB_UKF_ABI_BIND_ID)
 PRINT_CONFIG_VAR(MAG_CALIB_UKF_NORM)
 
 #ifndef MAG_CALIB_UKF_NOISE_RMS
-#define MAG_CALIB_UKF_NOISE_RMS 2.0e-3f
+#define MAG_CALIB_UKF_NOISE_RMS 2.0e-6f
 #endif
 PRINT_CONFIG_VAR(MAG_CALIB_UKF_NOISE_RMS)
 
@@ -128,6 +128,13 @@ PRINT_CONFIG_VAR(MAG_CALIB_UKF_CLEAN_START)
 #endif
 PRINT_CONFIG_VAR(MAG_CALIB_UKF_VERBOSE)
 
+#ifndef MAG_CALIB_UKF_FULL_3X3
+#define MAG_CALIB_UKF_FULL_3X3 0;
+#endif
+PRINT_CONFIG_VAR(MAG_CALIB_UKF_FULL_3X3)
+
+bool mag_calib_ukf_full_3x3 = MAG_CALIB_UKF_FULL_3X3;
+
 bool mag_calib_ukf_update_filter = false;
 bool mag_calib_ukf_reset_state = false;
 bool mag_calib_ukf_send_state = false;
@@ -144,6 +151,9 @@ PRINT_CONFIG_VAR(MAG_CALIB_UKF_FILTER_MAG)
 Butterworth2LowPass mag_lowpass_filters[3];
 #endif
 
+float mag_calib_calibrate_threshold_scale = 1.5;
+float mag_calib_reset_threshold_scale = 0.2;
+float mag_calib_reset_threshold_bias = 0.9;
 TRICAL_instance_t mag_calib;
 static abi_event mag_ev;
 static abi_event h_ev;
@@ -183,7 +193,13 @@ void mag_calib_ukf_init(void)
 void mag_calib_ukf_run(uint8_t sender_id, uint32_t stamp, struct Int32Vect3 *mag)
 {
   static uint32_t runCount = 0;
-  static int32_t avg_heading;
+  static float warning_mag_calib_calibrate_threshold = 5.0;
+  static uint8_t warning_mag_calib_calibrate_scale_x = 0;
+  static uint8_t warning_mag_calib_calibrate_scale_y = 0;
+  static uint8_t warning_mag_calib_calibrate_scale_z = 0;
+  static uint8_t warning_mag_calib_calibrate_bias_x = 0;
+  static uint8_t warning_mag_calib_calibrate_bias_y = 0;
+  static uint8_t warning_mag_calib_calibrate_bias_z = 0;
   float measurement[3] = {0.0f, 0.0f, 0.0f};
   float calibrated_measurement[3] = {0.0f, 0.0f, 0.0f};
   if (sender_id != MAG_CALIB_UKF_ID) {
@@ -206,73 +222,129 @@ void mag_calib_ukf_run(uint8_t sender_id, uint32_t stamp, struct Int32Vect3 *mag
       update_butterworth_2_low_pass(&mag_lowpass_filters[0], measurement[0]);
       update_butterworth_2_low_pass(&mag_lowpass_filters[1], measurement[1]);
       update_butterworth_2_low_pass(&mag_lowpass_filters[2], measurement[2]);
-
       measurement[0] = mag_lowpass_filters[0].o[0];
       measurement[1] = mag_lowpass_filters[1].o[0];
       measurement[2] = mag_lowpass_filters[2].o[0];
 #endif
       /** Update magnetometer UKF **/
-#if 1
-      /*
-       * Norm only:
-       * Please checkout branch norm_only of wv-tud/TRICAL
-       */
-      if(mag_calib_ukf_update_filter){
-    	  TRICAL_estimate_update(&mag_calib, measurement);
+      if(!mag_calib_ukf_full_3x3){
+        /*
+         * Norm only:
+         */
+        if(mag_calib_ukf_update_filter){
+          TRICAL_estimate_update(&mag_calib, measurement, calibrated_measurement); // Third argument not used for norm only
+          if(warning_mag_calib_calibrate_threshold != 5.0){
+            warning_mag_calib_calibrate_threshold = 5.0;
+          }
+          if(warning_mag_calib_calibrate_scale_x != 0){
+            warning_mag_calib_calibrate_scale_x = 0;
+          }
+        }
+      }else{
+        /*
+         * Full 3x3 support:
+         */
+        if(mag_calib_ukf_update_filter){
+          float expected_mag_field[3] = {0.0f, 0.0f, 0.0f};
+          struct FloatQuat *body_quat = stateGetNedToBodyQuat_f();
+          struct FloatVect3 expected_measurement;
+          float_quat_vmult(&expected_measurement, body_quat, &H);
+          expected_mag_field[0] = expected_measurement.x;
+          expected_mag_field[1] = expected_measurement.y;
+          expected_mag_field[2] = expected_measurement.z;
+          TRICAL_estimate_update(&mag_calib, measurement, expected_mag_field);
+          if(warning_mag_calib_calibrate_threshold != 5.0){
+            warning_mag_calib_calibrate_threshold = 5.0;
+          }
+          if(warning_mag_calib_calibrate_scale_x != 0){
+            warning_mag_calib_calibrate_scale_x = 0;
+          }
+        }
       }
-#else
-      /* Full 3x3 support:
-       * Please checkout branch master of wv-tud/TRICAL
-       * */
-      float expected_mag_field[3] = {0.0f, 0.0f, 0.0f};
-      struct FloatQuat *body_quat = stateGetNedToBodyQuat_f();
-      struct FloatVect3 expected_measurement;
-      float_quat_vmult(&expected_measurement, body_quat, &H);
-      expected_mag_field[0] = expected_measurement.x;
-      expected_mag_field[1] = expected_measurement.y;
-      expected_mag_field[2] = expected_measurement.z;
-      TRICAL_estimate_update(&mag_calib, measurement, expected_mag_field);
-#endif
+      /* Sanity check on the scale */
+      if(fabs(mag_calib.state[3]) > mag_calib_reset_threshold_scale){
+        if(warning_mag_calib_calibrate_scale_x == 0){
+          warning_mag_calib_calibrate_scale_x = 1;
+          char data[200];
+          snprintf(data, 200, "%s: Please reset magnetometer filter (x scale: %0.2f)", AIRFRAME_NAME, mag_calib.state[3]);
+          printf("%s\n",data);
+          DOWNLINK_SEND_INFO_MSG(DefaultChannel, DefaultDevice, strlen(data), data);
+        }
+      }
+      if(fabs(mag_calib.state[7]) > mag_calib_reset_threshold_scale){
+        if(warning_mag_calib_calibrate_scale_y == 0){
+          warning_mag_calib_calibrate_scale_y = 1;
+          char data[200];
+          snprintf(data, 200, "%s: Please reset magnetometer filter (y scale: %0.2f)", AIRFRAME_NAME, mag_calib.state[7]);
+          printf("%s\n",data);
+          DOWNLINK_SEND_INFO_MSG(DefaultChannel, DefaultDevice, strlen(data), data);
+        }
+      }
+      if(fabs(mag_calib.state[11]) > mag_calib_reset_threshold_scale){
+        if(warning_mag_calib_calibrate_scale_z == 0){
+          warning_mag_calib_calibrate_scale_z = 1;
+          char data[200];
+          snprintf(data, 200, "%s: Please reset magnetometer filter (z scale: %0.2f)", AIRFRAME_NAME, mag_calib.state[11]);
+          printf("%s\n",data);
+          DOWNLINK_SEND_INFO_MSG(DefaultChannel, DefaultDevice, strlen(data), data);
+        }
+      }
+      /* Sanity check on the bias */
+      if(fabs(mag_calib.state[0]) > mag_calib_reset_threshold_bias){
+        if(warning_mag_calib_calibrate_bias_x == 0){
+          warning_mag_calib_calibrate_bias_x = 1;
+          char data[200];
+          snprintf(data, 200, "%s: Please reset magnetometer filter (x bias: %0.2f)", AIRFRAME_NAME, mag_calib.state[0]);
+          printf("%s\n",data);
+          DOWNLINK_SEND_INFO_MSG(DefaultChannel, DefaultDevice, strlen(data), data);
+        }
+      }
+      if(fabs(mag_calib.state[1]) > mag_calib_reset_threshold_bias){
+        if(warning_mag_calib_calibrate_bias_y == 0){
+          warning_mag_calib_calibrate_bias_y = 1;
+          char data[200];
+          snprintf(data, 200, "%s: Please reset magnetometer filter (y bias: %0.2f)", AIRFRAME_NAME, mag_calib.state[1]);
+          printf("%s\n",data);
+          DOWNLINK_SEND_INFO_MSG(DefaultChannel, DefaultDevice, strlen(data), data);
+        }
+      }
+      if(fabs(mag_calib.state[2]) > mag_calib_reset_threshold_bias){
+        if(warning_mag_calib_calibrate_bias_z == 0){
+          warning_mag_calib_calibrate_bias_z = 1;
+          char data[200];
+          snprintf(data, 200, "%s: Please reset magnetometer filter (z bias: %0.2f)", AIRFRAME_NAME, mag_calib.state[2]);
+          printf("%s\n",data);
+          DOWNLINK_SEND_INFO_MSG(DefaultChannel, DefaultDevice, strlen(data), data);
+        }
+      }
+      /** Calibrate measurement */
       TRICAL_measurement_calibrate(&mag_calib, measurement, calibrated_measurement);
       float measurement_norm = sqrtf(powf(calibrated_measurement[0], 2.0) + powf(calibrated_measurement[1], 2.0) + powf(calibrated_measurement[2], 2.0));
       /** Normalize measurement data */
-      if(measurement_norm > 0.1){
-        calibrated_mag.x = (int32_t) MAG_BFP_OF_REAL(calibrated_measurement[0] / measurement_norm);
-        calibrated_mag.y = (int32_t) MAG_BFP_OF_REAL(calibrated_measurement[1] / measurement_norm);
-        calibrated_mag.z = (int32_t) MAG_BFP_OF_REAL(calibrated_measurement[2] / measurement_norm);
-      }else{
-        calibrated_mag.x = (int32_t) MAG_BFP_OF_REAL(calibrated_measurement[0]);
-        calibrated_mag.y = (int32_t) MAG_BFP_OF_REAL(calibrated_measurement[1]);
-        calibrated_mag.z = (int32_t) MAG_BFP_OF_REAL(calibrated_measurement[2]);
+      if(!mag_calib_ukf_update_filter && (measurement_norm > mag_calib_calibrate_threshold_scale || measurement_norm < 1.0/mag_calib_calibrate_threshold_scale)){
+        if(mag_calib_calibrate_threshold_scale != warning_mag_calib_calibrate_threshold){
+          warning_mag_calib_calibrate_threshold = mag_calib_calibrate_threshold_scale;
+          char data[200];
+          snprintf(data, 200, "%s: Please recalibrate magnetometer (norm %0.2f)", AIRFRAME_NAME, measurement_norm);
+          printf("%s\n",data);
+          DOWNLINK_SEND_INFO_MSG(DefaultChannel, DefaultDevice, strlen(data), data);
+        }
       }
+      calibrated_mag.x = (int32_t) MAG_BFP_OF_REAL(calibrated_measurement[0]);
+      calibrated_mag.y = (int32_t) MAG_BFP_OF_REAL(calibrated_measurement[1]);
+      calibrated_mag.z = (int32_t) MAG_BFP_OF_REAL(calibrated_measurement[2]);
       /** Save calibrated result **/
       imu.mag.x = calibrated_mag.x;
       imu.mag.y = calibrated_mag.y;
       imu.mag.z = calibrated_mag.z;
-
+      /** Forward calibrated data */
+      AbiSendMsgIMU_MAG_INT32(MAG_CALIB_UKF_ID, stamp, &calibrated_mag);
       /** Debug print */
       VERBOSE_PRINT("magnetometer measurement (x: %4.2f  y: %4.2f  z: %4.2f) norm: %4.2f\n", measurement[0], measurement[1],
                     measurement[2], hypot(hypot(measurement[0], measurement[1]), measurement[2]));
-      VERBOSE_PRINT("magnetometer bias_f      (x: %4.2f  y: %4.2f  z: %4.2f)\n", mag_calib.state[0], mag_calib.state[1],
-                    mag_calib.state[2]);
       VERBOSE_PRINT("calibrated   measurement (x: %4.2f  y: %4.2f  z: %4.2f) norm: %4.2f\n\n", calibrated_measurement[0],
                     calibrated_measurement[1], calibrated_measurement[2], hypot(hypot(calibrated_measurement[0], calibrated_measurement[1]),
                         calibrated_measurement[2]));
-      struct FloatEulers e;
-      struct FloatVect3 mag_f;
-      MAGS_FLOAT_OF_BFP(mag_f, imu.mag);
-      struct FloatVect3 accel_f;
-      ACCELS_FLOAT_OF_BFP(accel_f, imu.accel);
-      ahrs_float_get_euler_from_accel_mag(&e, &accel_f, &mag_f);
-      magneto_psi_f = e.psi;
-      if(runCount < 150){
-        avg_heading += e.psi;
-      }else if(runCount == 150){
-        //ahrs_icq_realign_heading(avg_heading / ((float) runCount));
-        ahrs_fc_realign_heading(avg_heading / ((float) runCount));
-      }
-      /** Forward calibrated data */
-      AbiSendMsgIMU_MAG_INT32(MAG_CALIB_UKF_ID, stamp, &calibrated_mag);
     }
   }
 }
@@ -284,7 +356,6 @@ void mag_calib_update_field(uint8_t __attribute__((unused)) sender_id, struct Fl
     H.x = (float)(h->x / n);
     H.y = (float)(h->y / n);
     H.z = (float)(h->z / n);
-    ahrs_int_set_H(&H);
     //VECT3_ASSIGN(ahrs_icq.mag_h, MAG_BFP_OF_REAL(H.x),MAG_BFP_OF_REAL(H.y), MAG_BFP_OF_REAL(H.z));
     VECT3_ASSIGN(ahrs_fc.mag_h, H.x, H.y, H.z);
     PRINT("Updating local magnetic field from geo_mag module (Hx: %4.4f, Hy: %4.4f, Hz: %4.4f)\n", H.x, H.y, H.z);
@@ -334,7 +405,7 @@ void mag_calib_hotstart_write(void)
     fwrite(mag_calib.state, sizeof(float), TRICAL_STATE_DIM, fp);
     fwrite(mag_calib.state_covariance, sizeof(float), TRICAL_STATE_DIM * TRICAL_STATE_DIM, fp);
     fclose(fp);
-    PRINT("Wrote current state to disk:\n"
+    VERBOSE_PRINT("Wrote current state to disk:\n"
           "State {%4.2f, %4.2f, %4.2f}\n"
           "      {%4.2f, %4.2f, %4.2f}\n"
           "      {%4.2f, %4.2f, %4.2f}\n"

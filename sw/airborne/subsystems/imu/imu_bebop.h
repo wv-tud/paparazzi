@@ -68,6 +68,7 @@
 #define IMU_ACCEL_Z_SENS_DEN MPU60X0_ACCEL_SENS_FRAC[BEBOP_ACCEL_RANGE][1]
 #endif
 
+extern float imu_bebop_pitch_offset;
 
 /** Everything that is in the bebop IMU */
 struct ImuBebop {

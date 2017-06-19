@@ -30,6 +30,7 @@
 #include "opengl.h"
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 #include BOARD_CONFIG
 
 #ifndef STRINGIFY
