@@ -132,6 +132,12 @@ struct image_t* cv_cam_stab_func(struct image_t* img)
   if((desHeight + bottom) > ispHeight){
     desHeight           = ispHeight - bottom;
   }
+  // See that fillheight is an even number
+    if((fillHeight & 1) != 0){
+      fillHeight--;
+      bottom++;
+      desHeight--;
+    }
   // See that the bottom is an even number
   if((bottom & 1) != 0){
     bottom--;

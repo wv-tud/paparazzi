@@ -37,7 +37,8 @@
 extern bool mag_calib_ukf_update_filter;
 extern bool mag_calib_ukf_reset_state;
 extern bool mag_calib_ukf_send_state;
-
+extern bool mag_calib_ukf_filter_mag;
+extern float mag_calib_ukf_filter_cutoff;
 extern bool mag_calib_ukf_full_3x3;
 
 extern float angle_diff_f;

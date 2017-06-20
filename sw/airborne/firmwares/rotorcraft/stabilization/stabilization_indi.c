@@ -420,8 +420,8 @@ static void stabilization_indi_calc_cmd(struct Int32Quat *att_err, bool rate_con
   }
 
   if(radio_control.values[RADIO_THROTTLE] < 300) {
-    float_vect_zero(indi_u, INDI_NUM_ACT);
-    float_vect_zero(indi_du, INDI_NUM_ACT);
+    //float_vect_zero(indi_u, INDI_NUM_ACT);
+    //float_vect_zero(indi_du, INDI_NUM_ACT);
   }
 
   // Propagate actuator filters

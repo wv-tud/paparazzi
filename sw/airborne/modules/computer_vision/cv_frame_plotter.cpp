@@ -62,59 +62,59 @@ using namespace cv;
 #define xSign(x) ( ( x ) >= ( 0 ) ? ( 1 ) : ( -1 ) )
 
 #ifndef FP_SHOW_TOTV
-#define FP_SHOW_TOTV 1 ///< Show the desired velocity vector from the autoswarm module
+#define FRAME_PLOTTER_SHOW_TOTV 1 ///< Show the desired velocity vector from the autoswarm module
 #endif
-PRINT_CONFIG_VAR(FP_SHOW_TOTV)
+PRINT_CONFIG_VAR(FRAME_PLOTTER_SHOW_TOTV)
 
-#ifndef FP_BALL_CIRCLES
-#define FP_BALL_CIRCLES 1 ///< Draw circles around balls from the cv_active_random_filter module
+#ifndef FRAME_PLOTTER_BALL_CIRCLES
+#define FRAME_PLOTTER_BALL_CIRCLES 1 ///< Draw circles around balls from the cv_active_random_filter module
 #endif
-PRINT_CONFIG_VAR(FP_BALL_CIRCLES)
+PRINT_CONFIG_VAR(FRAME_PLOTTER_BALL_CIRCLES)
 
-#ifndef FP_GATE_CORNERS
-#define FP_GATE_CORNERS 0 ///< Plot corner points of Gates from the cv_active_random_filter module
+#ifndef FRAME_PLOTTER_GATE_CORNERS
+#define FRAME_PLOTTER_GATE_CORNERS 0 ///< Plot corner points of Gates from the cv_active_random_filter module
 #endif
-PRINT_CONFIG_VAR(FP_GATE_CORNERS)
+PRINT_CONFIG_VAR(FRAME_PLOTTER_GATE_CORNERS)
 
-#ifndef FP_PLOT_COORDS
-#define FP_PLOT_COORDS 1 ///< Plot the coordinates of objects on frame from the cv_active_random_filter module
+#ifndef FRAME_PLOTTER_PLOT_COORDS
+#define FRAME_PLOTTER_PLOT_COORDS 1 ///< Plot the coordinates of objects on frame from the cv_active_random_filter module
 #endif
-PRINT_CONFIG_VAR(FP_PLOT_COORDS)
+PRINT_CONFIG_VAR(FRAME_PLOTTER_PLOT_COORDS)
 
-#ifndef FP_DISTANCE_PLOT
-#define FP_DISTANCE_PLOT 1 ///< Plot lines with distance on frame to objects from the cv_active_random_filter module
+#ifndef FRAME_PLOTTER_DISTANCE_PLOT
+#define FRAME_PLOTTER_DISTANCE_PLOT 1 ///< Plot lines with distance on frame to objects from the cv_active_random_filter module
 #endif
-PRINT_CONFIG_VAR(FP_DISTANCE_PLOT)
+PRINT_CONFIG_VAR(FRAME_PLOTTER_DISTANCE_PLOT)
 
-#ifndef FP_SHOW_STATS
-#define FP_SHOW_STATS 1 ///< Show statistics on the performance of the contour detection from the cv_active_random_filter module
+#ifndef FRAME_PLOTTER_SHOW_STATS
+#define FRAME_PLOTTER_SHOW_STATS 1 ///< Show statistics on the performance of the contour detection from the cv_active_random_filter module
 #endif
-PRINT_CONFIG_VAR(FP_SHOW_STATS)
+PRINT_CONFIG_VAR(FRAME_PLOTTER_SHOW_STATS)
 
-#ifndef FP_SHOW_CAM_INFO
-#define FP_SHOW_CAM_INFO 1 ///< Show colour gains and exposure on frame from cv_ae_awb module
+#ifndef FRAME_PLOTTER_SHOW_CAM_INFO
+#define FRAME_PLOTTER_SHOW_CAM_INFO 1 ///< Show colour gains and exposure on frame from cv_ae_awb module
 #endif
-PRINT_CONFIG_VAR(FP_SHOW_CAM_INFO)
+PRINT_CONFIG_VAR(FRAME_PLOTTER_SHOW_CAM_INFO)
 
-#ifndef FP_SHOW_HISTOGRAM
-#define FP_SHOW_HISTOGRAM 1 ///< Show histogram from cv_ae_awb module
+#ifndef FRAME_PLOTTER_SHOW_HISTOGRAM
+#define FRAME_PLOTTER_SHOW_HISTOGRAM 1 ///< Show histogram from cv_ae_awb module
 #endif
-PRINT_CONFIG_VAR(FP_SHOW_HISTOGRAM)
+PRINT_CONFIG_VAR(FRAME_PLOTTER_SHOW_HISTOGRAM)
 
-#ifndef FP_SHOW_FPS
-#define FP_SHOW_FPS 1 ///< Measure and show the (low-passed) FPS
+#ifndef FRAME_PLOTTER_SHOW_FPS
+#define FRAME_PLOTTER_SHOW_FPS 1 ///< Measure and show the (low-passed) FPS
 #endif
-PRINT_CONFIG_VAR(FP_SHOW_FPS)
+PRINT_CONFIG_VAR(FRAME_PLOTTER_SHOW_FPS)
 
-bool cv_frame_plotter_show_as_totv = FP_SHOW_TOTV;
-bool cv_frame_plotter_show_arf_ball_circles = FP_BALL_CIRCLES;
-bool cv_frame_plotter_show_arf_gate_corners = FP_GATE_CORNERS;
-bool cv_frame_plotter_show_arf_obj_coords = FP_PLOT_COORDS;
-bool cv_frame_plotter_show_arf_obj_distance = FP_DISTANCE_PLOT;
-bool cv_frame_plotter_show_arf_stats = FP_SHOW_STATS;
-bool cv_frame_plotter_show_ae_awb_info = FP_SHOW_CAM_INFO;
-bool cv_frame_plotter_show_fps = FP_SHOW_FPS;
-bool cv_frame_plotter_show_ae_awb_histogram = FP_SHOW_HISTOGRAM;
+bool cv_frame_plotter_show_as_totv = FRAME_PLOTTER_SHOW_TOTV;
+bool cv_frame_plotter_show_arf_ball_circles = FRAME_PLOTTER_BALL_CIRCLES;
+bool cv_frame_plotter_show_arf_gate_corners = FRAME_PLOTTER_GATE_CORNERS;
+bool cv_frame_plotter_show_arf_obj_coords = FRAME_PLOTTER_PLOT_COORDS;
+bool cv_frame_plotter_show_arf_obj_distance = FRAME_PLOTTER_DISTANCE_PLOT;
+bool cv_frame_plotter_show_arf_stats = FRAME_PLOTTER_SHOW_STATS;
+bool cv_frame_plotter_show_ae_awb_info = FRAME_PLOTTER_SHOW_CAM_INFO;
+bool cv_frame_plotter_show_fps = FRAME_PLOTTER_SHOW_FPS;
+bool cv_frame_plotter_show_ae_awb_histogram = FRAME_PLOTTER_SHOW_HISTOGRAM;
 
 static Rect             setISPvars( uint16_t width, uint16_t height);
 
@@ -126,7 +126,7 @@ extern uint16_t             initialWidth;                               ///< Ini
 extern uint16_t             initialHeight;                              ///< Initial height of ISP after applied scaling
 extern double               ispScalar;                                  ///< Applied scalar by the ISP
 
-#if FP_SHOW_FPS
+#if FRAME_PLOTTER_SHOW_FPS
 double      AVG_FPS                         = 20.0;                 ///< Estimated FPS to estimate lost neighbour decay
 static struct timespec      time_now;                               ///< The current time
 static struct timespec      time_prev;                              ///< The time of the previous frame
@@ -143,7 +143,7 @@ void cv_frame_plotter_init(void){
 
 void cv_frame_plotter_func(char* buff, uint16_t width, uint16_t height){
   Mat sourceFrame (height, width, CV_8UC2, buff);                 // Initialize current frame in openCV (UYVY) 2 channel
-#if FP_SHOW_FPS
+#if FRAME_PLOTTER_SHOW_FPS
   clock_gettime(CLOCK_MONOTONIC, &time_now);
   curT            = sys_time_elapsed_us(&time_init, &time_now);
   uint32_t dt_us  = sys_time_elapsed_us(&time_prev, &time_now);
@@ -155,7 +155,7 @@ void cv_frame_plotter_func(char* buff, uint16_t width, uint16_t height){
   uint16_t plotline_left = 20;
   uint16_t plotline_right = sourceFrame.rows-20;
   char text[200];
-#if FP_SHOW_FPS
+#if FRAME_PLOTTER_SHOW_FPS
   if(cv_frame_plotter_show_fps){
     sprintf(text,"%5.2f %5.d %8.2fs", AVG_FPS,(runCount), curT / 1000000.0);
     putText(sourceFrame, text, Point(10,plotline_right), FONT_HERSHEY_PLAIN, 1, Scalar(0,255,255), 1);
@@ -226,7 +226,7 @@ void cv_frame_plotter_func(char* buff, uint16_t width, uint16_t height){
         putText(sourceFrame, text, Point(neighbourMem[r].x_p - cropCol + sqrt(neighbourMem[r].area_p / M_PI) + 10, neighbourMem[r].y_p + 15), FONT_HERSHEY_PLAIN, 1, Scalar(0,tColor), 1);
       }
     }
-#if FP_BALL_CIRCLES
+#if FRAME_PLOTTER_BALL_CIRCLES
   if(cv_frame_plotter_show_arf_ball_circles){
     for(unsigned int r=0; r < neighbourMem_size; r++)         // Convert angles & Write/Print output
     {
@@ -234,7 +234,7 @@ void cv_frame_plotter_func(char* buff, uint16_t width, uint16_t height){
     }
   }
 #endif
-#if FP_GATE_CORNERS
+#if FRAME_PLOTTER_GATE_CORNERS
   if(cv_frame_plotter_show_arf_gate_corners){
     for(unsigned int r=0; r < neighbourMem_size; r++)         // Convert angles & Write/Print output
     {

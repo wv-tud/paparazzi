@@ -117,6 +117,11 @@ PRINT_CONFIG_VAR(MAG_CALIB_UKF_HOTSTART_SAVE_FILE)
 #endif
 PRINT_CONFIG_VAR(MAG_CALIB_UKF_CLEAN_START)
 
+#ifndef MAG_CALIB_UKF_AUTOSTART
+#define MAG_CALIB_UKF_AUTOSTART FALSE
+#endif
+PRINT_CONFIG_VAR(MAG_CALIB_UKF_AUTOSTART)
+
 #if MAG_CALIB_UKF_VERBOSE || MAG_CALIB_UKF_HOTSTART
 #include <stdio.h>
 #define PRINT(string,...) fprintf(stderr, "[MAG_CALIB_UKF->%s()] " string,__FUNCTION__ , ##__VA_ARGS__)
@@ -129,27 +134,33 @@ PRINT_CONFIG_VAR(MAG_CALIB_UKF_CLEAN_START)
 PRINT_CONFIG_VAR(MAG_CALIB_UKF_VERBOSE)
 
 #ifndef MAG_CALIB_UKF_FULL_3X3
-#define MAG_CALIB_UKF_FULL_3X3 0;
+#define MAG_CALIB_UKF_FULL_3X3 FALSE;
 #endif
 PRINT_CONFIG_VAR(MAG_CALIB_UKF_FULL_3X3)
-
-bool mag_calib_ukf_full_3x3 = MAG_CALIB_UKF_FULL_3X3;
-
-bool mag_calib_ukf_update_filter = false;
-bool mag_calib_ukf_reset_state = false;
-bool mag_calib_ukf_send_state = false;
-struct Int32Vect3 calibrated_mag;
-
-float angle_diff_f;
-float magneto_psi_f;
 
 #ifndef MAG_CALIB_UKF_FILTER_MAG
 #define MAG_CALIB_UKF_FILTER_MAG FALSE
 #endif
 PRINT_CONFIG_VAR(MAG_CALIB_UKF_FILTER_MAG)
-#if MAG_CALIB_UKF_FILTER_MAG
-Butterworth2LowPass mag_lowpass_filters[3];
+
+#ifndef MAG_CALIB_UKF_FILTER_MAG_CUTOFF
+#define MAG_CALIB_UKF_FILTER_MAG_CUTOFF 12.0
 #endif
+PRINT_CONFIG_VAR(MAG_CALIB_UKF_FILTER_MAG_CUTOFF)
+
+bool mag_calib_ukf_full_3x3 = MAG_CALIB_UKF_FULL_3X3;
+bool mag_calib_ukf_update_filter = MAG_CALIB_UKF_AUTOSTART;
+bool mag_calib_ukf_reset_state = false;
+bool mag_calib_ukf_send_state = false;
+bool mag_calib_ukf_filter_mag = MAG_CALIB_UKF_FILTER_MAG;
+
+struct Int32Vect3 calibrated_mag;
+
+float mag_calib_ukf_filter_cutoff = MAG_CALIB_UKF_FILTER_MAG_CUTOFF;
+float angle_diff_f;
+float magneto_psi_f;
+
+Butterworth2LowPass mag_lowpass_filters[3];
 
 float mag_calib_calibrate_threshold_scale = 1.5;
 float mag_calib_reset_threshold_scale = 0.2;
@@ -179,13 +190,6 @@ void mag_calib_ukf_init(void)
 #endif
   AbiBindMsgIMU_MAG_INT32(MAG_CALIB_UKF_ABI_BIND_ID, &mag_ev, mag_calib_ukf_run);
   AbiBindMsgGEO_MAG(ABI_BROADCAST, &h_ev, mag_calib_update_field);
-#if MAG_CALIB_UKF_FILTER_MAG
-  float tau = 1.0/(2.0*M_PI*12.0);
-  float sample_time = 1.0/50.0;
-  init_butterworth_2_low_pass(&mag_lowpass_filters[0], tau, sample_time, 0.0);
-  init_butterworth_2_low_pass(&mag_lowpass_filters[1], tau, sample_time, 0.0);
-  init_butterworth_2_low_pass(&mag_lowpass_filters[2], tau, sample_time, 0.0);
-#endif
 }
 
 /** Callback function run for every new mag measurement
@@ -193,6 +197,8 @@ void mag_calib_ukf_init(void)
 void mag_calib_ukf_run(uint8_t sender_id, uint32_t stamp, struct Int32Vect3 *mag)
 {
   static uint32_t runCount = 0;
+  static uint32_t filtCount = 0;
+  static float mag_calib_ukf_prev_filter_cutoff = MAG_CALIB_UKF_FILTER_MAG_CUTOFF;
   static float warning_mag_calib_calibrate_threshold = 5.0;
   static uint8_t warning_mag_calib_calibrate_scale_x = 0;
   static uint8_t warning_mag_calib_calibrate_scale_y = 0;
@@ -218,14 +224,28 @@ void mag_calib_ukf_run(uint8_t sender_id, uint32_t stamp, struct Int32Vect3 *mag
       measurement[0] = MAG_FLOAT_OF_BFP(mag->x);
       measurement[1] = MAG_FLOAT_OF_BFP(mag->y);
       measurement[2] = MAG_FLOAT_OF_BFP(mag->z);
-#if MAG_CALIB_UKF_FILTER_MAG
-      update_butterworth_2_low_pass(&mag_lowpass_filters[0], measurement[0]);
-      update_butterworth_2_low_pass(&mag_lowpass_filters[1], measurement[1]);
-      update_butterworth_2_low_pass(&mag_lowpass_filters[2], measurement[2]);
-      measurement[0] = mag_lowpass_filters[0].o[0];
-      measurement[1] = mag_lowpass_filters[1].o[0];
-      measurement[2] = mag_lowpass_filters[2].o[0];
-#endif
+      if(mag_calib_ukf_filter_mag){
+        if(filtCount == 0 || mag_calib_ukf_prev_filter_cutoff != mag_calib_ukf_filter_cutoff){
+          float tau = 1.0/(2.0 * M_PI * mag_calib_ukf_filter_cutoff);
+          float sample_time = 1.0 / 100.0;
+          init_butterworth_2_low_pass(&mag_lowpass_filters[0], tau, sample_time, measurement[0]);
+          init_butterworth_2_low_pass(&mag_lowpass_filters[1], tau, sample_time, measurement[1]);
+          init_butterworth_2_low_pass(&mag_lowpass_filters[2], tau, sample_time, measurement[2]);
+          mag_calib_ukf_prev_filter_cutoff = mag_calib_ukf_filter_cutoff;
+        }else{
+          update_butterworth_2_low_pass(&mag_lowpass_filters[0], measurement[0]);
+          update_butterworth_2_low_pass(&mag_lowpass_filters[1], measurement[1]);
+          update_butterworth_2_low_pass(&mag_lowpass_filters[2], measurement[2]);
+          measurement[0] = mag_lowpass_filters[0].o[0];
+          measurement[1] = mag_lowpass_filters[1].o[0];
+          measurement[2] = mag_lowpass_filters[2].o[0];
+        }
+        filtCount++;
+      }else{
+        if(filtCount != 0){
+          filtCount = 0;
+        }
+      }
       /** Update magnetometer UKF **/
       if(!mag_calib_ukf_full_3x3){
         /*

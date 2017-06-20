@@ -32,11 +32,12 @@
 #define BOARD_CONFIG "boards/bebop.h"               ///< Define which board
 
 extern "C" {
+    #include <sys/time.h>                           ///< C header used for system time functions and data
+    #include <stdio.h>
+
     #include "boards/bebop.h"                       ///< C header used for bebop specific settings
     #include <state.h>                              ///< C header used for state functions and data
-    #include <sys/time.h>                           ///< C header used for system time functions and data
     #include "mcu_periph/sys_time.h"                ///< C header used for PPRZ time functions and data
-    #include <stdio.h>
     #include "cv_bebop_camera_stabilization.h"
     #include "modules/computer_vision/cv_image_pose.h"
     #include "modules/computer_vision/cv_ae_awb.h"
@@ -97,16 +98,16 @@ using namespace cv;
 static void             active_random_filter_header ( void );
 static void             active_random_filter_footer ( void );
 static Rect             setISPvars          ( uint16_t width, uint16_t height );
-static void 			trackObjects	    ( Mat& sourceFrame, Mat& greyFrame );
+static void 			      trackObjects	    ( Mat& sourceFrame, Mat& greyFrame );
 #if ARF_OBJECT == ARF_BALL
 static void             identifyObject      ( trackResults* trackRes );
 #endif
 #if ARF_OBJECT == ARF_GATE
 void identifyObject(gateResults* gateRes);
 #endif
-static bool 			addContour			( vector<Point> contour, uint16_t offsetX, uint16_t offsetY, double minDist = 0.0, double maxDist = 0.0);
-static void 			cam2body 			( trackResults* trackRes );
-static void 			body2world 			( trackResults* trackRes );
+static bool 			      addContour			( vector<Point> contour, uint16_t offsetX, uint16_t offsetY, double minDist = 0.0, double maxDist = 0.0);
+static void 			      cam2body 			( trackResults* trackRes );
+static void 			      body2world 			( trackResults* trackRes );
 static void             estimatePosition    ( uint16_t xp, uint16_t yp, uint32_t area, double position[3]);
 static bool             getNewPosition      ( uint8_t nextDir, uint16_t* newRow, uint16_t* newCol, int* maxRow, int* maxCol );
 static void             eraseMemory         ( void );
@@ -1689,9 +1690,6 @@ void active_random_filter_footer( void ){
     }
 #endif
 #endif // ARF_SHOW_MEM || ARF_WRITE_LOG
-#if ARF_CALIBRATE_CAM
-    if(runCount >= (ARF_TIMEOUT + 100)) calibrateEstimation();
-#endif // ARF_CALIBRATE_CAM
     VERBOSE_PRINT("pixCount: %d  (%.2f%%), pixSucCount: %d  (%.2f%%), pixDupCount: %d  (%.2f%%), pixNofCount: %d  (%.2f%%), pixSrcCount: %d  (%.2f%%)\n", pixCount, pixCount/((float) ispHeight * ispWidth) * 100, pixSucCount, pixSucCount/((float) pixCount) * 100, pixDupCount, pixDupCount/((float) pixCount) * 100, pixNofCount, pixNofCount/((float) pixCount) * 100, pixSrcCount, pixSrcCount/((float) pixCount) * 100);
     runCount++;                                                // Increase counter
 }
@@ -1806,9 +1804,6 @@ bool trackRes_clear( void ){
 
 #if ARF_OBJECT == ARF_BALL
 bool neighbourMem_findMax( void ){
-#ifdef __linux__
-  //pthread_mutex_lock(&neighbourMem_mutex);
-#endif
     neighbourMem_maxVal = 0.0;
     neighbourMem_maxId  = 0;
     for(uint8_t i=0; i<neighbourMem_size; i++){
@@ -1817,16 +1812,10 @@ bool neighbourMem_findMax( void ){
             neighbourMem_maxId  = i;
         }
     }
-#ifdef __linux__
-  //pthread_mutex_unlock(&neighbourMem_mutex);
-#endif
     return true;
 }
 
 bool neighbourMem_add( memoryBlock newRes, uint8_t overwriteId){
-#ifdef __linux__
-  //pthread_mutex_lock(&neighbourMem_mutex);
-#endif
     bool result = TRUE;
     if(overwriteId < neighbourMem_size){
         neighbourMem[overwriteId]           = newRes;
@@ -1846,9 +1835,6 @@ bool neighbourMem_add( memoryBlock newRes, uint8_t overwriteId){
         neighbourMem_lastId                     = neighbourMem_size;
         neighbourMem_size++;
     }
-#ifdef __linux__
-  //pthread_mutex_unlock(&neighbourMem_mutex);
-#endif
     if(result && neighbourMem_size == ARF_MAX_OBJECTS){
         neighbourMem_findMax();
     }
