@@ -38,7 +38,9 @@
 #include "subsystems/ahrs/ahrs_int_utils.h"
 #include "subsystems/ahrs/ahrs_aligner.h"
 //#include "subsystems/ahrs/ahrs_int_cmpl_quat.h"
-#include "subsystems/ahrs/ahrs_float_cmpl.h"
+//#include "subsystems/ahrs/ahrs_float_cmpl.h"
+#include "subsystems/ins/ins_float_invariant.h"
+//#include "subsystems/ahrs/ahrs_float_invariant.h"
 #include "filters/low_pass_filter.h"
 
 //
@@ -97,7 +99,7 @@ PRINT_CONFIG_VAR(MAG_CALIB_UKF_ABI_BIND_ID)
 PRINT_CONFIG_VAR(MAG_CALIB_UKF_NORM)
 
 #ifndef MAG_CALIB_UKF_NOISE_RMS
-#define MAG_CALIB_UKF_NOISE_RMS 2.0e-6f
+#define MAG_CALIB_UKF_NOISE_RMS 2.0e-4f
 #endif
 PRINT_CONFIG_VAR(MAG_CALIB_UKF_NOISE_RMS)
 
@@ -122,6 +124,11 @@ PRINT_CONFIG_VAR(MAG_CALIB_UKF_CLEAN_START)
 #endif
 PRINT_CONFIG_VAR(MAG_CALIB_UKF_AUTOSTART)
 
+#ifndef MAG_CALIB_UKF_UPDATE_EVERY
+#define MAG_CALIB_UKF_UPDATE_EVERY 1
+#endif
+PRINT_CONFIG_VAR(MAG_CALIB_UKF_UPDATE_EVERY)
+
 #if MAG_CALIB_UKF_VERBOSE || MAG_CALIB_UKF_HOTSTART
 #include <stdio.h>
 #define PRINT(string,...) fprintf(stderr, "[MAG_CALIB_UKF->%s()] " string,__FUNCTION__ , ##__VA_ARGS__)
@@ -144,15 +151,30 @@ PRINT_CONFIG_VAR(MAG_CALIB_UKF_FULL_3X3)
 PRINT_CONFIG_VAR(MAG_CALIB_UKF_FILTER_MAG)
 
 #ifndef MAG_CALIB_UKF_FILTER_MAG_CUTOFF
-#define MAG_CALIB_UKF_FILTER_MAG_CUTOFF 12.0
+#define MAG_CALIB_UKF_FILTER_MAG_CUTOFF 6.0
 #endif
 PRINT_CONFIG_VAR(MAG_CALIB_UKF_FILTER_MAG_CUTOFF)
 
+#ifndef MAG_CALIB_UKF_ROTATION_SPEED
+#define MAG_CALIB_UKF_ROTATION_SPEED 20.0
+#endif
+PRINT_CONFIG_VAR(MAG_CALIB_UKF_ROTATION_SPEED)
+
+#ifndef MAG_CALIB_UKF_AUTOSAVE
+#define MAG_CALIB_UKF_AUTOSAVE TRUE
+#endif
+PRINT_CONFIG_VAR(MAG_CALIB_UKF_AUTOSAVE)
+
 bool mag_calib_ukf_full_3x3 = MAG_CALIB_UKF_FULL_3X3;
 bool mag_calib_ukf_update_filter = MAG_CALIB_UKF_AUTOSTART;
+uint8_t mag_calib_ukf_update_every = MAG_CALIB_UKF_UPDATE_EVERY;
 bool mag_calib_ukf_reset_state = false;
 bool mag_calib_ukf_send_state = false;
 bool mag_calib_ukf_filter_mag = MAG_CALIB_UKF_FILTER_MAG;
+bool mag_calib_ukf_rotating = 0;
+bool mag_calib_ukf_autosave = MAG_CALIB_UKF_AUTOSAVE;
+
+float mag_calib_ukf_calibration_rotation_speed = MAG_CALIB_UKF_ROTATION_SPEED; // Degrees
 
 struct Int32Vect3 calibrated_mag;
 
@@ -163,7 +185,7 @@ float magneto_psi_f;
 Butterworth2LowPass mag_lowpass_filters[3];
 
 float mag_calib_calibrate_threshold_scale = 1.5;
-float mag_calib_reset_threshold_scale = 0.2;
+float mag_calib_reset_threshold_scale = 0.4;
 float mag_calib_reset_threshold_bias = 0.9;
 TRICAL_instance_t mag_calib;
 static abi_event mag_ev;
@@ -247,11 +269,11 @@ void mag_calib_ukf_run(uint8_t sender_id, uint32_t stamp, struct Int32Vect3 *mag
         }
       }
       /** Update magnetometer UKF **/
-      if(!mag_calib_ukf_full_3x3){
-        /*
-         * Norm only:
-         */
-        if(mag_calib_ukf_update_filter){
+      if(mag_calib_ukf_update_filter && !(runCount % mag_calib_ukf_update_every)){
+        if(!mag_calib_ukf_full_3x3){
+          /*
+           * Norm only:
+           */
           TRICAL_estimate_update(&mag_calib, measurement, calibrated_measurement); // Third argument not used for norm only
           if(warning_mag_calib_calibrate_threshold != 5.0){
             warning_mag_calib_calibrate_threshold = 5.0;
@@ -259,12 +281,10 @@ void mag_calib_ukf_run(uint8_t sender_id, uint32_t stamp, struct Int32Vect3 *mag
           if(warning_mag_calib_calibrate_scale_x != 0){
             warning_mag_calib_calibrate_scale_x = 0;
           }
-        }
-      }else{
-        /*
-         * Full 3x3 support:
-         */
-        if(mag_calib_ukf_update_filter){
+        }else{
+          /*
+           * Full 3x3 support:
+           */
           float expected_mag_field[3] = {0.0f, 0.0f, 0.0f};
           struct FloatQuat *body_quat = stateGetNedToBodyQuat_f();
           struct FloatVect3 expected_measurement;
@@ -359,6 +379,16 @@ void mag_calib_ukf_run(uint8_t sender_id, uint32_t stamp, struct Int32Vect3 *mag
       imu.mag.z = calibrated_mag.z;
       /** Forward calibrated data */
       AbiSendMsgIMU_MAG_INT32(MAG_CALIB_UKF_ID, stamp, &calibrated_mag);
+      /** Calculate for logging magneto psi */
+      struct FloatEulers *e = stateGetNedToBodyEulers_f();
+      float cphi   = cosf(e->phi);
+      float sphi   = sinf(e->phi);
+      float ctheta = cosf(e->theta);
+      float stheta = sinf(e->theta);
+      float mn = ctheta * calibrated_measurement[0] + sphi * stheta * calibrated_measurement[1] + cphi * stheta * calibrated_measurement[2];
+      float me =     0. * calibrated_measurement[0] + cphi          * calibrated_measurement[1] - sphi          * calibrated_measurement[2];
+      magneto_psi_f = -atan2f(me, mn) + atan2(AHRS_H_Y, AHRS_H_X);
+      if (magneto_psi_f > M_PI) { magneto_psi_f -= 2.*M_PI; } if (magneto_psi_f < -M_PI) { magneto_psi_f += 2.*M_PI; }
       /** Debug print */
       VERBOSE_PRINT("magnetometer measurement (x: %4.2f  y: %4.2f  z: %4.2f) norm: %4.2f\n", measurement[0], measurement[1],
                     measurement[2], hypot(hypot(measurement[0], measurement[1]), measurement[2]));
@@ -371,14 +401,37 @@ void mag_calib_ukf_run(uint8_t sender_id, uint32_t stamp, struct Int32Vect3 *mag
 
 void mag_calib_update_field(uint8_t __attribute__((unused)) sender_id, struct FloatVect3 *h)
 {
+  H = *h;
+  /*
   double n = float_vect3_norm(h);
   if (n > 0.01) {
     H.x = (float)(h->x / n);
     H.y = (float)(h->y / n);
     H.z = (float)(h->z / n);
     //VECT3_ASSIGN(ahrs_icq.mag_h, MAG_BFP_OF_REAL(H.x),MAG_BFP_OF_REAL(H.y), MAG_BFP_OF_REAL(H.z));
-    VECT3_ASSIGN(ahrs_fc.mag_h, H.x, H.y, H.z);
-    PRINT("Updating local magnetic field from geo_mag module (Hx: %4.4f, Hy: %4.4f, Hz: %4.4f)\n", H.x, H.y, H.z);
+    //VECT3_ASSIGN(ahrs_fc.mag_h, H.x, H.y, H.z);
+    //VECT3_ASSIGN(ahrs_float_inv.mag_h, H.x, H.y, H.z);
+    //VECT3_ASSIGN(ins_float_inv.mag_h, H.x, H.y, H.z);
+
+  }
+  */
+  PRINT("Updating local magnetic field from geo_mag module (Hx: %4.4f, Hy: %4.4f, Hz: %4.4f)\n", H.x, H.y, H.z);
+}
+
+void mag_calib_rotate_toggle( bool rotate ){
+  if(rotate){
+    mag_calib_ukf_rotating = 1;
+  }else{
+    mag_calib_ukf_rotating = 0;
+  }
+}
+
+void mag_calib_rotate( void ){
+  if(mag_calib_ukf_rotating){
+    stab_att_sp_quat.qi = pprz_itrig_cos((stabilization_attitude_get_heading_i() + (RadOfDeg(mag_calib_ukf_calibration_rotation_speed)*4096)) / 2);
+    stab_att_sp_quat.qx = 0;
+    stab_att_sp_quat.qy = 0;
+    stab_att_sp_quat.qz = pprz_itrig_sin((stabilization_attitude_get_heading_i() + (RadOfDeg(mag_calib_ukf_calibration_rotation_speed)*4096)) / 2);
   }
 }
 
@@ -420,12 +473,13 @@ void mag_calib_hotstart_read(void)
 void mag_calib_hotstart_write(void)
 {
 #if USE_MAGNETOMETER && MAG_CALIB_UKF_HOTSTART
-  fp = fopen(mag_hotstart_file_name, "w");
-  if (fp != NULL) {
-    fwrite(mag_calib.state, sizeof(float), TRICAL_STATE_DIM, fp);
-    fwrite(mag_calib.state_covariance, sizeof(float), TRICAL_STATE_DIM * TRICAL_STATE_DIM, fp);
-    fclose(fp);
-    VERBOSE_PRINT("Wrote current state to disk:\n"
+  if(mag_calib_ukf_autosave){
+    fp = fopen(mag_hotstart_file_name, "w");
+    if (fp != NULL) {
+      fwrite(mag_calib.state, sizeof(float), TRICAL_STATE_DIM, fp);
+      fwrite(mag_calib.state_covariance, sizeof(float), TRICAL_STATE_DIM * TRICAL_STATE_DIM, fp);
+      fclose(fp);
+      VERBOSE_PRINT("Wrote current state to disk:\n"
           "State {%4.2f, %4.2f, %4.2f}\n"
           "      {%4.2f, %4.2f, %4.2f}\n"
           "      {%4.2f, %4.2f, %4.2f}\n"
@@ -435,7 +489,8 @@ void mag_calib_hotstart_write(void)
           mag_calib.state[6], mag_calib.state[7],  mag_calib.state[8],
           mag_calib.state_covariance[0], mag_calib.state_covariance[1],
           mag_calib.state_covariance[TRICAL_STATE_DIM * TRICAL_STATE_DIM - 1]
-         );
+      );
+    }
   }
 #endif
 }

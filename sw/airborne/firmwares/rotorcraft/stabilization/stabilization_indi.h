@@ -42,6 +42,10 @@ struct ReferenceSystem {
 
 extern struct ReferenceSystem reference_acceleration;
 
+extern uint8_t stab_indi_window_p;
+extern uint8_t stab_indi_window_q;
+extern uint8_t stab_indi_window_r;
+
 extern void stabilization_indi_init(void);
 extern void stabilization_indi_enter(void);
 extern void stabilization_indi_set_failsafe_setpoint(void);

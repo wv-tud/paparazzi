@@ -90,7 +90,55 @@ void file_logger_start(void)
   if (file_logger != NULL) {
     fprintf(
       file_logger,
-      "counter,gyro_unscaled_p,gyro_unscaled_q,gyro_unscaled_r,accel_unscaled_x,accel_unscaled_y,accel_unscaled_z,mag_unscaled_x,mag_unscaled_y,mag_unscaled_z,COMMAND_THRUST,COMMAND_ROLL,COMMAND_PITCH,COMMAND_YAW,qi,qx,qy,qz\n"
+         "counter,"
+         "quat_qi,"
+         "quat_qx,"
+         "quat_qy,"
+         "quat_qz,"
+         "stabilization_cmd_THRUST,"
+         "stabilization_cmd_ROLL,"
+         "stabilization_cmd_PITCH,"
+         "stabilization_cmd_YAW,"
+         "actuators_bebop_rpm_ref_0,"
+         "actuators_bebop_rpm_ref_1,"
+         "actuators_bebop_rpm_ref_2,"
+         "actuators_bebop_rpm_ref_3,"
+         "actuators_bebop_rpm_obs_0,"
+         "actuators_bebop_rpm_obs_1,"
+         "actuators_bebop_rpm_obs_2,"
+         "actuators_bebop_rpm_obs_3,"
+         "imu_gyro_unscaled_p,"
+         "imu_gyro_unscaled_q,"
+         "imu_gyro_unscaled_r,"
+         "imu_gyro_p,"
+         "imu_gyro_q,"
+         "imu_gyro_r,"
+         "imu_accel_unscaled_x,"
+         "imu_accel_unscaled_y,"
+         "imu_accel_unscaled_z,"
+         "imu_accel_x,"
+         "imu_accel_y,"
+         "imu_accel_z,"
+         "imu_mag_unscaled_x,"
+         "imu_mag_unscaled_y,"
+         "imu_mag_unscaled_z,"
+         "imu_mag_x,"
+         "imu_mag_y,"
+         "imu_mag_z,"
+         "magneto_psi_f,"
+         "eulerAngles_psi,"
+         "mag_calib_state_0,"
+         "mag_calib_state_1,"
+         "mag_calib_state_2,"
+         "mag_calib_state_3,"
+         "mag_calib_state_4,"
+         "mag_calib_state_5,"
+         "mag_calib_state_6,"
+         "mag_calib_state_7,"
+         "mag_calib_state_8,"
+         "mag_calib_state_9,"
+         "mag_calib_state_10,"
+         "mag_calib_state_11\n"
     );
     logger_file_file_logger_periodic_status = MODULES_RUN;
   }
@@ -114,26 +162,58 @@ void file_logger_periodic(void)
   }
   static uint32_t counter;
   struct Int32Quat *quat = stateGetNedToBodyQuat_i();
+  struct FloatEulers* eulerAngles = stateGetNedToBodyEulers_f();
 
-  fprintf(file_logger, "%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d\n",
+  fprintf(file_logger, "%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%0.4f,%0.4f,%0.4f,%d,%d,%d,%0.4f,%0.4f,%0.4f,%d,%d,%d,%0.4f,%0.4f,%0.4f,%0.4f,%0.4f,%0.4f,%0.4f,%0.4f,%0.4f,%0.4f,%0.4f,%0.4f,%0.4f,%0.4f,%0.4f,%0.4f,%0.4f\n",
           counter,
-          imu.gyro_unscaled.p,
-          imu.gyro_unscaled.q,
-          imu.gyro_unscaled.r,
-          imu.accel_unscaled.x,
-          imu.accel_unscaled.y,
-          imu.accel_unscaled.z,
-          imu.mag_unscaled.x,
-          imu.mag_unscaled.y,
-          imu.mag_unscaled.z,
+          quat->qi,
+          quat->qx,
+          quat->qy,
+          quat->qz,
           stabilization_cmd[COMMAND_THRUST],
           stabilization_cmd[COMMAND_ROLL],
           stabilization_cmd[COMMAND_PITCH],
           stabilization_cmd[COMMAND_YAW],
-          quat->qi,
-          quat->qx,
-          quat->qy,
-          quat->qz
+          actuators_bebop.rpm_ref[0],
+          actuators_bebop.rpm_ref[1],
+          actuators_bebop.rpm_ref[2],
+          actuators_bebop.rpm_ref[3],
+          actuators_bebop.rpm_obs[0],
+          actuators_bebop.rpm_obs[1],
+          actuators_bebop.rpm_obs[2],
+          actuators_bebop.rpm_obs[3],
+          imu.gyro_unscaled.p,
+          imu.gyro_unscaled.q,
+          imu.gyro_unscaled.r,
+          RATE_FLOAT_OF_BFP(imu.gyro.p),
+          RATE_FLOAT_OF_BFP(imu.gyro.q),
+          RATE_FLOAT_OF_BFP(imu.gyro.r),
+          imu.accel_unscaled.x,
+          imu.accel_unscaled.y,
+          imu.accel_unscaled.z,
+          ACCEL_FLOAT_OF_BFP(imu.accel.x),
+          ACCEL_FLOAT_OF_BFP(imu.accel.y),
+          ACCEL_FLOAT_OF_BFP(imu.accel.z),
+          imu.mag_unscaled.x,
+          imu.mag_unscaled.y,
+          imu.mag_unscaled.z,
+          MAG_FLOAT_OF_BFP(imu.mag.x),
+          MAG_FLOAT_OF_BFP(imu.mag.y),
+          MAG_FLOAT_OF_BFP(imu.mag.z),
+          magneto_psi_f,
+          eulerAngles->psi,
+          mag_calib.state[0],
+          mag_calib.state[1],
+          mag_calib.state[2],
+          mag_calib.state[3],
+          mag_calib.state[4],
+          mag_calib.state[5],
+          mag_calib.state[6],
+          mag_calib.state[7],
+          mag_calib.state[8],
+          mag_calib.state[9],
+          mag_calib.state[10],
+          mag_calib.state[11]
          );
   counter++;
 }

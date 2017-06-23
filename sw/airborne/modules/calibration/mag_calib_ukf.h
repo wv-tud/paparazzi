@@ -33,13 +33,20 @@
 #include "std.h"
 #include "TRICAL.h"
 
+// Used for magneto calibration block
+#include "firmwares/rotorcraft/stabilization.h"
+#include "firmwares/rotorcraft/stabilization/stabilization_attitude_rc_setpoint.h"
+extern float mag_calib_ukf_calibration_rotation_speed;
+
 // setting to request state reset
 extern bool mag_calib_ukf_update_filter;
+extern uint8_t mag_calib_ukf_update_every;
 extern bool mag_calib_ukf_reset_state;
 extern bool mag_calib_ukf_send_state;
 extern bool mag_calib_ukf_filter_mag;
 extern float mag_calib_ukf_filter_cutoff;
 extern bool mag_calib_ukf_full_3x3;
+extern bool mag_calib_ukf_autosave;
 
 extern float angle_diff_f;
 extern float magneto_psi_f;
@@ -53,5 +60,7 @@ void mag_calib_ukf_init(void);
 void mag_calib_hotstart_write(void);
 void mag_calib_hotstart_read(void);
 void mag_calib_send_state(void);
+void mag_calib_rotate_toggle( bool rotate );
+void mag_calib_rotate( void );
 
 #endif

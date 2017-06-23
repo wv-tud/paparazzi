@@ -1,12 +1,13 @@
 <!DOCTYPE flight_plan SYSTEM "../../flight_plan.dtd">
 
-<flight_plan alt="2.0" ground_alt="0.0" lat0="51.9794839" lon0="4.3604089" max_dist_from_home="15" name="UKF Magnetometer Calibration test" security_height="1.0">
+<flight_plan alt="2.0" ground_alt="0.0" lat0="51.9794839" lon0="4.3604089" max_dist_from_home="10" name="UKF Magnetometer Calibration test" security_height="1.0">
   <header>	
     #include "autopilot.h"
     #include "subsystems/datalink/datalink.h"
     #include "subsystems/electrical.h"
     #include "subsystems/radio_control.h"
     #include "modules/loggers/file_logger.h"
+    #include "modules/calibration/mag_calib_ukf.h"
   </header>
   <waypoints>
     <waypoint name="HOME"   x="0.0" y="0.0"/>
@@ -17,10 +18,10 @@
     <waypoint name="GLOBAL" x="0.0" y="0.0"/>
     <waypoint name="_TD"    x="0.0" y="0.0"/>
     
-    <waypoint name="p1"    x="-10" y="-10"/>	
-    <waypoint name="p2"    x="-10" y="10"/>	
-    <waypoint name="p3"    x="10" y="10"/>
-    <waypoint name="p4"    x="10" y="-10"/>
+    <waypoint name="p1"    x="-5" y="-5"/>	
+    <waypoint name="p2"    x="-5" y="5"/>	
+    <waypoint name="p3"    x="5" y="5"/>
+    <waypoint name="p4"    x="5" y="-5"/>
     <waypoint name="CAM"   x="0.0" y="0.0"/>
   </waypoints>
   <exceptions>
@@ -58,8 +59,6 @@
     <block name="Geo init">
       <while cond="LessThan(NavBlockTime(), 10)"/>
       <call_once fun="NavSetGroundReferenceHere()"/>
-      <call_once fun="file_logger_stop()"/>
-      <call_once fun="file_logger_start()"/>
     </block>
     <block name="Holding point">
       <call_once fun="NavKillThrottle()"/>
@@ -67,14 +66,45 @@
     </block>
     <block name="Start Engine">
       <call_once fun="NavResurrect()"/>
+      <set var="mag_calib_ukf_full_3x3" value="false"/>
+      <set var="mag_calib_ukf_update_filter" value="true"/>
+      <set var="mag_calib_ukf_update_every" value="10"/>
+      <set var="mag_calib_ukf_filter_mag" value="false"/>
       <attitude pitch="0" roll="0" throttle="0" until="FALSE" vmode="throttle"/>
     </block>
+    <block name="Takeoff">
+      <set var="mag_calib_ukf_autosave" value="true"/>
+      <set var="mag_calib_ukf_full_3x3" value="false"/>
+      <set var="mag_calib_ukf_update_filter" value="true"/>
+      <set var="mag_calib_ukf_update_every" value="10"/>
+      <call_once fun="file_logger_stop()"/>
+      <call_once fun="file_logger_start()"/>
+      <call_once fun="NavSetAltitudeReferenceHere()"/>
+      <call_once fun="waypoint_set_alt(WP_TD, WaypointAlt(WP_HOME))"/>
+      <call_once fun="NavSetWaypointHere(WP_TD)"/>
+      <stay wp="TD" until="GetPosAlt() > (WaypointAlt(WP_TD) + 0.2)" vmode="climb" climb="nav_climb_vspeed"/>
+    </block>
+    <block name="Mag calib">
+      <set var="mag_calib_ukf_full_3x3" value="false"/>
+      <set var="mag_calib_ukf_update_filter" value="true"/>
+      <set var="mag_calib_ukf_update_every" value="5"/>
+      
+      <call_once fun="mag_calib_rotate_toggle( true )"/>
+      <stay wp="TD" until="stage_time > 3" vmode="climb" climb="0.1"/>
+      <call_once fun="mag_calib_rotate_toggle( false )"/>
+      
+      <set var="mag_calib_ukf_update_every" value="10"/>
+      <set var="mag_calib_ukf_full_3x3" value="false"/>
+      <set var="mag_calib_ukf_update_filter" value="true"/>
+    </block>
+    <!-- 
     <block name="Takeoff" strip_button="Takeoff" strip_icon="takeoff.png">
       <call_once fun="NavSetAltitudeReferenceHere()"/>
       <call_once fun="waypoint_set_alt(WP_TD, WaypointAlt(WP_HOME))"/>
       <call_once fun="NavSetWaypointHere(WP_TD)"/>
       <go wp="TD" vmode="climb" climb="nav_climb_vspeed"/>
     </block>
+     -->
     <block name="Standby" strip_button="Standby" strip_icon="home.png">
       <call_once fun="NavSetWaypointHere(WP_STDBY)"/>
       <stay wp="STDBY"/>
@@ -124,6 +154,7 @@
       <deroute block="land"/>
     </block>
     <block name="land">
+      <set var="mag_calib_ukf_autosave" value="false"/>
       <go wp="TD"/>
       <call_once fun="waypoint_set_alt(WP_TD, GetAltRef())"/>
       <stay wp="TD" vmode="climb" climb="nav_descend_vspeed" until="(GetAltRef() + 0.5) > GetPosAlt()"/>
@@ -135,6 +166,7 @@
       <stay climb="0.5*nav_descend_vspeed" vmode="climb" wp="TD" until="stage_time > 5 && (GetAltRef() + 0.1) > GetPosAlt()"/>
     </block>
     <block name="landed">
+      <set var="mag_calib_ukf_update_filter" value="false"/>
       <call_once fun="file_logger_stop()"/>
       <call_once fun="NavKillThrottle()"/>
       <attitude pitch="0" roll="0" throttle="0" until="FALSE" vmode="throttle"/>

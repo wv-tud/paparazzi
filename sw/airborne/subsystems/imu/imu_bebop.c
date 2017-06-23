@@ -70,6 +70,12 @@ PRINT_CONFIG_VAR(BEBOP_ACCEL_RANGE)
 
 float imu_bebop_pitch_offset = 8.5;
 
+#ifndef BEBOP_FACTORY_CALIB
+#define BEBOP_FACTORY_CALIB 0
+#endif
+PRINT_CONFIG_VAR(BEBOP_MPU_I2C_DEV)
+bool imu_bebop_factory_calib = BEBOP_FACTORY_CALIB;
+
 struct OrientationReps imu_to_mag_bebop;    ///< IMU to magneto rotation
 double gyro_x_sfe =1.0, gyro_y_sfe =1.0, gyro_z_sfe =1.0;
 double accel_x_sfe =1.0, accel_y_sfe =1.0, accel_z_sfe =1.0;
@@ -143,27 +149,27 @@ void imu_bebop_read_config(void)
       {
         case 1:
           gyro_x_bias = strtod(imu_bebop_config_get_field(tmp, 3), NULL);
-          imu.gyro_neutral.p = (int32_t) round(RATE_BFP_OF_REAL(gyro_x_bias) * IMU_GYRO_P_SIGN * IMU_GYRO_P_SENS_DEN / IMU_GYRO_P_SENS_NUM);
+          imu.gyro_neutral.p = (int32_t) round(RATE_BFP_OF_REAL(gyro_x_bias) * IMU_GYRO_P_SIGN * IMU_GYRO_P_SENS_DEN / ((float) IMU_GYRO_P_SENS_NUM));
           break;
         case 2:
           gyro_y_bias = strtod(imu_bebop_config_get_field(tmp, 3), NULL);
-          imu.gyro_neutral.q = (int32_t) round(RATE_BFP_OF_REAL(gyro_y_bias) * IMU_GYRO_Q_SIGN * IMU_GYRO_Q_SENS_DEN / IMU_GYRO_Q_SENS_NUM);
+          imu.gyro_neutral.q = (int32_t) round(RATE_BFP_OF_REAL(gyro_y_bias) * IMU_GYRO_Q_SIGN * IMU_GYRO_Q_SENS_DEN / ((float) IMU_GYRO_Q_SENS_NUM));
           break;
         case 3:
           gyro_z_bias = strtod(imu_bebop_config_get_field(tmp, 3), NULL);
-          imu.gyro_neutral.r = (int32_t) round(RATE_BFP_OF_REAL(gyro_z_bias) * IMU_GYRO_R_SIGN * IMU_GYRO_R_SENS_DEN / IMU_GYRO_R_SENS_NUM);
+          imu.gyro_neutral.r = (int32_t) round(RATE_BFP_OF_REAL(gyro_z_bias) * IMU_GYRO_R_SIGN * IMU_GYRO_R_SENS_DEN / ((float) IMU_GYRO_R_SENS_NUM));
           break;
         case 4:
           accel_x_bias = strtod(imu_bebop_config_get_field(tmp, 3), NULL);
-          imu.accel_neutral.x = (int32_t) round(ACCEL_BFP_OF_REAL(accel_x_bias) * IMU_ACCEL_X_SIGN * IMU_ACCEL_X_SENS_DEN / IMU_ACCEL_X_SENS_NUM);
+          imu.accel_neutral.x = (int32_t) round(ACCEL_BFP_OF_REAL(accel_x_bias) * IMU_ACCEL_X_SIGN * IMU_ACCEL_X_SENS_DEN / ((float) IMU_ACCEL_X_SENS_NUM));
           break;
         case 5:
           accel_y_bias = strtod(imu_bebop_config_get_field(tmp, 3), NULL);
-          imu.accel_neutral.y = (int32_t) round(ACCEL_BFP_OF_REAL(accel_y_bias) * IMU_ACCEL_Y_SIGN * IMU_ACCEL_Y_SENS_DEN / IMU_ACCEL_Y_SENS_NUM);
+          imu.accel_neutral.y = (int32_t) round(ACCEL_BFP_OF_REAL(accel_y_bias) * IMU_ACCEL_Y_SIGN * IMU_ACCEL_Y_SENS_DEN / ((float) IMU_ACCEL_Y_SENS_NUM));
           break;
         case 6:
           accel_z_bias = strtod(imu_bebop_config_get_field(tmp, 3), NULL);
-          imu.accel_neutral.z = (int32_t) round(ACCEL_BFP_OF_REAL(accel_z_bias) * IMU_ACCEL_Z_SIGN * IMU_ACCEL_Z_SENS_DEN / IMU_ACCEL_Z_SENS_NUM);
+          imu.accel_neutral.z = (int32_t) round(ACCEL_BFP_OF_REAL(accel_z_bias) * IMU_ACCEL_Z_SIGN * IMU_ACCEL_Z_SENS_DEN / ((float) IMU_ACCEL_Z_SENS_NUM));
           break;
       }
       free(tmp);
@@ -181,7 +187,9 @@ void imu_bebop_read_config(void)
  */
 void imu_bebop_init(void)
 {
-  imu_bebop_read_config();
+  if(imu_bebop_factory_calib){
+    imu_bebop_read_config();
+  }
   /* MPU-60X0 */
   mpu60x0_i2c_init(&imu_bebop.mpu, &(BEBOP_MPU_I2C_DEV), MPU60X0_ADDR);
   imu_bebop.mpu.config.smplrt_div = BEBOP_SMPLRT_DIV;
@@ -238,13 +246,25 @@ void imu_bebop_event(void)
 
     imu_bebop.mpu.data_available = false;
     imu_scale_gyro(&imu);
-    imu.gyro.p = (int32_t) RATE_BFP_OF_REAL(RATE_FLOAT_OF_BFP(imu.gyro.p) * gyro_x_sfe);
-    imu.gyro.q = (int32_t) RATE_BFP_OF_REAL(RATE_FLOAT_OF_BFP(imu.gyro.q) * gyro_y_sfe);
-    imu.gyro.r = (int32_t) RATE_BFP_OF_REAL(RATE_FLOAT_OF_BFP(imu.gyro.r) * gyro_z_sfe);
+    if(imu_bebop_factory_calib){
+      imu.gyro.p = (int32_t) round(imu.gyro.p * gyro_x_sfe);
+      imu.gyro.q = (int32_t) round(imu.gyro.q * gyro_y_sfe);
+      imu.gyro.r = (int32_t) round(imu.gyro.r * gyro_z_sfe);
+    }else{
+      imu.gyro_neutral.p = 0;
+      imu.gyro_neutral.q = 0;
+      imu.gyro_neutral.r = 0;
+    }
     imu_scale_accel(&imu);
-    imu.accel.x = (int32_t) ACCEL_BFP_OF_REAL(ACCEL_FLOAT_OF_BFP(imu.accel.x) * accel_x_sfe);
-    imu.accel.y = (int32_t) ACCEL_BFP_OF_REAL(ACCEL_FLOAT_OF_BFP(imu.accel.y) * accel_y_sfe);
-    imu.accel.z = (int32_t) ACCEL_BFP_OF_REAL(ACCEL_FLOAT_OF_BFP(imu.accel.z) * accel_z_sfe);
+    if(imu_bebop_factory_calib){
+      imu.accel.x = (int32_t) round(imu.accel.x * accel_x_sfe);
+      imu.accel.y = (int32_t) round(imu.accel.y * accel_y_sfe);
+      imu.accel.z = (int32_t) round(imu.accel.z * accel_z_sfe);
+    }else{
+      imu.accel_neutral.x = 0;
+      imu.accel_neutral.y = 0;
+      imu.accel_neutral.z = 0;
+    }
     AbiSendMsgIMU_GYRO_INT32(IMU_BOARD_ID, now_ts, &imu.gyro);
     AbiSendMsgIMU_ACCEL_INT32(IMU_BOARD_ID, now_ts, &imu.accel);
   }

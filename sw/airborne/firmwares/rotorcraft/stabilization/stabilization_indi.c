@@ -162,6 +162,10 @@ Butterworth2LowPass acceleration_lowpass_filter;
 
 struct FloatVect3 body_accel_f;
 
+uint8_t stab_indi_window_p = 1;
+uint8_t stab_indi_window_q = 1;
+uint8_t stab_indi_window_r = 1;
+
 void init_filters(void);
 
 #if PERIODIC_TELEMETRY
@@ -349,11 +353,17 @@ static void stabilization_indi_calc_cmd(struct Int32Quat *att_err, bool rate_con
   }
 
   struct FloatRates *body_rates = stateGetBodyRates_f();
+  static float p_filt = 0.0;
+  static float q_filt = 0.0;
+  static float r_filt = 0.0;
+  p_filt = (p_filt*(stab_indi_window_p - 1) + body_rates->p)/((float) stab_indi_window_p);
+  q_filt = (q_filt*(stab_indi_window_q - 1) + body_rates->q)/((float) stab_indi_window_q);
+  r_filt = (r_filt*(stab_indi_window_r - 1) + body_rates->r)/((float) stab_indi_window_r);
 
   //calculate the virtual control (reference acceleration) based on a PD controller
-  angular_accel_ref.p = (rate_ref.p - body_rates->p) * reference_acceleration.rate_p;
-  angular_accel_ref.q = (rate_ref.q - body_rates->q) * reference_acceleration.rate_q;
-  angular_accel_ref.r = (rate_ref.r - body_rates->r) * reference_acceleration.rate_r;
+  angular_accel_ref.p = (rate_ref.p - p_filt) * reference_acceleration.rate_p;
+  angular_accel_ref.q = (rate_ref.q - q_filt) * reference_acceleration.rate_q;
+  angular_accel_ref.r = (rate_ref.r - r_filt) * reference_acceleration.rate_r;
 
   g2_times_du = 0.0;
   int8_t i;

@@ -145,6 +145,10 @@ PRINT_CONFIG_VAR(VIEWVIDEO_USE_RTP)
 #define VIEWVIDEO_WRITE_VIDEO 0
 #endif
 
+#ifndef VIEWVIDEO_STREAM
+#define VIEWVIDEO_STREAM 1
+#endif
+
 #ifndef VIEWVIDEO_VIDEO_FILE
 #define VIEWVIDEO_VIDEO_FILE video_file
 #endif
@@ -342,7 +346,7 @@ static struct image_t *viewvideo_function2(struct image_t *img)
  */
 void viewvideo_init(void)
 {
-  viewvideo.is_streaming = true;
+  viewvideo.is_streaming = VIEWVIDEO_STREAM;
 #if VIEWVIDEO_USE_NETCAT
   // Create an Netcat receiver file for the streaming
   sprintf(save_name, "%s/netcat-recv.sh", STRINGIFY(VIEWVIDEO_SHOT_PATH));

@@ -63,6 +63,10 @@
 #define NAV_DESCEND_VSPEED -0.8
 #endif
 
+#ifndef NAV_ALTITUDE_DIFF
+#define NAV_ALTITUDE_DIFF 0.2
+#endif
+
 /** minimum horizontal distance to waypoint to mark as arrived */
 #ifndef ARRIVED_AT_WAYPOINT
 #define ARRIVED_AT_WAYPOINT 3.0
@@ -334,7 +338,7 @@ bool nav_check_wp_time(struct EnuCoor_i *wp, uint16_t stay_time)
 static inline void nav_set_altitude(void)
 {
   static int32_t last_nav_alt = 0;
-  if (abs(nav_altitude - last_nav_alt) > (POS_BFP_OF_REAL(0.2))) {
+  if (abs(nav_altitude - last_nav_alt) > (POS_BFP_OF_REAL(NAV_ALTITUDE_DIFF))) {
     nav_flight_altitude = nav_altitude;
     last_nav_alt = nav_altitude;
   }

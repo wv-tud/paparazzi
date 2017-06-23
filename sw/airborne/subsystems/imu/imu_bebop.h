@@ -69,6 +69,7 @@
 #endif
 
 extern float imu_bebop_pitch_offset;
+extern bool imu_bebop_factory_calib;
 
 /** Everything that is in the bebop IMU */
 struct ImuBebop {

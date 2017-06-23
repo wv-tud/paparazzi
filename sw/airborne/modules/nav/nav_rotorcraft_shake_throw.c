@@ -62,16 +62,18 @@ enum nav_rotorcraft_shake_throw_status_ {
 };
 enum nav_rotorcraft_shake_throw_status_ nav_rotorcraft_shake_throw_status;
 
-float nav_rotorcraft_shake_throw_shake_threshold = 2.0;
-float nav_rotorcraft_shake_throw_fall_threshold = 4.0; ///< The motors are spinning so more noise on sensor
+float nav_rotorcraft_shake_throw_shake_threshold = 2.0; ///< The motors are not spinning yet so low noise on sensor
+float nav_rotorcraft_shake_throw_fall_threshold =  7.0; ///< The motors are spinning so more noise on sensor
 
-float nav_rotorcraft_shake_throw_upside_z_threshold = 8.0;
-float nav_rotorcraft_shake_throw_upside_xy_threshold = 1.0;
+float nav_rotorcraft_shake_throw_upside_z_threshold = 7.5;
+float nav_rotorcraft_shake_throw_upside_xy_threshold = 2.0;
 
 uint16_t nav_rotorcraft_shake_throw_shake_time = 32;
-uint16_t nav_rotorcraft_shake_throw_cancel_time = 512;
+uint16_t nav_rotorcraft_shake_throw_fall_time = 32;
+
+uint16_t nav_rotorcraft_shake_throw_cancel_time = 256;
 uint16_t nav_rotorcraft_shake_throw_timeout_time = 512;
-uint16_t nav_rotorcraft_shake_throw_fall_time = 16;
+
 
 uint16_t shake_timer = 0;
 uint16_t timeout_timer = 0;

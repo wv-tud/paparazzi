@@ -13,18 +13,28 @@
 			delayed -->
 		<define name="CATASTROPHIC_BATTERY_KILL_DELAY" value="30" unit="s/10" /> <!-- in tenth of seconds for engine kill -->
 
-		<!-- swarmhub --> 
+		
+		<configure name="NAVIGATION_FREQUENCY" value="64"/> <!--  unit="Hz" -->
+		<!-- swarmhub -->
 		<configure name="HOST" value="192.168.0.$(AC_ID)" /> 
 		<configure name="MODEM_HOST" value="192.168.255.255" />
 		<!-- Baro, Sonar, RTK -->
 		<configure name="USE_SONAR" value="TRUE" />
 		<configure name="USE_MAGNETOMETER" value="TRUE" />
 		<define name="USE_GPS_UBX_RTCM" value="TRUE" />
+		<!--  Navigation -->
+		<define name="ARRIVED_AT_WAYPOINT" value="0.75" unit="meters"/> 
+		<define name="NAV_ALTITUDE_DIFF" value="0.05" unit="meters"/>
+		<define name="CARROT" value="2." unit="s"/>
 
 		<define name="AHRS_FC_MAG_ID" value="MAG_CALIB_UKF_ID" />
+		<define name="INS_FINV_MAG_ID" value="MAG_CALIB_UKF_ID" />
 
 		<!-- Was flying OK, just no real improvement maybe accel noise too high? -->
 		<configure name="USE_HFF" value="true" />
+		
+		<define name="LOW_NOISE_TIME" value="10" /> <!--  for ahrs_aligner.c 10s iso 5s -->
+		
 
 		<define name="GPS_TIMEOUT" value="1" />
 		<!-- Camera parameters -->
@@ -51,18 +61,22 @@
 		</module>
 		<module name="stabilization" type="rate_indi" />
 		<module name="guidance" type="indi" />
+		<!-- INS extended / AHRS float_cmpl_quat --
 		<module name="ahrs" type="float_cmpl_quat">
 			<define name="AHRS_MAG_OMEGA" value="0.04" />
 			<define name="AHRS_MAG_ZETA" value="12.0" />
-			<!-- <define name="AHRS_ACCEL_OMEGA" value="0.0"/> <define name="AHRS_ACCEL_ZETA" 
-				value="0.0"/> -->
 			<define name="AHRS_MAG_UPDATE_ALL_AXES" value="FALSE" />
 			<define name="AHRS_USE_GPS_HEADING" value="FALSE" />
 			<define name="AHRS_GRAVITY_UPDATE_COORDINATED_TURN" value="FALSE" />
-			<!-- <define name="AHRS_PROPAGATE_LOW_PASS_RATES" value="FALSE" /> -->
 			<define name="AHRS_GRAVITY_HEURISTIC_FACTOR" value="8" />
 		</module>
-		<module name="ins" type="extended" /> <!-- Concider switching to invariant ins? -->
+		<module name="ins" type="extended" />
+		-->
+		<!-- Invariant INS / AHRS -->
+		 <module name="ins" type="float_invariant">
+			<define name="INS_INV_LB" value="12.0"/>
+			<define name="INS_INV_OB" value="1.0"/>
+		</module>
 	</firmware>
 	<!-- Modules -->
 	<modules main_freq="512">
@@ -102,6 +116,7 @@
 		<module name="cv_frame_plotter" />
 		<module name="video_rtp_stream">
 			<configure name="VIEWVIDEO_BROADCAST" value="FALSE" />
+			<define name="VIEWVIDEO_STREAM" value="false" />
 			<define name="VIEWVIDEO_CAMERA" value="front_camera" />
 			<define name="VIEWVIDEO_SHOT_PATH" value="/data/ftp/internal_000" />
 			<define name="VIEWVIDEO_FPS" value="18" />
@@ -111,6 +126,7 @@
 		<!-- File logger -->
 		<module name="logger_file">
 			<define name="FILE_LOGGER_PATH" value="/data/ftp/internal_000" />
+			<define name="FILE_LOGGER_DATETIME_NAME" value="1" />
 		</module>
 	</modules>
 	<!-- Misc. settings -->
@@ -163,13 +179,17 @@
 		<!-- values used if no GPS fix, on 3D fix is update by geo_mag module -->
 		<!-- local magnetic field (Delft) -->
 		<!-- http://wiki.paparazziuav.org/wiki/Subsystem/ahrs#Local_Magnetic_Field -->
+		<!-- Delft (51°59'27.6"N 4°22'41.4"E) - last update 20170504 --
+		<define name="H_X" value="0.390081445" />
+		<define name="H_Y" value="0.006383744" />
+		<define name="H_Z" value="0.920758228" />-->
+	</section>
+
+	<section name="INS" prefix="INS_">
 		<!-- Delft (51°59'27.6"N 4°22'41.4"E) - last update 20170504 -->
 		<define name="H_X" value="0.390081445" />
 		<define name="H_Y" value="0.006383744" />
 		<define name="H_Z" value="0.920758228" />
-	</section>
-
-	<section name="INS" prefix="INS_">
 		<define name="SONAR_MAX_RANGE" value="2.2" />
 		<define name="SONAR_UPDATE_ON_AGL" value="TRUE" />
 		<define name="USE_GPS_ALT" value="1" />     <!-- Use height from the optitrack -->
@@ -225,11 +245,11 @@
 
 		<!-- second order filter parameters -->
 		<define name="ESTIMATION_FILT_CUTOFF" value="4.0" />
-		<define name="FILT_CUTOFF" value="5.0" />
-		<define name="FILT_CUTOFF_P" value="5.0" />
+		<define name="FILT_CUTOFF" value="4.5" />
+		<define name="FILT_CUTOFF_P" value="4.5" />
 
 		<!-- first order actuator dynamics -->
-		<define name="ACT_DYN" value="{0.1, 0.1, 0.1, 0.1}" />
+		<define name="ACT_DYN" value="{0.072, 0.072, 0.072, 0.072}" />
 
 		<!-- Adaptive Learning Rate -->
 		<define name="USE_ADAPTIVE" value="TRUE" />
@@ -240,8 +260,8 @@
 	</section>
 
 	<section name="GUIDANCE_INDI" prefix="GUIDANCE_INDI_">
-		<define name="SPECIFIC_FORCE_GAIN" value="-300.0" />
-		<define name="THRUST_DYNAMICS" value="0.1" /> <!-- defaults to STABILIZATION_INDI_ACT_DYN_P which is only defined for indi_simple -->
+		<define name="SPECIFIC_FORCE_GAIN" value="-400.0" />
+		<define name="THRUST_DYNAMICS" value="0.072" /> <!-- defaults to STABILIZATION_INDI_ACT_DYN_P which is only defined for indi_simple -->
 		<define name="RC_DEBUG" value="FALSE" />
 	</section>
 
@@ -250,16 +270,18 @@
 	<section name="MAG_CALIB_UKF" prefix="MAG_CALIB_UKF_">
 		<define name="FULL_3X3" value="FALSE" />
 		<define name="AUTOSTART" value="FALSE" />
+		<define name="UPDATE_EVERY" value="10"  />
 		<define name="HOTSTART" value="TRUE" />
-		<define name="FILTER_MAG" value="TRUE" />
+		<define name="AUTOSAVE" value="FALSE" />
+		<define name="FILTER_MAG" value="FALSE" />
 		<define name="HOTSTART_SAVE_FILE" value="/data/ftp/internal_000/mag_ukf_calib.txt" />
 		<define name="CLEAN_START" value="FALSE" />
 	</section>
 
 	<section name="NAV_RC_SHAKE_THROW" prefix="NAV_RC_SHAKE_THROW_">
 		<define name="GOTO_BLOCK" value="Standby" />
-		<define name="RESET_BLOCK" value="Landed" />
-		<define name="DEBUG_NO_FLIGHT" value="TRUE" />
+		<define name="RESET_BLOCK" value="landed" />
+		<define name="DEBUG_NO_FLIGHT" value="FALSE" />
 		<define name="LAUNCH_REQUIREMENTS"
 			value="GpsFixValid() && autopilot_get_mode() == AP_MODE_NAV" />
 	</section>
