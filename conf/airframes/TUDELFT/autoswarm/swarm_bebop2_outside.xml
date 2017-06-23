@@ -8,12 +8,12 @@
 		<!-- amount of time it take for the bat to trigger check -->
 		<!-- to avoid bat low spike detection when strong pullup withch draws short 
 			sudden power -->
-		<define name="BAT_CHECKER_DELAY" value="20" unit="s/10" /> <!-- in tenth of seconds -->
+		<define name="BAT_CHECKER_DELAY" value="80" unit="s/10" /> <!-- in tenth of seconds -->
 		<!-- Only one main batter so CATASTROPHIC_BATTERY kill should be somewhat 
 			delayed -->
-		<define name="CATASTROPHIC_BATTERY_KILL_DELAY" value="30" unit="s/10" /> <!-- in tenth of seconds for engine kill -->
+		<define name="CATASTROPHIC_BATTERY_KILL_DELAY" value="3000" unit="s/10" /> <!-- in tenth of seconds for engine kill -->
 
-		
+		<configure name="USE_BARO" value="TRUE" />
 		<configure name="NAVIGATION_FREQUENCY" value="64"/> <!--  unit="Hz" -->
 		<!-- swarmhub -->
 		<configure name="HOST" value="192.168.0.$(AC_ID)" /> 
@@ -190,7 +190,8 @@
 		<define name="H_X" value="0.390081445" />
 		<define name="H_Y" value="0.006383744" />
 		<define name="H_Z" value="0.920758228" />
-		<define name="SONAR_MAX_RANGE" value="2.2" />
+		<define name="SONAR_MAX_RANGE" value="4.2" />
+                <define name="VFF_R_GPS" value="0.1"/>
 		<define name="SONAR_UPDATE_ON_AGL" value="TRUE" />
 		<define name="USE_GPS_ALT" value="1" />     <!-- Use height from the optitrack -->
 	</section>
