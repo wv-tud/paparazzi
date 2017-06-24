@@ -25,9 +25,9 @@
 
 #include "modules/computer_vision/cv.h"
 #include "modules/computer_vision/cv_ae_awb.h"
-#include "boards/bebop/mt9f002.h"
 #include "lib/isp/libisp.h"
 #include <stdio.h>
+#include "boards/bebop.h"
 
 #ifndef CV_AE_AWB_CAMERA
 #define CV_AE_AWB_CAMERA front_camera
@@ -275,8 +275,13 @@ struct image_t *cv_ae_awb_periodic(struct image_t *img)
         || mt9f002.gain_green1 <= CV_AE_AWB_MIN_GAINS * CV_AE_AWB_GAIN_SCHEDULING_MARGIN) {
       gs_gains_minned = TRUE;
     }
-    // Set gains
-    mt9f002_set_gains(&mt9f002);
+    if((mt9f002.gain_blue > 4 * mt9f002.gain_red || mt9f002.gain_blue > 4 * mt9f002.gain_green1) ||
+       (mt9f002.gain_red > 4 * mt9f002.gain_blue || mt9f002.gain_red > 4 * mt9f002.gain_green1)){
+      cv_awb_reset();
+    }else{
+      // Set gains
+      mt9f002_set_gains(&mt9f002);
+    }
   } else {
     VERBOSE_PRINT("Error: no YUV stats\n");
   }
@@ -289,4 +294,18 @@ void cv_ae_awb_init(void)
     histogram_plot[i] = 0.0;
   }
   cv_add_to_device(&CV_AE_AWB_CAMERA, cv_ae_awb_periodic);
+}
+
+void cv_awb_reset(void){
+  mt9f002.gain_red    = MT9F002_GAIN_RED;
+  mt9f002.gain_blue   = MT9F002_GAIN_BLUE;
+  mt9f002.gain_green1 = MT9F002_GAIN_GREEN1;
+  mt9f002.gain_green2 = MT9F002_GAIN_GREEN2;
+  // Set gains
+  mt9f002_set_gains(&mt9f002);
+}
+
+void cv_ae_reset(void){
+  mt9f002.target_exposure = MT9F002_TARGET_EXPOSURE;
+  mt9f002_set_exposure(&mt9f002);
 }

@@ -507,13 +507,7 @@ void ins_float_invariant_update_mag(struct FloatVect3* mag)
     // values are moving
     struct FloatRMat *body_to_imu_rmat = orientationGetRMat_f(&ins_float_inv.body_to_imu);
     // new values in body frame
-#if !BEBOP_VERSION2
     float_rmat_transp_vmult(&ins_float_inv.meas.mag, body_to_imu_rmat, mag);
-#else
-    ins_float_inv.meas.mag.x = mag->x;
-    ins_float_inv.meas.mag.y = mag->y;
-    ins_float_inv.meas.mag.z = mag->z;
-#endif
     // reset counter
     mag_frozen_count = MAG_FROZEN_COUNT;
   }
@@ -612,11 +606,6 @@ static inline void error_output(struct InsFloatInv *_ins)
   /*--------- E = ( ŷ - y ) ----------*/
   /* Eb = ( B - YBt ) */
   VECT3_DIFF(Eb, B, YBt);
-
-  //printf("meas: %0.2f  %0.2f  %0.2f\n", _ins->meas.mag.x, _ins->meas.mag.y, _ins->meas.mag.z);
-  //printf("rotm: %0.2f  %0.2f  %0.2f\n", YBt.x, YBt.y, YBt.z);
-  //printf("expt: %0.2f  %0.2f  %0.2f\n", B.x, B.y, B.z);
-  printf("diff: %0.2f  %0.2f  %0.2f\n", Eb.x, Eb.y, Eb.z);
 
   // pos and speed error only if GPS data are valid
   // or while waiting first GPS data to prevent diverging

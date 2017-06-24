@@ -23,6 +23,7 @@ TARGET_DIR=$(FTP_DIR)/$(SUB_DIR)
 
 # The datalink default uses UDP
 MODEM_HOST         ?= 192.168.42.255
+
 ifeq ($(VIEWVIDEO_HOST),)
   ifeq ($(OS),Windows_NT)
     $(warning Warning: Viewvideo host auto-ip support not enabled for windows os, please configure VIEWVIDEO_HOST in your airframe file)
@@ -33,6 +34,12 @@ ifeq ($(VIEWVIDEO_HOST),)
     else
       ifeq ($(UNAME_S),Darwin)
         VIEWVIDEO_HOST     ?= $(shell $(PAPARAZZI_SRC)/sw/tools/get_ip_from_route_osx.sh $(HOST))
+        ifeq ($(VIEWVIDEO_HOST), 127.0.0.1 )
+        	$(warning Warning: Could not find route to $(HOST), defaulting back to 192.168.42.1)
+            HOST           =192.168.42.1
+            MODEM_HOST     = 192.168.42.255
+            VIEWVIDEO_HOST = $(shell $(PAPARAZZI_SRC)/sw/tools/get_ip_from_route_osx.sh $(HOST))
+        endif
       endif
     endif
     $(info Info: Viewvideo host auto-ip resolved to $(VIEWVIDEO_HOST))

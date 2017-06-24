@@ -23,6 +23,7 @@
   <settings>
     <dl_settings>
       <dl_settings NAME="Magneto">
+        <dl_setting var="mag_calib_ukf_noise_rms" min="0.001" step="0.001" max="1" shortname="Noise RMS" type="float" />
         <dl_setting var="mag_calib_ukf_full_3x3" min="0" step="1" max="1" shortname="Full 3x3" values="FALSE|TRUE" type="bool" />
         <dl_setting var="mag_calib_ukf_filter_mag" min="0" step="1" max="1" shortname="Filter mag" values="FALSE|TRUE" type="bool" />
         <dl_setting var="mag_calib_ukf_filter_cutoff" min="0.1" step="0.1" max="24.0" shortname="Filter Cutoff" type="float" />
@@ -43,7 +44,7 @@
   </header>
   <init fun="mag_calib_ukf_init()"/>
   <periodic fun="mag_calib_rotate()" freq="512"/>
-  <periodic fun="mag_calib_hotstart_write()" freq="0.09"/>
+  <periodic fun="mag_calib_hotstart_write()" freq="0.5"/>
   <makefile>
     <file name="mag_calib_ukf.c"/>
     <include name="$(PAPARAZZI_SRC)/sw/ext/TRICAL/include"/>

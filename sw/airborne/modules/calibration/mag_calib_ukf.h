@@ -47,6 +47,7 @@ extern bool mag_calib_ukf_filter_mag;
 extern float mag_calib_ukf_filter_cutoff;
 extern bool mag_calib_ukf_full_3x3;
 extern bool mag_calib_ukf_autosave;
+extern float mag_calib_ukf_noise_rms;
 
 extern float angle_diff_f;
 extern float magneto_psi_f;

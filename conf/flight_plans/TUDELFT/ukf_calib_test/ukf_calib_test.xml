@@ -8,6 +8,7 @@
     #include "subsystems/radio_control.h"
     #include "modules/loggers/file_logger.h"
     #include "modules/calibration/mag_calib_ukf.h"
+    #include "subsystems/ahrs/ahrs_float_cmpl.h"
   </header>
   <waypoints>
     <waypoint name="HOME"   x="0.0" y="0.0"/>
@@ -64,47 +65,66 @@
       <call_once fun="NavKillThrottle()"/>
       <attitude pitch="0" roll="0" throttle="0" until="FALSE" vmode="throttle"/>
     </block>
+    <block name="Start ground calib">
+      <set var="ins_float_inv.gains.lb" value="0.0"/>
+      <set var="ins_float_inv.gains.ob" value="0.0"/> 
+      <attitude pitch="0" roll="0" throttle="0" until="stage_time > 2" vmode="throttle"/>
+      <set var="mag_calib_ukf_noise_rms" value="0.1"/>
+      <set var="mag_calib_ukf_full_3x3" value="true"/>
+      <set var="mag_calib_ukf_update_every" value="1"/>
+      <set var="mag_calib_ukf_update_filter" value="true"/>
+      <attitude pitch="0" roll="0" throttle="0" until="FALSE" vmode="throttle"/>
+    </block>
+    <block name="Stop ground calib">
+      <set var="mag_calib_ukf_update_filter" value="false"/>
+      <set var="mag_calib_ukf_full_3x3" value="false"/>
+      <set var="mag_calib_ukf_update_every" value="25"/>
+      <set var="ins_float_inv.gains.lb" value="6.0"/>
+      <set var="ins_float_inv.gains.ob" value="1.0"/>
+      <attitude pitch="0" roll="0" throttle="0" until="FALSE" vmode="throttle"/>
+    </block>
     <block name="Start Engine">
       <call_once fun="NavResurrect()"/>
       <set var="mag_calib_ukf_full_3x3" value="false"/>
-      <set var="mag_calib_ukf_update_filter" value="true"/>
+      <set var="mag_calib_ukf_update_filter" value="false"/>
       <set var="mag_calib_ukf_update_every" value="10"/>
       <set var="mag_calib_ukf_filter_mag" value="false"/>
       <attitude pitch="0" roll="0" throttle="0" until="FALSE" vmode="throttle"/>
     </block>
     <block name="Takeoff">
-      <set var="mag_calib_ukf_autosave" value="true"/>
       <set var="mag_calib_ukf_full_3x3" value="false"/>
-      <set var="mag_calib_ukf_update_filter" value="true"/>
+      <set var="mag_calib_ukf_update_filter" value="false"/>
       <set var="mag_calib_ukf_update_every" value="10"/>
+      <set var="mag_calib_ukf_filter_mag" value="false"/>
       <call_once fun="file_logger_stop()"/>
       <call_once fun="file_logger_start()"/>
       <call_once fun="NavSetAltitudeReferenceHere()"/>
       <call_once fun="waypoint_set_alt(WP_TD, WaypointAlt(WP_HOME))"/>
       <call_once fun="NavSetWaypointHere(WP_TD)"/>
       <stay wp="TD" until="GetPosAlt() > (WaypointAlt(WP_TD) + 0.2)" vmode="climb" climb="nav_climb_vspeed"/>
+      <call_once fun="cv_awb_reset()"/>
+      <call_once fun="cv_ae_reset()"/>
     </block>
     <block name="Mag calib">
+      <call_once fun="NavSetWaypointHere(WP_STDBY)"/>
+      <set var="mag_calib_ukf_noise_rms" value="0.5"/>
       <set var="mag_calib_ukf_full_3x3" value="false"/>
       <set var="mag_calib_ukf_update_filter" value="true"/>
-      <set var="mag_calib_ukf_update_every" value="5"/>
+      <set var="mag_calib_ukf_update_every" value="2"/>
+      <set var="mag_calib_ukf_autosave" value="true"/>
       
-      <call_once fun="mag_calib_rotate_toggle( true )"/>
-      <stay wp="TD" until="stage_time > 3" vmode="climb" climb="0.1"/>
+	  <call_once fun="mag_calib_rotate_toggle( true )"/>
+      <stay wp="STDBY" until="stage_time > 2"/>
+      <set var="mag_calib_ukf_full_3x3" value="true"/>
+      <stay wp="STDBY" until="stage_time > 2"/>
       <call_once fun="mag_calib_rotate_toggle( false )"/>
       
-      <set var="mag_calib_ukf_update_every" value="10"/>
-      <set var="mag_calib_ukf_full_3x3" value="false"/>
+      <set var="mag_calib_ukf_noise_rms" value="0.75"/>
+      <set var="mag_calib_ukf_autosave" value="false"/>
+      <set var="mag_calib_ukf_update_every" value="25"/>
+      <set var="mag_calib_ukf_full_3x3" value="true"/>
       <set var="mag_calib_ukf_update_filter" value="true"/>
     </block>
-    <!-- 
-    <block name="Takeoff" strip_button="Takeoff" strip_icon="takeoff.png">
-      <call_once fun="NavSetAltitudeReferenceHere()"/>
-      <call_once fun="waypoint_set_alt(WP_TD, WaypointAlt(WP_HOME))"/>
-      <call_once fun="NavSetWaypointHere(WP_TD)"/>
-      <go wp="TD" vmode="climb" climb="nav_climb_vspeed"/>
-    </block>
-     -->
     <block name="Standby" strip_button="Standby" strip_icon="home.png">
       <call_once fun="NavSetWaypointHere(WP_STDBY)"/>
       <stay wp="STDBY"/>

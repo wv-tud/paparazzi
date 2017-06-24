@@ -91,6 +91,7 @@ void file_logger_start(void)
     fprintf(
       file_logger,
          "counter,"
+         "in_flight,"
          "quat_qi,"
          "quat_qx,"
          "quat_qy,"
@@ -164,8 +165,9 @@ void file_logger_periodic(void)
   struct Int32Quat *quat = stateGetNedToBodyQuat_i();
   struct FloatEulers* eulerAngles = stateGetNedToBodyEulers_f();
 
-  fprintf(file_logger, "%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%0.4f,%0.4f,%0.4f,%d,%d,%d,%0.4f,%0.4f,%0.4f,%d,%d,%d,%0.4f,%0.4f,%0.4f,%0.4f,%0.4f,%0.4f,%0.4f,%0.4f,%0.4f,%0.4f,%0.4f,%0.4f,%0.4f,%0.4f,%0.4f,%0.4f,%0.4f\n",
+  fprintf(file_logger, "%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%0.4f,%0.4f,%0.4f,%d,%d,%d,%0.4f,%0.4f,%0.4f,%d,%d,%d,%0.4f,%0.4f,%0.4f,%0.4f,%0.4f,%0.4f,%0.4f,%0.4f,%0.4f,%0.4f,%0.4f,%0.4f,%0.4f,%0.4f,%0.4f,%0.4f,%0.4f,%0.4f,%0.4f,%0.4f\n",
           counter,
+          autopilot.in_flight,
           quat->qi,
           quat->qx,
           quat->qy,
@@ -213,7 +215,10 @@ void file_logger_periodic(void)
           mag_calib.state[8],
           mag_calib.state[9],
           mag_calib.state[10],
-          mag_calib.state[11]
+          mag_calib.state[11],
+          sp_accel.x,
+          sp_accel.y,
+          sp_accel.z
          );
   counter++;
 }

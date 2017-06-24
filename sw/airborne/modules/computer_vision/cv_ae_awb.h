@@ -45,6 +45,8 @@ extern float ae_dark_ignore;
 extern float ae_current_level;
 
 extern void cv_ae_awb_init(void);
+extern void cv_awb_reset(void);
+extern void cv_ae_reset(void);
 
 #endif
 

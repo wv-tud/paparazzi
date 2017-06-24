@@ -410,17 +410,9 @@ void ahrs_icq_set_mag_gains(void)
 static inline void ahrs_icq_update_mag_full(struct Int32Vect3 *mag, float dt)
 {
   struct Int32Vect3 expected_imu;
-#if BEBOP_VERSION2
-  struct Int32Quat ltp_to_body_quat, *body_to_imu_quat = orientationGetQuat_i(&ahrs_icq.body_to_imu);
-  int32_quat_comp_inv(&ltp_to_body_quat, &ahrs_icq.ltp_to_imu_quat, body_to_imu_quat);
-  struct Int32RMat ltp_to_body_rmat;
-  int32_rmat_of_quat(&ltp_to_body_rmat, &ltp_to_body_quat);
-  int32_rmat_vmult(&expected_imu, &ltp_to_body_rmat, &ahrs_icq.mag_h);
-#else
   struct Int32RMat ltp_to_imu_rmat;
   int32_rmat_of_quat(&ltp_to_imu_rmat, &ahrs_icq.ltp_to_imu_quat);
   int32_rmat_vmult(&expected_imu, &ltp_to_imu_rmat, &ahrs_icq.mag_h);
-#endif
   struct Int32Vect3 residual;
   VECT3_CROSS_PRODUCT(residual, *mag, expected_imu);
 
@@ -476,18 +468,7 @@ static inline void ahrs_icq_update_mag_2d(struct Int32Vect3 *mag, float dt)
   int32_rmat_of_quat(&ltp_to_imu_rmat, &ahrs_icq.ltp_to_imu_quat);
 
   struct Int32Vect3 measured_ltp;
-#if BEBOP_VERSION2
-    struct Int32Quat ltp_to_body_quat, *body_to_imu_quat = orientationGetQuat_i(&ahrs_icq.body_to_imu);
-    int32_quat_comp_inv(&ltp_to_body_quat, &ahrs_icq.ltp_to_imu_quat, body_to_imu_quat);
-    struct Int32RMat ltp_to_body_rmat;
-    int32_rmat_of_quat(&ltp_to_body_rmat, &ltp_to_body_quat);
-    int32_rmat_transp_vmult(&measured_ltp, &ltp_to_body_rmat, mag);
-    struct Int32Eulers ahrs_eulers;
-    int32_eulers_of_quat(&ahrs_eulers, &ltp_to_body_quat);
-    printf("yaw: %0.2f  --  %0.2f  --  %0.2f\n", ANGLE_FLOAT_OF_BFP(ahrs_eulers.psi) / M_PI * 180.0, magneto_psi_f / M_PI * 180.0, ANGLE_FLOAT_OF_BFP(ahrs_eulers.psi) / M_PI * 180.0 - magneto_psi_f / M_PI * 180.0);
-#else
-    int32_rmat_transp_vmult(&measured_ltp, &ltp_to_imu_rmat, mag);
-#endif
+  int32_rmat_transp_vmult(&measured_ltp, &ltp_to_imu_rmat, mag);
 
   /* normalize measured ltp in 2D (x,y) */
   struct Int32Vect2 measured_ltp_2d = {measured_ltp.x, measured_ltp.y};
