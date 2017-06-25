@@ -33,7 +33,6 @@
 #include "math/pprz_algebra_int.h"
 #include "math/pprz_simple_matrix.h"
 #include "generated/airframe.h"
-#include "modules/calibration/mag_calib_ukf.h"
 #if USE_GPS
 #include "subsystems/gps.h"
 #endif
@@ -334,7 +333,6 @@ void ahrs_fc_update_mag_2d(struct FloatVect3 *mag, float dt)
 
   struct FloatVect3 measured_imu = *mag;
   struct FloatVect3 measured_ltp;
-
   float_rmat_transp_vmult(&measured_ltp, &ahrs_fc.ltp_to_imu_rmat, &measured_imu);
 
   struct FloatVect2 measured_ltp_2d = {measured_ltp.x, measured_ltp.y};

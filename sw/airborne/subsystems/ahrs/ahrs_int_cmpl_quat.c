@@ -32,7 +32,7 @@
 
 #include "subsystems/ahrs/ahrs_int_cmpl_quat.h"
 #include "subsystems/ahrs/ahrs_int_utils.h"
-#include "modules/calibration/mag_calib_ukf.h"
+
 #if USE_GPS
 #include "subsystems/gps.h"
 #endif
@@ -409,10 +409,13 @@ void ahrs_icq_set_mag_gains(void)
 
 static inline void ahrs_icq_update_mag_full(struct Int32Vect3 *mag, float dt)
 {
-  struct Int32Vect3 expected_imu;
+
   struct Int32RMat ltp_to_imu_rmat;
   int32_rmat_of_quat(&ltp_to_imu_rmat, &ahrs_icq.ltp_to_imu_quat);
+
+  struct Int32Vect3 expected_imu;
   int32_rmat_vmult(&expected_imu, &ltp_to_imu_rmat, &ahrs_icq.mag_h);
+
   struct Int32Vect3 residual;
   VECT3_CROSS_PRODUCT(residual, *mag, expected_imu);
 
@@ -474,9 +477,6 @@ static inline void ahrs_icq_update_mag_2d(struct Int32Vect3 *mag, float dt)
   struct Int32Vect2 measured_ltp_2d = {measured_ltp.x, measured_ltp.y};
   int32_vect2_normalize(&measured_ltp_2d, INT32_MAG_FRAC);
 
-  printf("exp: %d  %d\n", expected_ltp.x, expected_ltp.y);
-  printf("mea: %d  %d\n", measured_ltp_2d.x, measured_ltp_2d.y);
-
   /* residual_ltp FRAC: 2 * MAG_FRAC - 5 = 17 */
   struct Int32Vect3 residual_ltp = {
     0,
@@ -484,7 +484,6 @@ static inline void ahrs_icq_update_mag_2d(struct Int32Vect3 *mag, float dt)
     (measured_ltp_2d.x * expected_ltp.y - measured_ltp_2d.y * expected_ltp.x) / (1 << 5)
   };
 
-  //printf("r: %d\n", residual_ltp.z);
 
   struct Int32Vect3 residual_imu;
   int32_rmat_vmult(&residual_imu, &ltp_to_imu_rmat, &residual_ltp);
