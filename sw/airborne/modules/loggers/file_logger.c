@@ -105,6 +105,7 @@ void file_logger_start(void)
          "actuators_bebop_rpm_obs_2,"
          "actuators_bebop_rpm_obs_3,"
          "imu_temperature,"
+         "imu_bebop_filtered_temperature,"
          "imu_gyro_unscaled_p,"
          "imu_gyro_unscaled_q,"
          "imu_gyro_unscaled_r,"
@@ -162,7 +163,7 @@ void file_logger_periodic(void)
   struct Int32Quat *quat = stateGetNedToBodyQuat_i();
   struct FloatEulers* eulerAngles = stateGetNedToBodyEulers_f();
 
-  fprintf(file_logger, "%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%0.4f,%d,%d,%d,%0.4f,%0.4f,%0.4f,%d,%d,%d,%0.4f,%0.4f,%0.4f,%d,%d,%d,%0.4f,%0.4f,%0.4f,%0.4f,%0.4f,%0.4f,%0.4f,%0.4f,%0.4f,%0.4f,%0.4f,%0.4f,%0.4f,%0.4f,%0.4f,%0.4f,%0.4f,%0.4f,%0.4f,%0.4f\n",
+  fprintf(file_logger, "%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%0.4f,%0.4f,%d,%d,%d,%0.4f,%0.4f,%0.4f,%d,%d,%d,%0.4f,%0.4f,%0.4f,%d,%d,%d,%0.4f,%0.4f,%0.4f,%0.4f,%0.4f,%0.4f,%0.4f,%0.4f,%0.4f,%0.4f,%0.4f,%0.4f,%0.4f,%0.4f,%0.4f,%0.4f,%0.4f,%0.4f,%0.4f,%0.4f\n",
           counter,
           autopilot.in_flight,
           quat->qi,
@@ -178,6 +179,7 @@ void file_logger_periodic(void)
           actuators_bebop.rpm_obs[2],
           actuators_bebop.rpm_obs[3],
           imu_bebop.mpu.temp,
+          imu_bebop_filtered_temperature,
           imu.gyro_unscaled.p,
           imu.gyro_unscaled.q,
           imu.gyro_unscaled.r,

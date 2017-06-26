@@ -45,6 +45,9 @@ PRINT_CONFIG_VAR(BEBOP_MAG_I2C_DEV)
 #endif
 PRINT_CONFIG_VAR(BEBOP_MPU_I2C_DEV)
 
+#define BEBOP_MPU_TEMP_AVG_CNT 100
+#define BEBOP_MPU_TEMP_FILT_COEF 1024
+
 #if !defined BEBOP_LOWPASS_FILTER && !defined  BEBOP_SMPLRT_DIV
 #if (PERIODIC_FREQUENCY == 60) || (PERIODIC_FREQUENCY == 120)
 /* Accelerometer: Bandwidth 44Hz, Delay 4.9ms
@@ -89,6 +92,7 @@ double accel_x_bias_t2 =0.0, accel_y_bias_t2 =0.0, accel_z_bias_t2 =0.0;
 double accel_x_bias_t3 =0.0, accel_y_bias_t3 =0.0, accel_z_bias_t3 =0.0;
 /** Basic Navstik IMU data */
 struct ImuBebop imu_bebop;
+float imu_bebop_filtered_temperature = 0;
 
 const char* imu_bebop_config_get_field(char* line, int num);
 const char* imu_bebop_config_get_field(char* line, int num)
@@ -272,7 +276,7 @@ void imu_scale_gyro(struct Imu *_imu)
 {
   RATES_COPY(_imu->gyro_prev, _imu->gyro);
   if(imu_bebop_factory_calib){
-    float temp1 = imu_bebop.mpu.temp;
+    float temp1 = imu_bebop_filtered_temperature;
     float temp2 = temp1 * imu_bebop.mpu.temp;
     float temp3 = temp2 * imu_bebop.mpu.temp;
 
@@ -300,7 +304,7 @@ void imu_scale_accel(struct Imu *_imu)
 {
   VECT3_COPY(_imu->accel_prev, _imu->accel);
   if(imu_bebop_factory_calib){
-    float temp1 = imu_bebop.mpu.temp;
+    float temp1 = imu_bebop_filtered_temperature;
     float temp2 = temp1 * imu_bebop.mpu.temp;
     float temp3 = temp2 * imu_bebop.mpu.temp;
 
@@ -327,6 +331,7 @@ void imu_scale_accel(struct Imu *_imu)
 
 void imu_bebop_event(void)
 {
+  static uint8_t avg_temp_cnt = 1;
   uint32_t now_ts = get_sys_time_usec();
 
   /* MPU-60x0 event taks */
@@ -340,6 +345,12 @@ void imu_bebop_event(void)
                  -imu_bebop.mpu.data_accel.vect.z);
 
     imu_bebop.mpu.data_available = false;
+    if(avg_temp_cnt <= BEBOP_MPU_TEMP_AVG_CNT){
+      imu_bebop_filtered_temperature = (imu_bebop.mpu.temp + imu_bebop_filtered_temperature * (avg_temp_cnt - 1)) / ((float) avg_temp_cnt);
+      avg_temp_cnt++;
+    }else{
+      imu_bebop_filtered_temperature = (imu_bebop_filtered_temperature * (BEBOP_MPU_TEMP_FILT_COEF - 1) + imu_bebop.mpu.temp) / ((float) BEBOP_MPU_TEMP_FILT_COEF);
+    }
     imu_scale_gyro(&imu);
     imu_scale_accel(&imu);
     AbiSendMsgIMU_GYRO_INT32(IMU_BOARD_ID, now_ts, &imu.gyro);

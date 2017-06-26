@@ -79,6 +79,7 @@ struct ImuBebop {
 
 extern struct ImuBebop imu_bebop;
 
+extern float imu_bebop_filtered_temperature;
 extern double gyro_x_sfe, gyro_y_sfe, gyro_z_sfe;
 extern double accel_x_sfe, accel_y_sfe, accel_z_sfe;
 
