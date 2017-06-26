@@ -1,9 +1,9 @@
 <!DOCTYPE airframe SYSTEM "../../airframe.dtd">
 
 <airframe>
-	<section name="IMU" prefix="IMU_">
-		<define name="ACCEL_X_NEUTRAL" value="16" />
-		<define name="ACCEL_Y_NEUTRAL" value="27" />
-		<define name="ACCEL_Z_NEUTRAL" value="97" />
-	</section>
+  <section name="IMU" prefix="IMU_">
+    <define name="ACCEL_X_NEUTRAL" value="33"/><!-- 26/06/17 -->
+    <define name="ACCEL_Y_NEUTRAL" value="2"/>
+    <define name="ACCEL_Z_NEUTRAL" value="90"/>
+  </section>
 </airframe>

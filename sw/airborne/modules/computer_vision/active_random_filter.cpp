@@ -42,6 +42,7 @@ extern "C" {
     #include "modules/computer_vision/cv_image_pose.h"
     #include "modules/computer_vision/cv_ae_awb.h"
     #include "modules/autoswarm/autoswarm.h"
+    #include "generated/airframe.h"
 }
 
 using namespace std;
@@ -252,7 +253,7 @@ void active_random_filter_init(void){
 #if ARF_WRITE_LOG
     time_t startTime    = time(0);
     tm * startTM        = localtime(&startTime);
-    sprintf(arf_FileName, "/data/ftp/internal_000/ARF_result-%d-%02d-%02d_%02d-%02d-%02d.txt", startTM->tm_year + 1900, startTM->tm_mon + 1, startTM->tm_mday, startTM->tm_hour, startTM->tm_min, startTM->tm_sec);
+    sprintf(arf_FileName, "/data/ftp/internal_000/%s_ARF_result-%d-%02d-%02d_%02d-%02d-%02d.txt", AIRFRAME_NAME, startTM->tm_year + 1900, startTM->tm_mon + 1, startTM->tm_mday, startTM->tm_hour, startTM->tm_min, startTM->tm_sec);
     arf_File            = fopen(arf_FileName,"w");
     if (arf_File == NULL){
         perror("[AS-ERROR] File error");

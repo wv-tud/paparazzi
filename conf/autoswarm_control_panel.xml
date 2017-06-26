@@ -64,6 +64,7 @@
       <program name="Server"/>
       <program name="GCS">
         <arg flag="-speech" />
+	<arg flag="-no_confirm_kill" />
       </program>
     </session>
   </section>

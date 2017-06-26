@@ -1,6 +1,7 @@
 <!DOCTYPE flight_plan SYSTEM "../../flight_plan.dtd">
 
-<flight_plan alt="2.0" ground_alt="0.0" lat0="51.9794839" lon0="4.3604089" max_dist_from_home="10" name="UKF Magnetometer Calibration test" security_height="1.0">
+<!-- Close field 51.9907047	4.3785977 -->
+<flight_plan alt="2.0" ground_alt="0.0" lat0="51.9907047" lon0="4.3785977" max_dist_from_home="10" name="UKF Magnetometer Calibration test" security_height="1.0">
   <header>	
     #include "autopilot.h"
     #include "subsystems/datalink/datalink.h"
@@ -69,7 +70,13 @@
       <attitude pitch="0" roll="0" throttle="0" until="FALSE" vmode="throttle"/>
     </block>
     <block name="Start ground calib">
-      <!-- Disable  -->
+      <set var="mag_calib_ukf_noise_rms" value="0.1"/> 											<!--  Decrease UKF RMS since we are not flying -->
+      <set var="mag_calib_ukf_full_3x3" value="false"/> 	 									<!--  Enable AHRS feedback -->
+      <set var="mag_calib_ukf_update_every" value="1"/> 										<!--  Update UKF every magnetometer measurements -->
+      <set var="mag_calib_ukf_update_filter" value="true"/> 									<!--  Enable UKF updates -->
+      <attitude pitch="0" roll="0" throttle="0" until="FALSE" vmode="throttle"/> 				<!--  Wait until user aborts calibration -->
+    </block>
+    <block name="Start 3x3 ground calib">
       <set var="ins_float_inv.gains.lb" value="3*INS_INV_LB"/>									<!--  Let AHRS converge towards current magnetometer measurement -->
       <set var="ins_float_inv.gains.ob" value="INS_INV_OB"/>  									<!--  Keep MAG bias weight -->
       <attitude pitch="0" roll="0" throttle="0" until="stage_time > 2" vmode="throttle"/>  		<!--  Wait two seconds -->
@@ -125,6 +132,12 @@
 	  <!--  Rotate -->
 	  <call_once fun="mag_calib_rotate_toggle( true )"/> 		<!--  Start rotating around body z-axis -->
       <stay wp="STDBY" until="stage_time > 2"/> 				<!--  Stay rotating at STDBY for 2 seconds -->
+      <call_once fun="mag_calib_rotate_toggle( false )"/> 		<!--  Stop rotating around body z-axis -->
+      <set var="mag_calib_ukf_update_filter" value="false"/> 	<!--  Disable UKF updates -->
+      
+      <stay wp="STDBY" until="stage_time > 1"/> 				<!--  Stay still at STDBY for 1 second -->
+      
+      <call_once fun="mag_calib_rotate_toggle( true )"/> 		<!--  Start rotating around body z-axis -->
       <set var="ins_float_inv.gains.lb" value="0.0"/> 			<!--  Mag is now switching to calibrate based on AHRAS so decrease MAG correction weight (MAG should be calibrated based on gyros) -->
       <set var="ins_float_inv.gains.ob" value="0.0"/> 			<!--  Mag is now switching to calibrate based on AHRAS so decrease MAG bias weight (MAG should be calibrated based on gyros) -->
       <set var="mag_calib_ukf_full_3x3" value="true"/> 			<!--  Enable AHRS feedback -->
@@ -135,9 +148,9 @@
       <set var="ins_float_inv.gains.ob" value="INS_INV_OB"/> 	<!--  Restore MAG bias weight -->
       <set var="mag_calib_ukf_noise_rms" value="0.75"/> 		<!--  Increase UKF RMS since we will be commencing normal flight -->
       <set var="mag_calib_ukf_autosave" value="false"/>  		<!--  Disable saving of calibration -->
-      <set var="mag_calib_ukf_update_every" value="25"/> 		<!--  Update UKF every 25th magnetometer measurement -->
+      <set var="mag_calib_ukf_update_every" value="10"/> 		<!--  Update UKF every 25th magnetometer measurement -->
       <set var="mag_calib_ukf_full_3x3" value="true"/> 			<!--  Enable AHRS feedback -->
-      <set var="mag_calib_ukf_update_filter" value="true"/> 	<!--  Enable UKF updates -->
+      <set var="mag_calib_ukf_update_filter" value="false"/> 	<!--  Disable UKF updates -->
     </block>
     <block name="Standby" strip_button="Standby" strip_icon="home.png">
       <call_once fun="NavSetWaypointHere(WP_STDBY)"/>
@@ -154,22 +167,32 @@
         <deroute block="Prepare (go p1)"/>
     </block>
     <block name="Test Block (1x: p1, p2, p3, p4, p1)">
+    	<call_once fun="nav_set_heading_towards_waypoint(WP_p1)"/>
         <stay until="stage_time > 3" wp="p1"/>
+        <call_once fun="nav_set_heading_towards_waypoint(WP_p2)"/>
         <go from="p1" hmode="route" wp="p2"/>
+        <call_once fun="nav_set_heading_towards_waypoint(WP_p3)"/>
         <go from="p2" hmode="route" wp="p3"/>
+        <call_once fun="nav_set_heading_towards_waypoint(WP_p4)"/>
         <go from="p3" hmode="route" wp="p4"/>
+        <call_once fun="nav_set_heading_towards_waypoint(WP_p1)"/>
         <go from="p4" hmode="route" wp="p1"/>
         <deroute block="Prepare (go p1)"/>
     </block>
     <block name="Test Block (5x: p1, p2, p3, p4, p1)">
-        <for var="i" from="0" to="4">
-            <stay until="stage_time > 3" wp="p1"/>
-            <go from="p1" hmode="route" wp="p2"/>
-            <go from="p2" hmode="route" wp="p3"/>
-            <go from="p3" hmode="route" wp="p4"/>
-            <go from="p4" hmode="route" wp="p1"/>
-        </for>
-        <deroute block="Prepare (go p1)"/>
+	<for var="i" from="0" to="4">
+		<call_once fun="nav_set_heading_towards_waypoint(WP_p1)" />
+		<stay until="stage_time > 3" wp="p1" />
+		<call_once fun="nav_set_heading_towards_waypoint(WP_p2)" />
+		<go from="p1" hmode="route" wp="p2" />
+		<call_once fun="nav_set_heading_towards_waypoint(WP_p3)" />
+		<go from="p2" hmode="route" wp="p3" />
+		<call_once fun="nav_set_heading_towards_waypoint(WP_p4)" />
+		<go from="p3" hmode="route" wp="p4" />
+		<call_once fun="nav_set_heading_towards_waypoint(WP_p1)" />
+		<go from="p4" hmode="route" wp="p1" />
+	</for>
+	<deroute block="Prepare (go p1)" />
     </block>
     <block name="Test Yaw (go p1, 8 increments of 45 deg)">
       <go wp="p1"/>

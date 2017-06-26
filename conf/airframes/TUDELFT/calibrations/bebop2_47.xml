@@ -2,8 +2,8 @@
 
 <airframe>
   <section name="IMU" prefix="IMU_">
-		<define name="ACCEL_X_NEUTRAL" value="0"/> <!-- 29/05 -->
-    	<define name="ACCEL_Y_NEUTRAL" value="0"/>
-    	<define name="ACCEL_Z_NEUTRAL" value="0"/>
-	</section>
+	<define name="ACCEL_X_NEUTRAL" value="4"/> <!-- 26/06/17 -->
+    <define name="ACCEL_Y_NEUTRAL" value="-26"/>
+    <define name="ACCEL_Z_NEUTRAL" value="-12"/>
+</section>
 </airframe>

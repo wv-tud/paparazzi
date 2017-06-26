@@ -66,19 +66,19 @@ void file_logger_start(void)
   timer = time(NULL);
   tm_info = localtime(&timer);
   strftime(date_buffer, 26, "%Y_%m_%d__%H_%M_%S", tm_info);
-  sprintf(filename, "%s/%s_%05d.csv", STRINGIFY(FILE_LOGGER_PATH), date_buffer, counter);
+  sprintf(filename, "%s/%s_%s_%05d.csv", STRINGIFY(FILE_LOGGER_PATH), AIRFRAME_NAME, date_buffer, counter);
   while ((file_logger = fopen(filename, "r"))) {
     fclose(file_logger);
     counter++;
-    sprintf(filename, "%s/%s_%05d.csv", STRINGIFY(FILE_LOGGER_PATH), date_buffer, counter);
+    sprintf(filename, "%s/%s_%s_%05d.csv", STRINGIFY(FILE_LOGGER_PATH), AIRFRAME_NAME, date_buffer, counter);
   }
   file_logger = fopen(filename, "w");
 #else
-  sprintf(filename, "%s/%05d.csv", STRINGIFY(FILE_LOGGER_PATH), counter);
+  sprintf(filename, "%s/%s_%05d.csv", STRINGIFY(FILE_LOGGER_PATH),STRINGIFY(AIRFRAME_NAME), counter);
   while ((file_logger = fopen(filename, "r"))) {
     fclose(file_logger);
     counter++;
-    sprintf(filename, "%s/%05d.csv", STRINGIFY(FILE_LOGGER_PATH), counter);
+    sprintf(filename, "%s/%s_%05d.csv", STRINGIFY(FILE_LOGGER_PATH),STRINGIFY(AIRFRAME_NAME), counter);
   }
   file_logger = fopen(filename, "w");
 #endif
