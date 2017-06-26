@@ -59,7 +59,7 @@ float settings_calibration_time     = BEBOP_ACCEL_CALIB_MEASURE_TIME;
 static abi_event bebop_accel_ev;
 
 void bebop_accel_calib_init( void ) {
-    z_ideal = (int32_t) round( ACCEL_BFP_OF_REAL( -9.81 ) * MPU60X0_ACCEL_SENS_FRAC[BEBOP_ACCEL_RANGE][1] / (IMU_ACCEL_Z_SIGN * MPU60X0_ACCEL_SENS_FRAC[BEBOP_ACCEL_RANGE][0]));
+    z_ideal = (int32_t) round( ACCEL_BFP_OF_REAL( -9.81 ) * IMU_ACCEL_Z_SENS_DEN * accel_z_sfe / (IMU_ACCEL_Z_SIGN * IMU_ACCEL_Z_SENS_NUM));
     AbiBindMsgIMU_ACCEL_INT32(ABI_BROADCAST, &bebop_accel_ev, bebop_accel_calib_run);
 }
 
@@ -92,13 +92,13 @@ void bebop_accel_calib_run( uint8_t __attribute__ ((unused)) sender_id, uint32_t
           runCount = 0;
           bebop_send_accel_neutral();
       } else {
-        accel_x_tot += imu.accel_unscaled.x;
-        accel_y_tot += imu.accel_unscaled.y;
-        accel_z_tot += imu.accel_unscaled.z;
+        accel_x_tot += imu.accel.x;
+        accel_y_tot += imu.accel.y;
+        accel_z_tot += imu.accel.z;
         runCount++;
-        accel_x_avg = (int32_t) round( accel_x_tot / ((double) runCount) );
-        accel_y_avg = (int32_t) round( accel_y_tot / ((double) runCount) );
-        accel_z_avg = (int32_t) round( accel_z_tot / ((double) runCount) );
+        accel_x_avg = (int32_t) round(accel_x_tot * accel_x_sfe / ((float) runCount) * IMU_ACCEL_X_SIGN * IMU_ACCEL_X_SENS_DEN / ((float) IMU_ACCEL_X_SENS_NUM));
+        accel_y_avg = (int32_t) round(accel_y_tot * accel_y_sfe / ((float) runCount) * IMU_ACCEL_Y_SIGN * IMU_ACCEL_Y_SENS_DEN / ((float) IMU_ACCEL_Y_SENS_NUM));
+        accel_z_avg = (int32_t) round(accel_z_tot * accel_z_sfe / ((float) runCount) * IMU_ACCEL_Z_SIGN * IMU_ACCEL_Z_SENS_DEN / ((float) IMU_ACCEL_Z_SENS_NUM));
       }
   }
 }

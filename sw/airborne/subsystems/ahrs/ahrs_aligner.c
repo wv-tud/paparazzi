@@ -95,6 +95,17 @@ void ahrs_aligner_init(void)
 #endif
 }
 
+void ahrs_aligner_reset(void)
+{
+  ahrs_aligner.status = AHRS_ALIGNER_RUNNING;
+  INT_RATES_ZERO(gyro_sum);
+  INT_VECT3_ZERO(accel_sum);
+  INT_VECT3_ZERO(mag_sum);
+  samples_idx = 0;
+  ahrs_aligner.noise = 0;
+  ahrs_aligner.low_noise_cnt = 0;
+}
+
 #ifndef LOW_NOISE_THRESHOLD
 #define LOW_NOISE_THRESHOLD 90000
 #endif

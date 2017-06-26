@@ -390,6 +390,7 @@ void mag_calib_hotstart_read(void)
     fread(mag_calib.state, sizeof(float), TRICAL_STATE_DIM, fp);
     fread(mag_calib.state_covariance, sizeof(float), TRICAL_STATE_DIM * TRICAL_STATE_DIM, fp);
     fclose(fp);
+#if TRICAL_STATE_DIM == 9
     PRINT("Loaded initial state from disk:\n"
           "State {%4.2f, %4.2f, %4.2f}\n"
           "      {%4.2f, %4.2f, %4.2f}\n"
@@ -400,7 +401,22 @@ void mag_calib_hotstart_read(void)
           mag_calib.state[6], mag_calib.state[7],  mag_calib.state[8],
           mag_calib.state_covariance[0], mag_calib.state_covariance[1],
           mag_calib.state_covariance[TRICAL_STATE_DIM * TRICAL_STATE_DIM - 1]
-         );
+    );
+#elif TRICAL_STATE_DIM == 12
+    PRINT("Loaded initial state from disk:\n"
+        "State {%4.2f, %4.2f, %4.2f}\n"
+        "      {%4.2f, %4.2f, %4.2f}\n"
+        "      {%4.2f, %4.2f, %4.2f}\n"
+        "      {%4.2f, %4.2f, %4.2f}\n"
+        "Cov   {%4.2f, %4.2f, ...., %4.2f}\n",
+        mag_calib.state[0], mag_calib.state[1],  mag_calib.state[2],
+        mag_calib.state[3], mag_calib.state[4],  mag_calib.state[5],
+        mag_calib.state[6], mag_calib.state[7],  mag_calib.state[8],
+        mag_calib.state[9], mag_calib.state[10],  mag_calib.state[11],
+        mag_calib.state_covariance[0], mag_calib.state_covariance[1],
+        mag_calib.state_covariance[TRICAL_STATE_DIM * TRICAL_STATE_DIM - 1]
+    );
+#endif
     if (isnan(mag_calib.state[0]) || isnan(mag_calib.state[1]) || isnan(mag_calib.state[2]) || isnan(mag_calib.state[3]) ||
         isnan(mag_calib.state[4]) || isnan(mag_calib.state[5]) || isnan(mag_calib.state[6]) || isnan(mag_calib.state[7])
         || isnan(mag_calib.state[8])) {
@@ -420,7 +436,8 @@ void mag_calib_hotstart_write(void)
       fwrite(mag_calib.state, sizeof(float), TRICAL_STATE_DIM, fp);
       fwrite(mag_calib.state_covariance, sizeof(float), TRICAL_STATE_DIM * TRICAL_STATE_DIM, fp);
       fclose(fp);
-      VERBOSE_PRINT("Wrote current state to disk:\n"
+#if TRICAL_STATE_DIM == 9
+    PRINT("Wrote current state to disk:\n"
           "State {%4.2f, %4.2f, %4.2f}\n"
           "      {%4.2f, %4.2f, %4.2f}\n"
           "      {%4.2f, %4.2f, %4.2f}\n"
@@ -430,7 +447,22 @@ void mag_calib_hotstart_write(void)
           mag_calib.state[6], mag_calib.state[7],  mag_calib.state[8],
           mag_calib.state_covariance[0], mag_calib.state_covariance[1],
           mag_calib.state_covariance[TRICAL_STATE_DIM * TRICAL_STATE_DIM - 1]
-      );
+    );
+#elif TRICAL_STATE_DIM == 12
+    PRINT("Wrote current state to disk:\n"
+        "State {%4.2f, %4.2f, %4.2f}\n"
+        "      {%4.2f, %4.2f, %4.2f}\n"
+        "      {%4.2f, %4.2f, %4.2f}\n"
+        "      {%4.2f, %4.2f, %4.2f}\n"
+        "Cov   {%4.2f, %4.2f, ...., %4.2f}\n",
+        mag_calib.state[0], mag_calib.state[1],  mag_calib.state[2],
+        mag_calib.state[3], mag_calib.state[4],  mag_calib.state[5],
+        mag_calib.state[6], mag_calib.state[7],  mag_calib.state[8],
+        mag_calib.state[9], mag_calib.state[10],  mag_calib.state[11],
+        mag_calib.state_covariance[0], mag_calib.state_covariance[1],
+        mag_calib.state_covariance[TRICAL_STATE_DIM * TRICAL_STATE_DIM - 1]
+    );
+#endif
     }
   }
 #endif

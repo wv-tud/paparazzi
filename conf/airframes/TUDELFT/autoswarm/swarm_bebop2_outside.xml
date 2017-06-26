@@ -32,12 +32,14 @@
 		
 		<define name="BEBOP_FACTORY_CALIB" value="1"/>
 
-		<!-- Was flying OK, just no real improvement maybe accel noise too high? -- Should this be combined with float_invariant INS?
-		<configure name="USE_HFF" value="true" /> -->
+		<!-- Was flying OK, just no real improvement maybe accel noise too high? -- Should this be combined with float_invariant INS? --
+		<configure name="USE_HFF" value="true" />-->
 		
 		<define name="LOW_NOISE_TIME" value="10" /> <!--  for ahrs_aligner.c 10s iso 5s -->
 		
-
+		<define name="INS_PROPAGATE_FREQUENCY" value="500"/>
+		<define name="USE_AUTO_INS_FREQ" value="0"/>
+		
 		<define name="GPS_TIMEOUT" value="1" />
 		<!-- Camera parameters -->
 		<define name="USE_H264" value="TRUE" />
@@ -186,6 +188,17 @@
 		<define name="H_Y" value="0.006383744" />
 		<define name="H_Z" value="0.920758228" />-->
 	</section>
+	
+	<section name="IMU" prefix="IMU_">
+		<!-- uT per LSB from ak9863 sheet: 	0.15
+			 MAG FRAC: 						2048 
+			 Field length in the Hague: 	49.0536 uT
+			 Required norm: 				1
+			 Sens = (2048 * 0.15) / (1 * 49.0536) = 6.262537306  -->
+		<define name="MAG_X_SENS" value="6.262537306" integer="16" />
+		<define name="MAG_Y_SENS" value="6.262537306" integer="16" />
+		<define name="MAG_Z_SENS" value="6.262537306" integer="16" />
+	</section>
 
 	<section name="INS" prefix="INS_">
 		<!-- Delft (51°59'27.6"N 4°22'41.4"E) - last update 20170504 -->
@@ -193,7 +206,7 @@
 		<define name="H_Y" value="0.006383744" />
 		<define name="H_Z" value="0.920758228" />
 		<define name="SONAR_MAX_RANGE" value="4.2" />
-                <define name="VFF_R_GPS" value="0.1"/>
+        <define name="VFF_R_GPS" value="0.1"/>
 		<define name="SONAR_UPDATE_ON_AGL" value="TRUE" />
 		<define name="USE_GPS_ALT" value="1" />     <!-- Use height from the optitrack -->
 	</section>

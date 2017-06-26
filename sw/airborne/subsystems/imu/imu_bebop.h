@@ -79,6 +79,9 @@ struct ImuBebop {
 
 extern struct ImuBebop imu_bebop;
 
+extern double gyro_x_sfe, gyro_y_sfe, gyro_z_sfe;
+extern double accel_x_sfe, accel_y_sfe, accel_z_sfe;
+
 extern void imu_bebop_init(void);
 extern void imu_bebop_periodic(void);
 extern void imu_bebop_event(void);

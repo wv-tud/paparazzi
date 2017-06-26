@@ -6,9 +6,8 @@
     #include "subsystems/datalink/datalink.h"
     #include "subsystems/electrical.h"
     #include "subsystems/radio_control.h"
-    #include "modules/loggers/file_logger.h"
-    #include "modules/calibration/mag_calib_ukf.h"
-    #include "subsystems/ahrs/ahrs_float_cmpl.h"
+    #include "subsystems/ahrs/ahrs_aligner.h"
+    #include "generated/modules.h"
   </header>
   <waypoints>
     <waypoint name="HOME"   x="0.0" y="0.0"/>
@@ -53,6 +52,10 @@
     (autopilot_in_flight() == true) )" deroute="land here"/>
   </exceptions>
   <blocks>
+  	<block name="Re-align">
+      <set var="ins_float_inv.is_aligned" value="0"/>
+      <call_once fun="ahrs_aligner_reset()"/>
+    </block>
     <block name="Wait GPS">
       <call_once fun="NavKillThrottle()"/>
       <while cond="!GpsFixValid()"/>
@@ -66,64 +69,75 @@
       <attitude pitch="0" roll="0" throttle="0" until="FALSE" vmode="throttle"/>
     </block>
     <block name="Start ground calib">
-      <set var="ins_float_inv.gains.lb" value="0.0"/>
-      <set var="ins_float_inv.gains.ob" value="0.0"/> 
-      <attitude pitch="0" roll="0" throttle="0" until="stage_time > 2" vmode="throttle"/>
-      <set var="mag_calib_ukf_noise_rms" value="0.1"/>
-      <set var="mag_calib_ukf_full_3x3" value="true"/>
-      <set var="mag_calib_ukf_update_every" value="1"/>
-      <set var="mag_calib_ukf_update_filter" value="true"/>
-      <attitude pitch="0" roll="0" throttle="0" until="FALSE" vmode="throttle"/>
+      <!-- Disable  -->
+      <set var="ins_float_inv.gains.lb" value="3*INS_INV_LB"/>									<!--  Let AHRS converge towards current magnetometer measurement -->
+      <set var="ins_float_inv.gains.ob" value="INS_INV_OB"/>  									<!--  Keep MAG bias weight -->
+      <attitude pitch="0" roll="0" throttle="0" until="stage_time > 2" vmode="throttle"/>  		<!--  Wait two seconds -->
+      <set var="ins_float_inv.gains.lb" value="0.0"/>											<!--  Mag is now switching to calibrate based on AHRAS so decrease MAG correction weight (MAG should be calibrated based on gyros) -->
+      <set var="ins_float_inv.gains.ob" value="0.0"/> 											<!--  Mag is now switching to calibrate based on AHRAS so decrease MAG bias weight (MAG should be calibrated based on gyros) -->
+      <set var="mag_calib_ukf_noise_rms" value="0.1"/> 											<!--  Decrease UKF RMS since we are not flying -->
+      <set var="mag_calib_ukf_full_3x3" value="true"/> 	 										<!--  Enable AHRS feedback -->
+      <set var="mag_calib_ukf_update_every" value="1"/> 										<!--  Update UKF every magnetometer measurements -->
+      <set var="mag_calib_ukf_update_filter" value="true"/> 									<!--  Enable UKF updates -->
+      <attitude pitch="0" roll="0" throttle="0" until="FALSE" vmode="throttle"/> 				<!--  Wait until user aborts calibration -->
     </block>
     <block name="Stop ground calib">
-      <set var="mag_calib_ukf_update_filter" value="false"/>
-      <set var="mag_calib_ukf_full_3x3" value="false"/>
-      <set var="mag_calib_ukf_update_every" value="25"/>
-      <set var="ins_float_inv.gains.lb" value="6.0"/>
-      <set var="ins_float_inv.gains.ob" value="1.0"/>
-      <attitude pitch="0" roll="0" throttle="0" until="FALSE" vmode="throttle"/>
+      <set var="mag_calib_ukf_update_filter" value="false"/> 									<!--  Disable UKF updates -->
+      <set var="mag_calib_ukf_noise_rms" value="0.75"/> 										<!--  Increase UKF RMS to prepare for flight -->
+      <set var="mag_calib_ukf_full_3x3" value="false"/> 										<!--  Disable AHRS feedback -->
+      <set var="mag_calib_ukf_update_every" value="25"/>										<!--  Update UKF every 25th magnetometer measurement -->
+      <set var="ins_float_inv.gains.lb" value="INS_INV_LB"/>									<!--  Restore MAG correction weight -->
+      <set var="ins_float_inv.gains.ob" value="INS_INV_OB"/> 									<!--  Restore MAG bias weight -->
+      <deroute block="Holding point"/> 															<!--  Deroute to holding point -->
     </block>
     <block name="Start Engine">
       <call_once fun="NavResurrect()"/>
-      <set var="mag_calib_ukf_full_3x3" value="false"/>
-      <set var="mag_calib_ukf_update_filter" value="false"/>
-      <set var="mag_calib_ukf_update_every" value="10"/>
-      <set var="mag_calib_ukf_filter_mag" value="false"/>
-      <attitude pitch="0" roll="0" throttle="0" until="FALSE" vmode="throttle"/>
+      <set var="mag_calib_ukf_full_3x3" value="false"/> 							<!--  Disable AHRS feedback, takeoff can be noisy -->
+      <set var="mag_calib_ukf_update_filter" value="false"/>						<!--  Disable UKF updates, takeoff can be noisy -->
+      <set var="mag_calib_ukf_update_every" value="25"/> 							<!--  Set update rate to every 25th measurement -->
+      <set var="mag_calib_ukf_noise_rms" value="0.75"/> 							<!--  Increase UKF RMS since engines are on -->
+      <attitude pitch="0" roll="0" throttle="0" until="FALSE" vmode="throttle"/> 	
     </block>
     <block name="Takeoff">
-      <set var="mag_calib_ukf_full_3x3" value="false"/>
-      <set var="mag_calib_ukf_update_filter" value="false"/>
-      <set var="mag_calib_ukf_update_every" value="10"/>
-      <set var="mag_calib_ukf_filter_mag" value="false"/>
-      <call_once fun="file_logger_stop()"/>
-      <call_once fun="file_logger_start()"/>
+      <set var="mag_calib_ukf_full_3x3" value="false"/> 							<!--  Disable AHRS feedback during takeoff -->
+      <set var="mag_calib_ukf_update_filter" value="false"/> 						<!--  Disable UKF updates during takeoff -->
+      <set var="mag_calib_ukf_update_every" value="25"/> 							<!--  Set update rate to every 25th measurement -->
+      <call_once fun="file_logger_stop()"/> 										<!--  Stop the file logger if it is running -->
+      <call_once fun="file_logger_start()"/> 										<!--  Start the file logger -->
       <call_once fun="NavSetAltitudeReferenceHere()"/>
       <call_once fun="waypoint_set_alt(WP_TD, WaypointAlt(WP_HOME))"/>
       <call_once fun="NavSetWaypointHere(WP_TD)"/>
       <stay wp="TD" until="GetPosAlt() > (WaypointAlt(WP_TD) + 0.2)" vmode="climb" climb="nav_climb_vspeed"/>
-      <call_once fun="cv_awb_reset()"/>
-      <call_once fun="cv_ae_reset()"/>
+      <call_once fun="cv_awb_reset()"/> 											<!--  Reset AWB since we are now viewing more than just grass -->
+      <call_once fun="cv_ae_reset()"/> 												<!--  Reset AE since we are now viewing more than just grass -->
     </block>
     <block name="Mag calib">
-      <call_once fun="NavSetWaypointHere(WP_STDBY)"/>
-      <set var="mag_calib_ukf_noise_rms" value="0.5"/>
-      <set var="mag_calib_ukf_full_3x3" value="false"/>
-      <set var="mag_calib_ukf_update_filter" value="true"/>
-      <set var="mag_calib_ukf_update_every" value="2"/>
-      <set var="mag_calib_ukf_autosave" value="true"/>
-      
-	  <call_once fun="mag_calib_rotate_toggle( true )"/>
-      <stay wp="STDBY" until="stage_time > 2"/>
-      <set var="mag_calib_ukf_full_3x3" value="true"/>
-      <stay wp="STDBY" until="stage_time > 2"/>
-      <call_once fun="mag_calib_rotate_toggle( false )"/>
-      
-      <set var="mag_calib_ukf_noise_rms" value="0.75"/>
-      <set var="mag_calib_ukf_autosave" value="false"/>
-      <set var="mag_calib_ukf_update_every" value="25"/>
-      <set var="mag_calib_ukf_full_3x3" value="true"/>
-      <set var="mag_calib_ukf_update_filter" value="true"/>
+      <!--  Prepare -->
+      <call_once fun="NavSetWaypointHere(WP_STDBY)"/>			<!--  Set STDBY waypoint here -->
+      <!--  Set calibration settings for quick calibration -->
+      <set var="mag_calib_ukf_noise_rms" value="0.5"/> 			<!--  Increase UKF RMS since we are now flying -->
+      <set var="mag_calib_ukf_full_3x3" value="false"/> 		<!--  Disable AHRS feedback -->
+      <set var="mag_calib_ukf_update_filter" value="true"/> 	<!--  Enable UKF updates -->
+      <set var="mag_calib_ukf_update_every" value="2"/> 		<!--  Update UKF every 2 magnetometer measurements -->
+      <set var="mag_calib_ukf_autosave" value="true"/> 			<!--  Enable saving of calibration -->
+      <set var="ins_float_inv.gains.lb" value="3*INS_INV_LB"/>	<!--  Mag is being calibrated independantly from AHRS so increase MAG correction weight -->
+      <set var="ins_float_inv.gains.ob" value="INS_INV_OB"/>  	<!--  Mag is being calibrated independantly from AHRS so keep MAG bias weight -->
+	  <!--  Rotate -->
+	  <call_once fun="mag_calib_rotate_toggle( true )"/> 		<!--  Start rotating around body z-axis -->
+      <stay wp="STDBY" until="stage_time > 2"/> 				<!--  Stay rotating at STDBY for 2 seconds -->
+      <set var="ins_float_inv.gains.lb" value="0.0"/> 			<!--  Mag is now switching to calibrate based on AHRAS so decrease MAG correction weight (MAG should be calibrated based on gyros) -->
+      <set var="ins_float_inv.gains.ob" value="0.0"/> 			<!--  Mag is now switching to calibrate based on AHRAS so decrease MAG bias weight (MAG should be calibrated based on gyros) -->
+      <set var="mag_calib_ukf_full_3x3" value="true"/> 			<!--  Enable AHRS feedback -->
+      <stay wp="STDBY" until="stage_time > 2"/> 				<!--  Stay rotating at STDBY for 2 seconds -->
+      <call_once fun="mag_calib_rotate_toggle( false )"/> 		<!--  Stop rotating around body z-axis -->
+      <!--  Set calibration settings for normal flight -->
+      <set var="ins_float_inv.gains.lb" value="INS_INV_LB"/> 	<!--  Restore MAG correction weight -->
+      <set var="ins_float_inv.gains.ob" value="INS_INV_OB"/> 	<!--  Restore MAG bias weight -->
+      <set var="mag_calib_ukf_noise_rms" value="0.75"/> 		<!--  Increase UKF RMS since we will be commencing normal flight -->
+      <set var="mag_calib_ukf_autosave" value="false"/>  		<!--  Disable saving of calibration -->
+      <set var="mag_calib_ukf_update_every" value="25"/> 		<!--  Update UKF every 25th magnetometer measurement -->
+      <set var="mag_calib_ukf_full_3x3" value="true"/> 			<!--  Enable AHRS feedback -->
+      <set var="mag_calib_ukf_update_filter" value="true"/> 	<!--  Enable UKF updates -->
     </block>
     <block name="Standby" strip_button="Standby" strip_icon="home.png">
       <call_once fun="NavSetWaypointHere(WP_STDBY)"/>

@@ -96,10 +96,6 @@ void file_logger_start(void)
          "quat_qx,"
          "quat_qy,"
          "quat_qz,"
-         "stabilization_cmd_THRUST,"
-         "stabilization_cmd_ROLL,"
-         "stabilization_cmd_PITCH,"
-         "stabilization_cmd_YAW,"
          "actuators_bebop_rpm_ref_0,"
          "actuators_bebop_rpm_ref_1,"
          "actuators_bebop_rpm_ref_2,"
@@ -108,6 +104,7 @@ void file_logger_start(void)
          "actuators_bebop_rpm_obs_1,"
          "actuators_bebop_rpm_obs_2,"
          "actuators_bebop_rpm_obs_3,"
+         "imu_temperature,"
          "imu_gyro_unscaled_p,"
          "imu_gyro_unscaled_q,"
          "imu_gyro_unscaled_r,"
@@ -165,17 +162,13 @@ void file_logger_periodic(void)
   struct Int32Quat *quat = stateGetNedToBodyQuat_i();
   struct FloatEulers* eulerAngles = stateGetNedToBodyEulers_f();
 
-  fprintf(file_logger, "%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%0.4f,%0.4f,%0.4f,%d,%d,%d,%0.4f,%0.4f,%0.4f,%d,%d,%d,%0.4f,%0.4f,%0.4f,%0.4f,%0.4f,%0.4f,%0.4f,%0.4f,%0.4f,%0.4f,%0.4f,%0.4f,%0.4f,%0.4f,%0.4f,%0.4f,%0.4f,%0.4f,%0.4f,%0.4f\n",
+  fprintf(file_logger, "%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%0.4f,%d,%d,%d,%0.4f,%0.4f,%0.4f,%d,%d,%d,%0.4f,%0.4f,%0.4f,%d,%d,%d,%0.4f,%0.4f,%0.4f,%0.4f,%0.4f,%0.4f,%0.4f,%0.4f,%0.4f,%0.4f,%0.4f,%0.4f,%0.4f,%0.4f,%0.4f,%0.4f,%0.4f,%0.4f,%0.4f,%0.4f\n",
           counter,
           autopilot.in_flight,
           quat->qi,
           quat->qx,
           quat->qy,
           quat->qz,
-          stabilization_cmd[COMMAND_THRUST],
-          stabilization_cmd[COMMAND_ROLL],
-          stabilization_cmd[COMMAND_PITCH],
-          stabilization_cmd[COMMAND_YAW],
           actuators_bebop.rpm_ref[0],
           actuators_bebop.rpm_ref[1],
           actuators_bebop.rpm_ref[2],
@@ -184,6 +177,7 @@ void file_logger_periodic(void)
           actuators_bebop.rpm_obs[1],
           actuators_bebop.rpm_obs[2],
           actuators_bebop.rpm_obs[3],
+          imu_bebop.mpu.temp,
           imu.gyro_unscaled.p,
           imu.gyro_unscaled.q,
           imu.gyro_unscaled.r,

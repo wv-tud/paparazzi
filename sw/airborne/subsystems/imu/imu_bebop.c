@@ -107,7 +107,7 @@ const char* imu_bebop_config_get_field(char* line, int num)
 void imu_bebop_read_config(void);
 void imu_bebop_read_config(void)
 {
-  printf("Reading bebop factory calibration:\n\n");
+  printf("Reading Parrot factory calibration...\n");
   FILE* stream = fopen("/factory/Thermal_IMU_ortho.fact.csv", "r");
   if(stream != NULL){
     char line[1024];
@@ -139,10 +139,8 @@ void imu_bebop_read_config(void)
       free(tmp);
       i++;
     }
-    printf("gyro  sfe  x: %0.10f  y: %0.10f  z: %0.10f\n", gyro_x_sfe, gyro_y_sfe, gyro_z_sfe);
-    printf("accel sfe  x: %0.10f  y: %0.10f  z: %0.10f\n", accel_x_sfe, accel_y_sfe, accel_z_sfe);
   }else{
-    printf("Unable to read /factory/Thermal_IMU_ortho.fact.csv\n");
+    printf("ERROR: Unable to read /factory/Thermal_IMU_ortho.fact.csv\n");
   }
   stream = fopen("/factory/Thermal_IMU_bias.fact.csv", "r");
   if(stream != NULL){
@@ -161,8 +159,6 @@ void imu_bebop_read_config(void)
           gyro_x_bias_t2 = strtod(imu_bebop_config_get_field(tmp, 5), NULL);
           tmp = strdup(line);
           gyro_x_bias_t3 = strtod(imu_bebop_config_get_field(tmp, 6), NULL);
-          printf("gyro x bias: %0.4f  %0.4f  %0.4f  %0.4f\n", gyro_x_bias, gyro_x_bias_t1, gyro_x_bias_t2, gyro_x_bias_t3);
-          imu.gyro_neutral.p = (int32_t) round(RATE_BFP_OF_REAL(gyro_x_bias) * IMU_GYRO_P_SIGN * IMU_GYRO_P_SENS_DEN / ((float) IMU_GYRO_P_SENS_NUM));
           break;
         case 2:
           gyro_y_bias    = strtod(imu_bebop_config_get_field(tmp, 3), NULL);
@@ -172,7 +168,6 @@ void imu_bebop_read_config(void)
           gyro_y_bias_t2 = strtod(imu_bebop_config_get_field(tmp, 5), NULL);
           tmp = strdup(line);
           gyro_y_bias_t3 = strtod(imu_bebop_config_get_field(tmp, 6), NULL);
-          imu.gyro_neutral.q = (int32_t) round(RATE_BFP_OF_REAL(gyro_y_bias) * IMU_GYRO_Q_SIGN * IMU_GYRO_Q_SENS_DEN / ((float) IMU_GYRO_Q_SENS_NUM));
           break;
         case 3:
           gyro_z_bias    = strtod(imu_bebop_config_get_field(tmp, 3), NULL);
@@ -182,7 +177,6 @@ void imu_bebop_read_config(void)
           gyro_z_bias_t2 = strtod(imu_bebop_config_get_field(tmp, 5), NULL);
           tmp = strdup(line);
           gyro_z_bias_t3 = strtod(imu_bebop_config_get_field(tmp, 6), NULL);
-          imu.gyro_neutral.r = (int32_t) round(RATE_BFP_OF_REAL(gyro_z_bias) * IMU_GYRO_R_SIGN * IMU_GYRO_R_SENS_DEN / ((float) IMU_GYRO_R_SENS_NUM));
           break;
         case 4:
           accel_x_bias    = strtod(imu_bebop_config_get_field(tmp, 3), NULL);
@@ -192,7 +186,6 @@ void imu_bebop_read_config(void)
           accel_x_bias_t2 = strtod(imu_bebop_config_get_field(tmp, 5), NULL);
           tmp = strdup(line);
           accel_x_bias_t3 = strtod(imu_bebop_config_get_field(tmp, 6), NULL);
-          imu.accel_neutral.x = (int32_t) round(ACCEL_BFP_OF_REAL(accel_x_bias) * IMU_ACCEL_X_SIGN * IMU_ACCEL_X_SENS_DEN / ((float) IMU_ACCEL_X_SENS_NUM));
           break;
         case 5:
           accel_y_bias    = strtod(imu_bebop_config_get_field(tmp, 3), NULL);
@@ -202,7 +195,6 @@ void imu_bebop_read_config(void)
           accel_y_bias_t2 = strtod(imu_bebop_config_get_field(tmp, 5), NULL);
           tmp = strdup(line);
           accel_y_bias_t3 = strtod(imu_bebop_config_get_field(tmp, 6), NULL);
-          imu.accel_neutral.y = (int32_t) round(ACCEL_BFP_OF_REAL(accel_y_bias) * IMU_ACCEL_Y_SIGN * IMU_ACCEL_Y_SENS_DEN / ((float) IMU_ACCEL_Y_SENS_NUM));
           break;
         case 6:
           accel_z_bias    = strtod(imu_bebop_config_get_field(tmp, 3), NULL);
@@ -212,16 +204,19 @@ void imu_bebop_read_config(void)
           accel_z_bias_t2 = strtod(imu_bebop_config_get_field(tmp, 5), NULL);
           tmp = strdup(line);
           accel_z_bias_t3 = strtod(imu_bebop_config_get_field(tmp, 6), NULL);
-          imu.accel_neutral.z = (int32_t) round(ACCEL_BFP_OF_REAL(accel_z_bias) * IMU_ACCEL_Z_SIGN * IMU_ACCEL_Z_SENS_DEN / ((float) IMU_ACCEL_Z_SENS_NUM));
           break;
       }
       free(tmp);
       i++;
     }
-    printf("gyro  bias x: %0.10f %d  y: %0.10f %d  z: %0.10f %d\n", gyro_x_bias, imu.gyro_neutral.p, gyro_y_bias, imu.gyro_neutral.q, gyro_z_bias, imu.gyro_neutral.r);
-    printf("accel bias x: %0.10f %d  y: %0.10f %d  z: %0.10f %d\n", accel_x_bias, imu.accel_neutral.x, accel_y_bias, imu.accel_neutral.y, accel_z_bias, imu.accel_neutral.z);
+    printf("Gyroscope p    : (RAW - (%7.4f) - (%9.6f) * t - (%11.8f) * t^2 - (%13.10f) * t^3) / %7.4f\n", gyro_x_bias, gyro_x_bias_t1, gyro_x_bias_t2, gyro_x_bias_t3, gyro_x_sfe);
+    printf("Gyroscope q    : (RAW - (%7.4f) - (%9.6f) * t - (%11.8f) * t^2 - (%13.10f) * t^3) / %7.4f\n", gyro_y_bias, gyro_y_bias_t1, gyro_y_bias_t2, gyro_y_bias_t3, gyro_y_sfe);
+    printf("Gyroscope r    : (RAW - (%7.4f) - (%9.6f) * t - (%11.8f) * t^2 - (%13.10f) * t^3) / %7.4f\n", gyro_z_bias, gyro_z_bias_t1, gyro_z_bias_t2, gyro_z_bias_t3, gyro_z_sfe);
+    printf("Accelerometer x: (RAW - (%7.4f) - (%9.6f) * t - (%11.8f) * t^2 - (%13.10f) * t^3) / %7.4f\n", accel_x_bias, accel_x_bias_t1, accel_x_bias_t2, accel_x_bias_t3, accel_x_sfe);
+    printf("Accelerometer y: (RAW - (%7.4f) - (%9.6f) * t - (%11.8f) * t^2 - (%13.10f) * t^3) / %7.4f\n", accel_y_bias, accel_y_bias_t1, accel_y_bias_t2, accel_y_bias_t3, accel_y_sfe);
+    printf("Accelerometer z: (RAW - (%7.4f) - (%9.6f) * t - (%11.8f) * t^2 - (%13.10f) * t^3) / %7.4f\n", accel_z_bias, accel_z_bias_t1, accel_z_bias_t2, accel_z_bias_t3, accel_z_sfe);
   }else{
-    printf("Unable to read /factory/Thermal_IMU_bias.fact.csv\n");
+    printf("ERROR: Unable to read /factory/Thermal_IMU_bias.fact.csv\n");
   }
 }
 
@@ -281,26 +276,22 @@ void imu_scale_gyro(struct Imu *_imu)
     float temp2 = temp1 * imu_bebop.mpu.temp;
     float temp3 = temp2 * imu_bebop.mpu.temp;
 
-    float gyro_TC_bias_x = gyro_x_bias + temp1 * gyro_x_bias_t1 + temp2 * gyro_x_bias_t2 + temp3 * gyro_x_bias_t3;
-    float gyro_TC_bias_y = gyro_y_bias + temp1 * gyro_y_bias_t1 + temp2 * gyro_y_bias_t2 + temp3 * gyro_y_bias_t3;
-    float gyro_TC_bias_z = gyro_z_bias + temp1 * gyro_z_bias_t1 + temp2 * gyro_z_bias_t2 + temp3 * gyro_z_bias_t3;
+    int32_t gyro_TC_bias_x = (int32_t) round(RATE_BFP_OF_REAL(gyro_x_bias + temp1 * gyro_x_bias_t1 + temp2 * gyro_x_bias_t2 + temp3 * gyro_x_bias_t3) * IMU_GYRO_P_SIGN * IMU_GYRO_P_SENS_DEN / ((float) IMU_GYRO_P_SENS_NUM));
+    int32_t gyro_TC_bias_y = (int32_t) round(RATE_BFP_OF_REAL(gyro_y_bias + temp1 * gyro_y_bias_t1 + temp2 * gyro_y_bias_t2 + temp3 * gyro_y_bias_t3) * IMU_GYRO_Q_SIGN * IMU_GYRO_Q_SENS_DEN / ((float) IMU_GYRO_Q_SENS_NUM));
+    int32_t gyro_TC_bias_z = (int32_t) round(RATE_BFP_OF_REAL(gyro_z_bias + temp1 * gyro_z_bias_t1 + temp2 * gyro_z_bias_t2 + temp3 * gyro_z_bias_t3) * IMU_GYRO_R_SIGN * IMU_GYRO_R_SENS_DEN / ((float) IMU_GYRO_R_SENS_NUM));
 
-    _imu->gyro_neutral.p = (int32_t) round(RATE_BFP_OF_REAL(gyro_TC_bias_x) * IMU_GYRO_P_SIGN * IMU_GYRO_P_SENS_DEN / ((float) IMU_GYRO_P_SENS_NUM));
-    _imu->gyro_neutral.q = (int32_t) round(RATE_BFP_OF_REAL(gyro_TC_bias_y) * IMU_GYRO_Q_SIGN * IMU_GYRO_Q_SENS_DEN / ((float) IMU_GYRO_Q_SENS_NUM));
-    _imu->gyro_neutral.r = (int32_t) round(RATE_BFP_OF_REAL(gyro_TC_bias_z) * IMU_GYRO_R_SIGN * IMU_GYRO_R_SENS_DEN / ((float) IMU_GYRO_R_SENS_NUM));
-
-    _imu->gyro.p = ((_imu->gyro_unscaled.p - _imu->gyro_neutral.p) * IMU_GYRO_P_SIGN *
+    _imu->gyro.p = ((_imu->gyro_unscaled.p - _imu->gyro_neutral.p - gyro_TC_bias_x) * IMU_GYRO_P_SIGN *
         IMU_GYRO_P_SENS_NUM) / IMU_GYRO_P_SENS_DEN / gyro_x_sfe;
-    _imu->gyro.q = ((_imu->gyro_unscaled.q - _imu->gyro_neutral.q) * IMU_GYRO_Q_SIGN *
+    _imu->gyro.q = ((_imu->gyro_unscaled.q - _imu->gyro_neutral.q - gyro_TC_bias_y) * IMU_GYRO_Q_SIGN *
         IMU_GYRO_Q_SENS_NUM) / IMU_GYRO_Q_SENS_DEN / gyro_y_sfe;
-    _imu->gyro.r = ((_imu->gyro_unscaled.r - _imu->gyro_neutral.r) * IMU_GYRO_R_SIGN *
+    _imu->gyro.r = ((_imu->gyro_unscaled.r - _imu->gyro_neutral.r - gyro_TC_bias_z) * IMU_GYRO_R_SIGN *
         IMU_GYRO_R_SENS_NUM) / IMU_GYRO_R_SENS_DEN / gyro_z_sfe;
   }else{
-    _imu->gyro.p = ((_imu->gyro_unscaled.p) * IMU_GYRO_P_SIGN *
+    _imu->gyro.p = ((_imu->gyro_unscaled.p - _imu->gyro_neutral.p) * IMU_GYRO_P_SIGN *
         IMU_GYRO_P_SENS_NUM) / IMU_GYRO_P_SENS_DEN;
-    _imu->gyro.q = ((_imu->gyro_unscaled.q) * IMU_GYRO_Q_SIGN *
+    _imu->gyro.q = ((_imu->gyro_unscaled.q - _imu->gyro_neutral.q) * IMU_GYRO_Q_SIGN *
         IMU_GYRO_Q_SENS_NUM) / IMU_GYRO_Q_SENS_DEN;
-    _imu->gyro.r = ((_imu->gyro_unscaled.r) * IMU_GYRO_R_SIGN *
+    _imu->gyro.r = ((_imu->gyro_unscaled.r - _imu->gyro_neutral.r) * IMU_GYRO_R_SIGN *
         IMU_GYRO_R_SENS_NUM) / IMU_GYRO_R_SENS_DEN;
   }
 }
@@ -313,26 +304,22 @@ void imu_scale_accel(struct Imu *_imu)
     float temp2 = temp1 * imu_bebop.mpu.temp;
     float temp3 = temp2 * imu_bebop.mpu.temp;
 
-    float accel_TC_bias_x = accel_x_bias + temp1 * accel_x_bias_t1 + temp2 * accel_x_bias_t2 + temp3 * accel_x_bias_t3;
-    float accel_TC_bias_y = accel_y_bias + temp1 * accel_y_bias_t1 + temp2 * accel_y_bias_t2 + temp3 * accel_y_bias_t3;
-    float accel_TC_bias_z = accel_z_bias + temp1 * accel_z_bias_t1 + temp2 * accel_z_bias_t2 + temp3 * accel_z_bias_t3;
+    int32_t accel_TC_bias_x = (int32_t) round(ACCEL_BFP_OF_REAL(accel_x_bias + temp1 * accel_x_bias_t1 + temp2 * accel_x_bias_t2 + temp3 * accel_x_bias_t3) * IMU_ACCEL_X_SIGN * IMU_ACCEL_X_SENS_DEN / ((float) IMU_ACCEL_X_SENS_NUM));
+    int32_t accel_TC_bias_y = (int32_t) round(ACCEL_BFP_OF_REAL(accel_y_bias + temp1 * accel_y_bias_t1 + temp2 * accel_y_bias_t2 + temp3 * accel_y_bias_t3) * IMU_ACCEL_Y_SIGN * IMU_ACCEL_Y_SENS_DEN / ((float) IMU_ACCEL_Y_SENS_NUM));
+    int32_t accel_TC_bias_z = (int32_t) round(ACCEL_BFP_OF_REAL(accel_z_bias + temp1 * accel_z_bias_t1 + temp2 * accel_z_bias_t2 + temp3 * accel_z_bias_t3) * IMU_ACCEL_Z_SIGN * IMU_ACCEL_Z_SENS_DEN / ((float) IMU_ACCEL_Z_SENS_NUM));
 
-    _imu->accel_neutral.x = (int32_t) round(ACCEL_BFP_OF_REAL(accel_TC_bias_x) * IMU_ACCEL_X_SIGN * IMU_ACCEL_X_SENS_DEN / ((float) IMU_ACCEL_X_SENS_NUM));
-    _imu->accel_neutral.y = (int32_t) round(ACCEL_BFP_OF_REAL(accel_TC_bias_y) * IMU_ACCEL_Y_SIGN * IMU_ACCEL_Y_SENS_DEN / ((float) IMU_ACCEL_Y_SENS_NUM));
-    _imu->accel_neutral.z = (int32_t) round(ACCEL_BFP_OF_REAL(accel_TC_bias_z) * IMU_ACCEL_Z_SIGN * IMU_ACCEL_Z_SENS_DEN / ((float) IMU_ACCEL_Z_SENS_NUM));
-
-    _imu->accel.x = ((_imu->accel_unscaled.x - _imu->accel_neutral.x) * IMU_ACCEL_X_SIGN *
+    _imu->accel.x = ((_imu->accel_unscaled.x - _imu->accel_neutral.x - accel_TC_bias_x) * IMU_ACCEL_X_SIGN *
         IMU_ACCEL_X_SENS_NUM) / IMU_ACCEL_X_SENS_DEN / accel_x_sfe;
-    _imu->accel.y = ((_imu->accel_unscaled.y - _imu->accel_neutral.y) * IMU_ACCEL_Y_SIGN *
+    _imu->accel.y = ((_imu->accel_unscaled.y - _imu->accel_neutral.y - accel_TC_bias_y) * IMU_ACCEL_Y_SIGN *
         IMU_ACCEL_Y_SENS_NUM) / IMU_ACCEL_Y_SENS_DEN / accel_y_sfe;
-    _imu->accel.z = ((_imu->accel_unscaled.z - _imu->accel_neutral.z) * IMU_ACCEL_Z_SIGN *
+    _imu->accel.z = ((_imu->accel_unscaled.z - _imu->accel_neutral.z - accel_TC_bias_z) * IMU_ACCEL_Z_SIGN *
         IMU_ACCEL_Z_SENS_NUM) / IMU_ACCEL_Z_SENS_DEN / accel_z_sfe;
   }else{
-    _imu->accel.x = ((_imu->accel_unscaled.x) * IMU_ACCEL_X_SIGN *
+    _imu->accel.x = ((_imu->accel_unscaled.x - _imu->accel_neutral.x) * IMU_ACCEL_X_SIGN *
         IMU_ACCEL_X_SENS_NUM) / IMU_ACCEL_X_SENS_DEN;
-    _imu->accel.y = ((_imu->accel_unscaled.y) * IMU_ACCEL_Y_SIGN *
+    _imu->accel.y = ((_imu->accel_unscaled.y - _imu->accel_neutral.y) * IMU_ACCEL_Y_SIGN *
         IMU_ACCEL_Y_SENS_NUM) / IMU_ACCEL_Y_SENS_DEN;
-    _imu->accel.z = ((_imu->accel_unscaled.z) * IMU_ACCEL_Z_SIGN *
+    _imu->accel.z = ((_imu->accel_unscaled.z - _imu->accel_neutral.z) * IMU_ACCEL_Z_SIGN *
         IMU_ACCEL_Z_SENS_NUM) / IMU_ACCEL_Z_SENS_DEN;
   }
 

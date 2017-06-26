@@ -134,6 +134,7 @@ static void gyro_cb(uint8_t sender_id __attribute__((unused)),
 
   if (last_stamp > 0) {
     float dt = (float)(stamp - last_stamp) * 1e-6;
+    printf("dt: %0.5f  (%0.2f)\n", dt, 1/dt);
     ins_float_invariant_propagate(&gyro_f, &ins_finv_accel, dt);
   }
   last_stamp = stamp;
