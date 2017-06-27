@@ -115,6 +115,11 @@ PRINT_CONFIG_VAR(CV_AE_AWB_GAIN_SCHEDULING_MARGIN)
 #define CV_AE_AWB_GAIN 1.0
 #endif
 
+#ifndef CV_AE_AWB_MIN_GREY_PIXELS
+#define CV_AE_AWB_MIN_GREY_PIXELS 1000
+#endif
+PRINT_CONFIG_VAR(CV_AE_AWB_MIN_GREY_PIXELS)
+
 float   ae_exposure_gain = CV_AE_EXPOSURE_GAIN;
 float   ae_bright_ignore = CV_AE_BRIGHT_IGNORE;
 float   ae_dark_ignore   = CV_AE_DARK_IGNORE;
@@ -225,14 +230,14 @@ struct image_t *cv_ae_awb_periodic(struct image_t *img)
     // so:
     // gain_blue *= |Y| / (|Y| + |U|)  --> ^0.25 in order to make less agressive updates
     // gain_red  *= |Y| / (|Y| + |V|)  --> ^0.25 in order to make less agressive updates
-    float blue_adj = (((float) (yuv_stats.awb_sum_Y)) / ((float)(yuv_stats.awb_sum_Y + yuv_stats.awb_sum_U - (129) *
+    float blue_adj = (((float) (yuv_stats.awb_sum_Y)) / ((float)(yuv_stats.awb_sum_Y + yuv_stats.awb_sum_U - (128.0) *
         yuv_stats.awb_nb_grey_pixels)) - 1);
     mt9f002.gain_blue *= 1 + ae_awb_gain * blue_adj;
     if(mt9f002.gain_blue < mt9f002.gain_green1){
       mt9f002.gain_blue = mt9f002.gain_green1;
     }
 
-    float red_adj = (((float) (yuv_stats.awb_sum_Y)) / ((float)(yuv_stats.awb_sum_Y + yuv_stats.awb_sum_V - (129) *
+    float red_adj = (((float) (yuv_stats.awb_sum_Y)) / ((float)(yuv_stats.awb_sum_Y + yuv_stats.awb_sum_V - (128.0) *
         yuv_stats.awb_nb_grey_pixels)) - 1);
     mt9f002.gain_red *= 1 + ae_awb_gain * red_adj;
     if(mt9f002.gain_red < mt9f002.gain_green1){
@@ -276,7 +281,8 @@ struct image_t *cv_ae_awb_periodic(struct image_t *img)
       gs_gains_minned = TRUE;
     }
     if((mt9f002.gain_blue > 4 * mt9f002.gain_red || mt9f002.gain_blue > 4 * mt9f002.gain_green1) ||
-       (mt9f002.gain_red > 4 * mt9f002.gain_blue || mt9f002.gain_red > 4 * mt9f002.gain_green1)){
+       (mt9f002.gain_red > 4 * mt9f002.gain_blue || mt9f002.gain_red > 4 * mt9f002.gain_green1) ||
+       yuv_stats.awb_nb_grey_pixels < CV_AE_AWB_MIN_GREY_PIXELS){
       cv_awb_reset();
     }else{
       // Set gains

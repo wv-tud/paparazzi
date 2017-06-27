@@ -276,13 +276,14 @@ void imu_scale_gyro(struct Imu *_imu)
 {
   RATES_COPY(_imu->gyro_prev, _imu->gyro);
   if(imu_bebop_factory_calib){
-    float temp1 = imu_bebop_filtered_temperature;
-    float temp2 = temp1 * imu_bebop.mpu.temp;
-    float temp3 = temp2 * imu_bebop.mpu.temp;
-
-    int32_t gyro_TC_bias_x = (int32_t) round(RATE_BFP_OF_REAL(gyro_x_bias + temp1 * gyro_x_bias_t1 + temp2 * gyro_x_bias_t2 + temp3 * gyro_x_bias_t3) * IMU_GYRO_P_SIGN * IMU_GYRO_P_SENS_DEN / ((float) IMU_GYRO_P_SENS_NUM));
-    int32_t gyro_TC_bias_y = (int32_t) round(RATE_BFP_OF_REAL(gyro_y_bias + temp1 * gyro_y_bias_t1 + temp2 * gyro_y_bias_t2 + temp3 * gyro_y_bias_t3) * IMU_GYRO_Q_SIGN * IMU_GYRO_Q_SENS_DEN / ((float) IMU_GYRO_Q_SENS_NUM));
-    int32_t gyro_TC_bias_z = (int32_t) round(RATE_BFP_OF_REAL(gyro_z_bias + temp1 * gyro_z_bias_t1 + temp2 * gyro_z_bias_t2 + temp3 * gyro_z_bias_t3) * IMU_GYRO_R_SIGN * IMU_GYRO_R_SENS_DEN / ((float) IMU_GYRO_R_SENS_NUM));
+    float temp2 = imu_bebop_filtered_temperature * imu_bebop_filtered_temperature;
+    float temp3 = temp2 * imu_bebop_filtered_temperature;
+    int32_t gyro_TC_bias_x = (int32_t) round(RATE_BFP_OF_REAL(gyro_x_bias + imu_bebop_filtered_temperature * gyro_x_bias_t1 + temp2 * gyro_x_bias_t2 + temp3 * gyro_x_bias_t3) * IMU_GYRO_P_SIGN *
+        IMU_GYRO_P_SENS_DEN / ((float) IMU_GYRO_P_SENS_NUM));
+    int32_t gyro_TC_bias_y = (int32_t) round(RATE_BFP_OF_REAL(gyro_y_bias + imu_bebop_filtered_temperature * gyro_y_bias_t1 + temp2 * gyro_y_bias_t2 + temp3 * gyro_y_bias_t3) * IMU_GYRO_Q_SIGN *
+        IMU_GYRO_Q_SENS_DEN / ((float) IMU_GYRO_Q_SENS_NUM));
+    int32_t gyro_TC_bias_z = (int32_t) round(RATE_BFP_OF_REAL(gyro_z_bias + imu_bebop_filtered_temperature * gyro_z_bias_t1 + temp2 * gyro_z_bias_t2 + temp3 * gyro_z_bias_t3) * IMU_GYRO_R_SIGN *
+        IMU_GYRO_R_SENS_DEN / ((float) IMU_GYRO_R_SENS_NUM));
 
     _imu->gyro.p = ((_imu->gyro_unscaled.p - _imu->gyro_neutral.p - gyro_TC_bias_x) * IMU_GYRO_P_SIGN *
         IMU_GYRO_P_SENS_NUM) / IMU_GYRO_P_SENS_DEN / gyro_x_sfe;
@@ -304,13 +305,14 @@ void imu_scale_accel(struct Imu *_imu)
 {
   VECT3_COPY(_imu->accel_prev, _imu->accel);
   if(imu_bebop_factory_calib){
-    float temp1 = imu_bebop_filtered_temperature;
-    float temp2 = temp1 * imu_bebop.mpu.temp;
-    float temp3 = temp2 * imu_bebop.mpu.temp;
-
-    int32_t accel_TC_bias_x = (int32_t) round(ACCEL_BFP_OF_REAL(accel_x_bias + temp1 * accel_x_bias_t1 + temp2 * accel_x_bias_t2 + temp3 * accel_x_bias_t3) * IMU_ACCEL_X_SIGN * IMU_ACCEL_X_SENS_DEN / ((float) IMU_ACCEL_X_SENS_NUM));
-    int32_t accel_TC_bias_y = (int32_t) round(ACCEL_BFP_OF_REAL(accel_y_bias + temp1 * accel_y_bias_t1 + temp2 * accel_y_bias_t2 + temp3 * accel_y_bias_t3) * IMU_ACCEL_Y_SIGN * IMU_ACCEL_Y_SENS_DEN / ((float) IMU_ACCEL_Y_SENS_NUM));
-    int32_t accel_TC_bias_z = (int32_t) round(ACCEL_BFP_OF_REAL(accel_z_bias + temp1 * accel_z_bias_t1 + temp2 * accel_z_bias_t2 + temp3 * accel_z_bias_t3) * IMU_ACCEL_Z_SIGN * IMU_ACCEL_Z_SENS_DEN / ((float) IMU_ACCEL_Z_SENS_NUM));
+    float temp2 = imu_bebop_filtered_temperature * imu_bebop_filtered_temperature;
+    float temp3 = temp2 * imu_bebop_filtered_temperature;
+    int32_t accel_TC_bias_x = (int32_t) round(ACCEL_BFP_OF_REAL(accel_x_bias + imu_bebop_filtered_temperature * accel_x_bias_t1 + temp2 * accel_x_bias_t2 + temp3 * accel_x_bias_t3) * IMU_ACCEL_X_SIGN *
+        IMU_ACCEL_X_SENS_DEN / ((float) IMU_ACCEL_X_SENS_NUM));
+    int32_t accel_TC_bias_y = (int32_t) round(ACCEL_BFP_OF_REAL(accel_y_bias + imu_bebop_filtered_temperature * accel_y_bias_t1 + temp2 * accel_y_bias_t2 + temp3 * accel_y_bias_t3) * IMU_ACCEL_Y_SIGN *
+        IMU_ACCEL_Y_SENS_DEN / ((float) IMU_ACCEL_Y_SENS_NUM));
+    int32_t accel_TC_bias_z = (int32_t) round(ACCEL_BFP_OF_REAL(accel_z_bias + imu_bebop_filtered_temperature * accel_z_bias_t1 + temp2 * accel_z_bias_t2 + temp3 * accel_z_bias_t3) * IMU_ACCEL_Z_SIGN *
+        IMU_ACCEL_Z_SENS_DEN / ((float) IMU_ACCEL_Z_SENS_NUM));
 
     _imu->accel.x = ((_imu->accel_unscaled.x - _imu->accel_neutral.x - accel_TC_bias_x) * IMU_ACCEL_X_SIGN *
         IMU_ACCEL_X_SENS_NUM) / IMU_ACCEL_X_SENS_DEN / accel_x_sfe;

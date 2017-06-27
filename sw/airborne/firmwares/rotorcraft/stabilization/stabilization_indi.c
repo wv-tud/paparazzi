@@ -162,9 +162,18 @@ Butterworth2LowPass acceleration_lowpass_filter;
 
 struct FloatVect3 body_accel_f;
 
-uint8_t stab_indi_window_p = 1;
-uint8_t stab_indi_window_q = 1;
-uint8_t stab_indi_window_r = 1;
+#ifndef STABILIZATION_INDI_P_FILT_COEF
+#define STABILIZATION_INDI_P_FILT_COEF 1
+#endif
+#ifndef STABILIZATION_INDI_Q_FILT_COEF
+#define STABILIZATION_INDI_Q_FILT_COEF 1
+#endif
+#ifndef STABILIZATION_INDI_R_FILT_COEF
+#define STABILIZATION_INDI_R_FILT_COEF 1
+#endif
+uint8_t stab_indi_coef_p = STABILIZATION_INDI_P_FILT_COEF;
+uint8_t stab_indi_coef_q = STABILIZATION_INDI_Q_FILT_COEF;
+uint8_t stab_indi_coef_r = STABILIZATION_INDI_R_FILT_COEF;
 
 void init_filters(void);
 
@@ -352,13 +361,28 @@ static void stabilization_indi_calc_cmd(struct Int32Quat *att_err, bool rate_con
     /*BoundAbs(rate_ref.r, 5.0);*/
   }
 
+#if !STABILIZATION_INDI_FILTER_ROLL_RATE || !STABILIZATION_INDI_FILTER_PITCH_RATE || !STABILIZATION_INDI_FILTER_YAW_RATE
   struct FloatRates *body_rates = stateGetBodyRates_f();
+#endif
   static float p_filt = 0.0;
   static float q_filt = 0.0;
   static float r_filt = 0.0;
-  p_filt = (p_filt*(stab_indi_window_p - 1) + body_rates->p)/((float) stab_indi_window_p);
-  q_filt = (q_filt*(stab_indi_window_q - 1) + body_rates->q)/((float) stab_indi_window_q);
-  r_filt = (r_filt*(stab_indi_window_r - 1) + body_rates->r)/((float) stab_indi_window_r);
+
+#if STABILIZATION_INDI_FILTER_ROLL_RATE
+  p_filt = measurement_lowpass_filters[0].o[0];
+#else
+  p_filt = (p_filt*(stab_indi_coef_p - 1) + body_rates->p)/((float) stab_indi_coef_p);
+#endif
+#if STABILIZATION_INDI_FILTER_PITCH_RATE
+  q_filt = measurement_lowpass_filters[1].o[0];
+#else
+  q_filt = (q_filt*(stab_indi_coef_q - 1) + body_rates->q)/((float) stab_indi_coef_q);
+#endif
+#if STABILIZATION_INDI_FILTER_YAW_RATE
+  r_filt = measurement_lowpass_filters[2].o[0];
+#else
+  r_filt = (r_filt*(stab_indi_coef_r - 1) + body_rates->r)/((float) stab_indi_coef_r);
+#endif
 
   //calculate the virtual control (reference acceleration) based on a PD controller
   angular_accel_ref.p = (rate_ref.p - p_filt) * reference_acceleration.rate_p;

@@ -131,7 +131,9 @@
       <set var="ins_float_inv.gains.ob" value="INS_INV_OB"/>  	<!--  Mag is being calibrated independantly from AHRS so keep MAG bias weight -->
 	  <!--  Rotate -->
 	  <call_once fun="mag_calib_rotate_toggle( true )"/> 		<!--  Start rotating around body z-axis -->
-      <stay wp="STDBY" until="stage_time > 2"/> 				<!--  Stay rotating at STDBY for 2 seconds -->
+	  
+      <stay wp="STDBY" until="stage_time > 2 || !mag_calib_get_rotate_status()"/>  <!--  Stay rotating at STDBY for 2 seconds -->
+      
       <call_once fun="mag_calib_rotate_toggle( false )"/> 		<!--  Stop rotating around body z-axis -->
       <set var="mag_calib_ukf_update_filter" value="false"/> 	<!--  Disable UKF updates -->
       
@@ -141,7 +143,9 @@
       <set var="ins_float_inv.gains.lb" value="0.0"/> 			<!--  Mag is now switching to calibrate based on AHRAS so decrease MAG correction weight (MAG should be calibrated based on gyros) -->
       <set var="ins_float_inv.gains.ob" value="0.0"/> 			<!--  Mag is now switching to calibrate based on AHRAS so decrease MAG bias weight (MAG should be calibrated based on gyros) -->
       <set var="mag_calib_ukf_full_3x3" value="true"/> 			<!--  Enable AHRS feedback -->
-      <stay wp="STDBY" until="stage_time > 2"/> 				<!--  Stay rotating at STDBY for 2 seconds -->
+      
+      <stay wp="STDBY" until="stage_time > 2 || !mag_calib_get_rotate_status()"/>  <!--  Stay rotating at STDBY for 2 seconds -->
+      
       <call_once fun="mag_calib_rotate_toggle( false )"/> 		<!--  Stop rotating around body z-axis -->
       <!--  Set calibration settings for normal flight -->
       <set var="ins_float_inv.gains.lb" value="INS_INV_LB"/> 	<!--  Restore MAG correction weight -->

@@ -32,6 +32,7 @@
 // Own header
 #include "modules/computer_vision/viewvideo.h"
 #include "modules/computer_vision/cv.h"
+#include "generated/airframe.h"
 
 #if defined BOARD_BEBOP && !defined USE_H264
 #define USE_H264 FALSE
@@ -454,18 +455,18 @@ void viewvideo_start_recording( void ){
   timer = time(NULL);
   tm_info = localtime(&timer);
   strftime(date_buffer, 26, "%Y_%m_%d__%H_%M_%S", tm_info);
-  sprintf(video_name, "%s/%s_%s_%05d.h264", STRINGIFY(VIEWVIDEO_SHOT_PATH), STRINGIFY(VIEWVIDEO_VIDEO_FILE), date_buffer, counter);
+  sprintf(video_name, "%s/%s_%s_%s_%05d.h264", STRINGIFY(VIEWVIDEO_SHOT_PATH), AIRFRAME_NAME, STRINGIFY(VIEWVIDEO_VIDEO_FILE), date_buffer, counter);
   while ((video_file = fopen(video_name, "r"))) {
     fclose(video_file);
     counter++;
-    sprintf(video_name, "%s/%s_%s_%05d.h264", STRINGIFY(VIEWVIDEO_SHOT_PATH), STRINGIFY(VIEWVIDEO_VIDEO_FILE), date_buffer, counter);
+    sprintf(video_name, "%s/%s_%s_%s_%05d.h264", STRINGIFY(VIEWVIDEO_SHOT_PATH), AIRFRAME_NAME, STRINGIFY(VIEWVIDEO_VIDEO_FILE), date_buffer, counter);
   }
 #else
-  sprintf(video_name, "%s/%s.h264", STRINGIFY(VIEWVIDEO_SHOT_PATH), STRINGIFY(VIEWVIDEO_VIDEO_FILE));
+  sprintf(video_name, "%s/%s_%s.h264", STRINGIFY(VIEWVIDEO_SHOT_PATH), AIRFRAME_NAME, STRINGIFY(VIEWVIDEO_VIDEO_FILE));
   while ((video_file = fopen(video_name, "r"))) {
     fclose(video_file);
     counter++;
-    sprintf(video_name, "%s/%s_%05d.h264", STRINGIFY(VIEWVIDEO_SHOT_PATH), STRINGIFY(VIEWVIDEO_VIDEO_FILE), counter);
+    sprintf(video_name, "%s/%s_%s_%05d.h264", STRINGIFY(VIEWVIDEO_SHOT_PATH), AIRFRAME_NAME, STRINGIFY(VIEWVIDEO_VIDEO_FILE), counter);
   }
 #endif
     int tries       = 0;

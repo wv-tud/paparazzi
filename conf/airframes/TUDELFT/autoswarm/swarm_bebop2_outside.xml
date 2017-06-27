@@ -22,6 +22,7 @@
 		<configure name="USE_SONAR" value="TRUE" />
 		<configure name="USE_MAGNETOMETER" value="TRUE" />
 		<define name="USE_GPS_UBX_RTCM" value="TRUE" />
+		<define name="GPS_UBX_ENABLE_NMEA" value="FALSE" />
 		<!--  Navigation -->
 		<define name="ARRIVED_AT_WAYPOINT" value="0.75" unit="meters"/> 
 		<define name="NAV_ALTITUDE_DIFF" value="0.05" unit="meters"/>
@@ -103,24 +104,22 @@
 		<module name="video_thread" />
 		<module name="cv_image_pose" />
 		<module name="cv_ae_awb">
-			<define name="CV_AE_AWB_VERBOSE" value="FALSE" />
 			<define name="CV_AE_MIDDLE_INDEX" value="90" />
-			<define name="CV_AE_EXPOSURE_GAIN" value="0.15" />
+			<define name="CV_AE_EXPOSURE_GAIN" value="0.075" />
 			<define name="CV_AE_DARK_IGNORE" value="0.45" />
 			<define name="CV_AE_BRIGHT_IGNORE" value="0.45" />
 			<define name="CV_AE_DARK_BINS" value="15" />
 			<define name="CV_AE_BRIGHT_BINS" value="15" />
 			<define name="CV_AE_AWB_GAIN_SCHEDULING" value="0" />
-			<define name="CV_AE_AWB_OFFSET_U" value="0" />
-			<define name="CV_AE_AWB_OFFSET_V" value="0" />
-			<define name="CV_AE_AWB_GAIN" value="1.00" />
+			<define name="CV_AE_AWB_GAIN" value="0.25" />
+			<define name="CV_AE_AWB_MIN_GREY_PIXELS" value="50000"/>
 		</module>
 		<module name="cv_bebop_camera_stabilization" />
 		<module name="cv_active_random_filter" />
 		<module name="cv_frame_plotter" />
 		<module name="video_rtp_stream">
 			<configure name="VIEWVIDEO_BROADCAST" value="FALSE" />
-			<define name="VIEWVIDEO_STREAM" value="false" />
+			<define name="VIEWVIDEO_STREAM" value="TRUE" />
 			<define name="VIEWVIDEO_CAMERA" value="front_camera" />
 			<define name="VIEWVIDEO_SHOT_PATH" value="/data/ftp/internal_000" />
 			<define name="VIEWVIDEO_FPS" value="18" />
@@ -246,10 +245,14 @@
 		<define name="G1_THRUST" value="{-0.561, 	-0.507, 	-0.566, 	-0.554}" />
 		<define name="G2" value="{112.015, 	-131.258, 	154.486, 	-66.862}" />
 
-		<!-- For the bebop2 we need to filter the roll rate due to the dampers -->
+		<!-- Enable either these for butterworth filter -->
 		<define name="FILTER_ROLL_RATE" value="FALSE" />
 		<define name="FILTER_PITCH_RATE" value="FALSE" />
 		<define name="FILTER_YAW_RATE" value="FALSE" />
+		<!--  Or else use these for first order filter (coef = 1 disables first order filter) -->
+		<define name="P_FILT_COEF" value="6"/>
+		<define name="Q_FILT_COEF" value="6"/>
+		<define name="R_FILT_COEF" value="6"/>
 
 		<!-- reference acceleration for attitude control -->
 		<define name="REF_ERR_P" value="600.0" />

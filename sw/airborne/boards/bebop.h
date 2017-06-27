@@ -132,7 +132,14 @@
 
 /** uart connected to GPS internally */
 #define UART1_DEV /dev/ttyPA1
+
+/** Parrot Freeflight app uses NMEA */
+#if !defined GPS_UBX_ENABLE_NMEA || GPS_UBX_ENABLE_NMEA
 #define GPS_UBX_ENABLE_NMEA_DATA_MASK 0xff
+#else
+#define GPS_UBX_ENABLE_NMEA_DATA_MASK 0x00
+#endif
+
 /** FTDI cable for stereoboard or external GPS */
 #define UART2_DEV /dev/ttyUSB0
 

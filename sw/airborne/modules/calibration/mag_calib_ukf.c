@@ -366,13 +366,34 @@ void mag_calib_rotate_toggle( bool rotate ){
     mag_calib_ukf_rotating = 1;
   }else{
     mag_calib_ukf_rotating = 0;
+    mag_calib_ukf_calibration_rotation_speed *= -1;
   }
 }
 
+bool mag_calib_get_rotate_status( void ){
+  return mag_calib_ukf_rotating;
+}
+
 void mag_calib_rotate( void ){
+  static float start_heading = 0.0;
+  static bool started_rotating = false;
+  struct FloatEulers *e = stateGetNedToBodyEulers_f();
   if(mag_calib_ukf_rotating){
-    struct FloatEulers *e = stateGetNedToBodyEulers_f();
-    nav_set_heading_rad(e->psi + RadOfDeg(mag_calib_ukf_calibration_rotation_speed));
+    float angle_diff = fabs(e->psi - start_heading);
+    angle_diff = fmin(angle_diff, fabs(angle_diff - 2 * M_PI));
+    if(started_rotating && angle_diff < fabs(mag_calib_ukf_calibration_rotation_speed)){
+      mag_calib_ukf_rotating = false;
+      started_rotating = false;
+      nav_set_heading_rad(start_heading);
+    }else{
+      nav_set_heading_rad(e->psi + RadOfDeg(mag_calib_ukf_calibration_rotation_speed));
+      if(angle_diff > fmin(100.0, 1.5 * fabs(mag_calib_ukf_calibration_rotation_speed))){
+        started_rotating = true;
+      }
+    }
+  }else{
+    start_heading = e->psi;
+    started_rotating = false;
   }
 }
 

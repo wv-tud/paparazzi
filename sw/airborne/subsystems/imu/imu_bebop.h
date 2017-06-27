@@ -35,11 +35,11 @@
 #include "peripherals/mpu60x0_i2c.h"
 
 #ifndef BEBOP_GYRO_RANGE
-#define BEBOP_GYRO_RANGE MPU60X0_GYRO_RANGE_2000
+#define BEBOP_GYRO_RANGE MPU60X0_GYRO_RANGE_1000
 #endif
 
 #ifndef BEBOP_ACCEL_RANGE
-#define BEBOP_ACCEL_RANGE MPU60X0_ACCEL_RANGE_16G
+#define BEBOP_ACCEL_RANGE MPU60X0_ACCEL_RANGE_8G
 #endif
 
 // Set default sensitivity based on range if needed

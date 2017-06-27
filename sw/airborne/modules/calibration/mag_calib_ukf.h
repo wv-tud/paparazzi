@@ -63,5 +63,6 @@ void mag_calib_hotstart_read(void);
 void mag_calib_send_state(void);
 void mag_calib_rotate_toggle( bool rotate );
 void mag_calib_rotate( void );
+bool mag_calib_get_rotate_status( void );
 
 #endif
