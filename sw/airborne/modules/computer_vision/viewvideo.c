@@ -68,6 +68,7 @@ PRINT_CONFIG_VAR(USE_OPENGL)
 #include "lib/encoding/jpeg.h"
 #include "lib/encoding/rtp.h"
 #include "udp_socket.h"
+#include "generated/airframe.h"
 
 #if USE_OPENGL
 #include "modules/computer_vision/lib/opengl/opengl.h"
@@ -160,10 +161,6 @@ PRINT_CONFIG_VAR(VIEWVIDEO_USE_RTP)
 
 #if VIEWVIDEO_DATETIME_NAME
 #include <time.h>
-#endif
-
-#ifndef VIEWVIDEO_STREAM_VIDEO
-#define VIEWVIDEO_STREAM_VIDEO 1
 #endif
 
 #define printf_debug    if(VIEWVIDEO_VERBOSE > 0) printf
@@ -274,6 +271,12 @@ static struct image_t *viewvideo_function_h264(struct UdpSocket *socket, struct 
   int32_t h264BufferIndex, size;
   uint8_t* h264Buffer;
   struct image_t releaseImg;
+  if(viewvideo_recording && video_file == NULL){
+    viewvideo_start_recording();
+  }
+  if(!viewvideo_recording && video_file != NULL){
+    viewvideo_stop_recording();
+  }
   if (viewvideo.is_streaming) {
     P7_H264_releaseInputBuffer(&videoEncoder, img->buf_idx);
 
@@ -295,20 +298,12 @@ static struct image_t *viewvideo_function_h264(struct UdpSocket *socket, struct 
       else {
         printf_debug("Got frame of size: %d\r\n", size);
         printf_debug("Byte: %2X %2X %2X %2X %2X\n", h264Buffer[0],h264Buffer[1], h264Buffer[2], h264Buffer[3], h264Buffer[4]);
+#if VIEWVIDEO_STREAM
         rtp_frame_send_h264(socket, h264Buffer, size);
+#endif
 
-        if(viewvideo_recording){
-          if(video_file == NULL){
-            viewvideo_start_recording();
-          }
-          else{
+        if(viewvideo_recording && video_file != NULL){
             fwrite(h264Buffer, size, 1, video_file);
-          }
-        }
-        else{
-          if(video_file != NULL){
-            viewvideo_stop_recording();
-          }
         }
       }
       P7_H264_releaseOutputBuffer(&videoEncoder, h264BufferIndex);
@@ -478,9 +473,13 @@ void viewvideo_start_recording( void ){
     if(video_file == NULL)
     {
         printf("[viewvideo] Failed to create .h264 file.\n");
+        viewvideo_recording = false;
     }
     else{
         viewvideo_recording = true;
+#if !VIEWVIDEO_STREAM
+        viewvideo.is_streaming = true;
+#endif
     }
 }
 
@@ -490,4 +489,7 @@ void viewvideo_stop_recording( void ){
     }
     video_file          = NULL;
     viewvideo_recording = false;
+#if !VIEWVIDEO_STREAM
+        viewvideo.is_streaming = false;
+#endif
 }

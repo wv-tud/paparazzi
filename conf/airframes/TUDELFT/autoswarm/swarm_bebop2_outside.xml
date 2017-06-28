@@ -26,7 +26,7 @@
 		<!--  Navigation -->
 		<define name="ARRIVED_AT_WAYPOINT" value="0.75" unit="meters"/> 
 		<define name="NAV_ALTITUDE_DIFF" value="0.05" unit="meters"/>
-		<define name="CARROT" value="2." unit="s"/>
+		<define name="CARROT" value="0.5" unit="s"/>
 
 		<define name="AHRS_FC_MAG_ID" value="MAG_CALIB_UKF_ID" />
 		<define name="INS_FINV_MAG_ID" value="MAG_CALIB_UKF_ID" />
@@ -79,7 +79,7 @@
 
 		<!-- Invariant INS / AHRS -->
 		 <module name="ins" type="float_invariant">
-			<define name="INS_INV_LB" value="6.0"/>
+			<define name="INS_INV_LB" value="18.0"/>
 			<define name="INS_INV_OB" value="1.0"/>
 		</module>
 	</firmware>
@@ -119,12 +119,12 @@
 		<module name="cv_frame_plotter" />
 		<module name="video_rtp_stream">
 			<configure name="VIEWVIDEO_BROADCAST" value="FALSE" />
-			<define name="VIEWVIDEO_STREAM" value="TRUE" />
+			<define name="VIEWVIDEO_STREAM" value="FALSE" />
 			<define name="VIEWVIDEO_CAMERA" value="front_camera" />
 			<define name="VIEWVIDEO_SHOT_PATH" value="/data/ftp/internal_000" />
 			<define name="VIEWVIDEO_FPS" value="18" />
 			<define name="VIEWVIDEO_VIDEO_FILE" value="outside_experiment" />
-			<define name="VIEWVIDEO_H264_BITRATE" value="1.0" />
+			<define name="VIEWVIDEO_H264_BITRATE" value="4.0" />
 		</module>
 		<!-- File logger -->
 		<module name="logger_file">
@@ -255,12 +255,12 @@
 		<define name="R_FILT_COEF" value="2"/>
 
 		<!-- reference acceleration for attitude control -->
-		<define name="REF_ERR_P" value="600.0" />
-		<define name="REF_ERR_Q" value="600.0" />
-		<define name="REF_ERR_R" value="600.0" />
-		<define name="REF_RATE_P" value="28.0" />
-		<define name="REF_RATE_Q" value="28.0" />
-		<define name="REF_RATE_R" value="28.0" />
+		<define name="REF_ERR_P" value="150.0" />
+		<define name="REF_ERR_Q" value="150.0" />
+		<define name="REF_ERR_R" value="150.0" />
+		<define name="REF_RATE_P" value="7.0" />
+		<define name="REF_RATE_Q" value="7.0" />
+		<define name="REF_RATE_R" value="7.0" />
 
 		<!-- second order filter parameters -->
 		<define name="ESTIMATION_FILT_CUTOFF" value="4.0" />
@@ -275,10 +275,12 @@
 		<define name="ADAPTIVE_MU" value="0.0001" />
 
 		<!--Maxium yaw rate, to avoid instability -->
-		<define name="MAX_R" value="240" unit="deg/s" />
+		<define name="MAX_R" value="180" unit="deg/s" />
 	</section>
 
 	<section name="GUIDANCE_INDI" prefix="GUIDANCE_INDI_">
+		<define name="POS_GAIN" value="1.0" />
+		<define name="SPEED_GAIN" value="0.9" />
 		<define name="SPECIFIC_FORCE_GAIN" value="-400.0" />
 		<define name="THRUST_DYNAMICS" value="0.072" /> <!-- defaults to STABILIZATION_INDI_ACT_DYN_P which is only defined for indi_simple -->
 		<define name="RC_DEBUG" value="FALSE" />
@@ -300,7 +302,7 @@
 	<section name="NAV_RC_SHAKE_THROW" prefix="NAV_RC_SHAKE_THROW_">
 		<define name="GOTO_BLOCK" value="Standby" />
 		<define name="RESET_BLOCK" value="landed" />
-		<define name="DEBUG_NO_FLIGHT" value="FALSE" />
+		<define name="DEBUG_NO_FLIGHT" value="TRUE" />
 		<define name="LAUNCH_REQUIREMENTS"
 			value="GpsFixValid() && autopilot_get_mode() == AP_MODE_NAV" />
 	</section>
@@ -323,7 +325,7 @@
 	</section>
 
 	<section name="GUIDANCE_V" prefix="GUIDANCE_V_">
-		<define name="HOVER_KP" value="550" />
+		<define name="HOVER_KP" value="350" />
 		<define name="HOVER_KD" value="255" />
 		<define name="HOVER_KI" value="160" />
 		<define name="NOMINAL_HOVER_THROTTLE" value="0.655" unit="%" />
@@ -335,8 +337,8 @@
 
 	<section name="GUIDANCE_H" prefix="GUIDANCE_H_">
 		<!-- Good weather 20deg / Bad weather 32 deg -->
-		<define name="MAX_BANK" value="32" unit="deg" />
-		<define name="REF_MAX_SPEED" value="3" unit="m/s" />
+		<define name="MAX_BANK" value="20" unit="deg" />
+		<define name="REF_MAX_SPEED" value="2" unit="m/s" />
 		<define name="PGAIN" value="120" />
 		<define name="DGAIN" value="100" />
 		<define name="IGAIN" value="30" />

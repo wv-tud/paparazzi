@@ -1,7 +1,7 @@
 <!DOCTYPE flight_plan SYSTEM "../../flight_plan.dtd">
 
-<!-- Valkenburg 52.1675803	4.4122477 -->
-<flight_plan alt="2.5" ground_alt="0.0" lat0="52.1675803" lon0="4.4122477" max_dist_from_home="50" name="UKF Magnetometer Calibration test" security_height="1.0">
+<!-- Close field 51.9907199	4.3784707 -->
+<flight_plan alt="2.0" ground_alt="0.0" lat0="51.9907199" lon0="4.3784707" max_dist_from_home="15" name="UKF Magnetometer Calibration test" security_height="1.0">
   <header>	
     #include "autopilot.h"
     #include "subsystems/datalink/datalink.h"
@@ -16,7 +16,7 @@
     <waypoint name="STDBY"  x="0.0" y="0.0"/>
     <waypoint name="_GOAL"  x="0.0" y="0.0"/>
     <waypoint name="_CAM"   x="0.0" y="0.0"/>
-    <waypoint name="GLOBAL" lat="52.1675803" lon="4.4122477"/>
+    <waypoint name="GLOBAL" lat="51.9907199" lon="4.3784707"/>
     <waypoint name="_TD"    x="0.0" y="0.0"/>
     
     <waypoint name="p1"    x="-5" y="-5"/>	
@@ -64,7 +64,7 @@
     	<set var="settings_as_vmax" value="3.0"/>
     	<set var="settings_as_circle_radius" value="4.0"/>
     	<set var="settings_as_e" value="0.06"/> 
-    	<set var="settings_as_separation" value="2.5"/> <!--  2.0m separation -->
+    	<set var="settings_as_separation" value="2.0"/> <!--  2.0m separation -->
     	<set var="settings_as_global_strength" value="1.0"/> <!--  100% global strength -->
     	<call_once fun="setGlobalMode(2)"/> <!--  Bucket global field -->
       <call_once fun="NavKillThrottle()"/>
@@ -72,7 +72,8 @@
     </block>
     <block name="Geo init">
       <while cond="LessThan(NavBlockTime(), 10)"/>
-      <call_once fun="NavSetGroundReferenceHere()"/>
+      <!-- <call_once fun="NavSetGroundReferenceHere()"/> -->
+      <call_once fun="NavSetAltitudeReferenceHere()"/>
     </block>
     <block name="Holding point">
       <call_once fun="NavKillThrottle()"/>
@@ -112,14 +113,14 @@
       <set var="mag_calib_ukf_update_filter" value="false"/>						<!--  Disable UKF updates, takeoff can be noisy -->
       <set var="mag_calib_ukf_update_every" value="25"/> 							<!--  Set update rate to every 25th measurement -->
       <set var="mag_calib_ukf_noise_rms" value="0.75"/> 							<!--  Increase UKF RMS since engines are on -->
-      <attitude pitch="0" roll="0" throttle="0" until="FALSE" vmode="throttle"/> 	
+      <attitude pitch="0" roll="0" throttle="0" until="FALSE" vmode="throttle"/> 
+      <call_once fun="file_logger_stop()"/> 										<!--  Stop the file logger if it is running -->
+      <call_once fun="file_logger_start()"/> 										<!--  Start the file logger -->	
     </block>
     <block name="Takeoff">
       <set var="mag_calib_ukf_full_3x3" value="false"/> 							<!--  Disable AHRS feedback during takeoff -->
       <set var="mag_calib_ukf_update_filter" value="false"/> 						<!--  Disable UKF updates during takeoff -->
       <set var="mag_calib_ukf_update_every" value="25"/> 							<!--  Set update rate to every 25th measurement -->
-      <call_once fun="file_logger_stop()"/> 										<!--  Stop the file logger if it is running -->
-      <call_once fun="file_logger_start()"/> 										<!--  Start the file logger -->
       <call_once fun="NavSetAltitudeReferenceHere()"/>
       <call_once fun="waypoint_set_alt(WP_TD, WaypointAlt(WP_HOME))"/>
       <call_once fun="NavSetWaypointHere(WP_TD)"/>
@@ -201,6 +202,7 @@
       <stay climb="0.5*nav_descend_vspeed" vmode="climb" wp="TD" until="stage_time > 5 && (GetAltRef() + 0.1) > GetPosAlt()"/>
     </block>
     <block name="landed">
+      <set var="viewvideo_recording" value="FALSE"/>
       <set var="mag_calib_ukf_update_filter" value="false"/>
       <call_once fun="file_logger_stop()"/>
       <call_once fun="NavKillThrottle()"/>

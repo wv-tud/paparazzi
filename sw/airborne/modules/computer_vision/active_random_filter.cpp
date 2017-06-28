@@ -152,16 +152,16 @@ double 	    ARF_MAX_CIRCLE_DEF 	                = 0.11;                ///< Maxi
 double      ARF_MIN_CIRCLE_PERC                 = 0.55;                 ///< Minimum percentage of circle in view
 double      ARF_LARGE_SKIP_FACTOR               = 1.0 / 10.0;           ///< Percentage of length large contours are allowed to snap back to starting pos
 /** Automatically calculated tracking parameters **/
-double      ARF_CROP_X                      = 1.2;                  ///< Crop margin for blobs when using omni detection
-uint8_t     ARF_MEMORY                      = 30;                   ///< Frames to keep neighbours in memory
-double      ARF_FPS                         = 20.0;                 ///< Estimated FPS to estimate lost neighbour decay
-double      ARF_VMAX                        = 7.0;                  ///< Maximum estimated velocity of a neighbour (account for some noise)
+double      ARF_CROP_X                          = 1.2;                  ///< Crop margin for blobs when using omni detection
+uint8_t     ARF_MEMORY                          = 30;                   ///< Frames to keep neighbours in memory
+double      ARF_FPS                             = 20.0;                 ///< Estimated FPS to estimate lost neighbour decay
+double      ARF_VMAX                            = 7.0;                  ///< Maximum estimated velocity of a neighbour (account for some noise)
 double      ARF_MIN_CIRCLE_SIZE;                                        ///< Minimum contour area
 uint16_t    ARF_MIN_LAYERS;                                             ///< Miminum recursive depth of CW flood
 uint16_t    ARF_LARGE_LAYERS;                                           ///< Miminum recursive depth of CW flood before classified as a large contour
 uint16_t    ARF_MIN_POINTS;                                             ///< Mimimum contour length
 uint16_t    ARF_MIN_CROP_AREA                   = 100;                  ///< Minimal area of a crop rectangle
-uint8_t     ARF_MAX_SEARCH_PIXEL_SKIP         = 6;
+uint8_t     ARF_MAX_SEARCH_PIXEL_SKIP           = 6;
 
 /** Set up colour filter **/
 #if ARF_OBJECT == ARF_GATE
@@ -177,12 +177,12 @@ uint8_t     ARF_GREY_THRES                      = 0;
 #if ARF_OBJECT == ARF_BALL
 /* Daylight */
 uint8_t     ARF_Y_MIN                           = 50;                   ///< Minimum Y whilst searching and following contours
-uint8_t     ARF_Y_MAX                           = 50;                   ///< Maximum Y whilst searching and following contours
+uint8_t     ARF_Y_MAX                           = 250;                  ///< Maximum Y whilst searching and following contours
 uint8_t     ARF_U_MIN                           = 128 - 30;             ///< Minimum U whilst searching and following contours
 uint8_t     ARF_U_MAX                           = 128 + 20;             ///< Maximum U whilst searching and following contours
 uint8_t     ARF_V_MIN                           = 128 - 10;             ///< Minimum V whilst searching and following contours
 uint8_t     ARF_V_MAX                           = 255;                  ///< Maximum V whilst searching and following contours
-int8_t      ARF_GREY_THRES                      = 5;
+int8_t      ARF_GREY_THRES                      = 10;
 /* Cyberzoo
 uint8_t     ARF_Y_MIN                           = 35;                   ///< Minimum Y whilst searching and following contours
 uint8_t     ARF_Y_MAX                           = 255;                  ///< Maximum Y whilst searching and following contours
@@ -1681,7 +1681,7 @@ void active_random_filter_footer( void ){
         VERBOSE_PRINT("%i - Object %d at (%0.2f m, %0.2f m, %0.2f m)\n", runCount, neighbourMem[r].id, neighbourMem[r].x_w, neighbourMem[r].y_w, neighbourMem[r].z_w);                                                        // Print to terminal
 #endif
 #if ARF_WRITE_LOG
-        clock_gettime(CLOCK_MONOTONIC, &time_now);
+
         fprintf(arf_File,"%d\t%0.8f\t%d\t%d\t%0.3f\t%0.3f\t%0.3f\t%0.3f\t%0.3f\t%0.3f\t%0.3f\n", runCount, curT / 1000000.f, neighbourMem[r].id, neighbourMem[r].lastSeen != runCount, pos->x, pos->y, pos->z, cv_image_pose.eulers.psi, neighbourMem[r].x_w, neighbourMem[r].y_w, neighbourMem[r].z_w);
 #endif
     }

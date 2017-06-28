@@ -135,9 +135,12 @@ void file_logger_start(void)
          "mag_calib_state_6,"
          "mag_calib_state_7,"
          "mag_calib_state_8,"
-         "mag_calib_state_9,"
-         "mag_calib_state_10,"
-         "mag_calib_state_11\n"
+         //"mag_calib_state_9,"
+         //"mag_calib_state_10,"
+         //"mag_calib_state_11"
+          "sp_accel_x,"
+          "sp_accel_y,"
+          "sp_accel_z\n"
     );
     logger_file_file_logger_periodic_status = MODULES_RUN;
   }
@@ -163,7 +166,9 @@ void file_logger_periodic(void)
   struct Int32Quat *quat = stateGetNedToBodyQuat_i();
   struct FloatEulers* eulerAngles = stateGetNedToBodyEulers_f();
 
-  fprintf(file_logger, "%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%0.4f,%0.4f,%d,%d,%d,%0.4f,%0.4f,%0.4f,%d,%d,%d,%0.4f,%0.4f,%0.4f,%d,%d,%d,%0.4f,%0.4f,%0.4f,%0.4f,%0.4f,%0.4f,%0.4f,%0.4f,%0.4f,%0.4f,%0.4f,%0.4f,%0.4f,%0.4f,%0.4f,%0.4f,%0.4f,%0.4f,%0.4f,%0.4f\n",
+  fprintf(file_logger,
+          //"%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%0.4f,%0.4f,%d,%d,%d,%0.4f,%0.4f,%0.4f,%d,%d,%d,%0.4f,%0.4f,%0.4f,%d,%d,%d,%0.4f,%0.4f,%0.4f,%0.4f,%0.4f,%0.4f,%0.4f,%0.4f,%0.4f,%0.4f,%0.4f,%0.4f,%0.4f,%0.4f,%0.4f,%0.4f,%0.4f,%0.4f,%0.4f,%0.4f\n",
+          "%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%0.4f,%0.4f,%d,%d,%d,%0.4f,%0.4f,%0.4f,%d,%d,%d,%0.4f,%0.4f,%0.4f,%d,%d,%d,%0.4f,%0.4f,%0.4f,%0.4f,%0.4f,%0.4f,%0.4f,%0.4f,%0.4f,%0.4f,%0.4f,%0.4f,%0.4f,%0.4f,%0.4f,%0.4f,%0.4f\n",
           counter,
           autopilot.in_flight,
           quat->qi,
@@ -209,9 +214,9 @@ void file_logger_periodic(void)
           mag_calib.state[6],
           mag_calib.state[7],
           mag_calib.state[8],
-          mag_calib.state[9],
-          mag_calib.state[10],
-          mag_calib.state[11],
+          //mag_calib.state[9],
+          //mag_calib.state[10],
+          //mag_calib.state[11],
           sp_accel.x,
           sp_accel.y,
           sp_accel.z
