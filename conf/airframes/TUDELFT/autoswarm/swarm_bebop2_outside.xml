@@ -104,10 +104,10 @@
 		<module name="video_thread" />
 		<module name="cv_image_pose" />
 		<module name="cv_ae_awb">
-			<define name="CV_AE_MIDDLE_INDEX" value="90" />
+			<define name="CV_AE_MIDDLE_INDEX" value="105" />
 			<define name="CV_AE_EXPOSURE_GAIN" value="0.075" />
 			<define name="CV_AE_DARK_IGNORE" value="0.45" />
-			<define name="CV_AE_BRIGHT_IGNORE" value="0.45" />
+			<define name="CV_AE_BRIGHT_IGNORE" value="0.70" />
 			<define name="CV_AE_DARK_BINS" value="15" />
 			<define name="CV_AE_BRIGHT_BINS" value="15" />
 			<define name="CV_AE_AWB_GAIN_SCHEDULING" value="0" />
@@ -250,9 +250,9 @@
 		<define name="FILTER_PITCH_RATE" value="FALSE" />
 		<define name="FILTER_YAW_RATE" value="FALSE" />
 		<!--  Or else use these for first order filter (coef = 1 disables first order filter) -->
-		<define name="P_FILT_COEF" value="6"/>
-		<define name="Q_FILT_COEF" value="6"/>
-		<define name="R_FILT_COEF" value="6"/>
+		<define name="P_FILT_COEF" value="2"/>
+		<define name="Q_FILT_COEF" value="2"/>
+		<define name="R_FILT_COEF" value="2"/>
 
 		<!-- reference acceleration for attitude control -->
 		<define name="REF_ERR_P" value="600.0" />

@@ -2,7 +2,7 @@
 
 <!-- Close field 51.9907047	4.3785977 -->
 <!-- Valkenburg 52.1675803	4.4122477 -->
-<flight_plan alt="2.0" ground_alt="0.0" lat0="52.1675803" lon0="4.4122477" max_dist_from_home="20" name="UKF Magnetometer Calibration test" security_height="1.0">
+<flight_plan alt="2.5" ground_alt="0.0" lat0="52.1675803" lon0="4.4122477" max_dist_from_home="50" name="UKF Magnetometer Calibration test" security_height="1.0">
   <header>	
     #include "autopilot.h"
     #include "subsystems/datalink/datalink.h"
@@ -59,6 +59,15 @@
       <call_once fun="ahrs_aligner_reset()"/>
     </block>
     <block name="Wait GPS">
+        <call_once fun="setSwarmMode(2)"/> <!--  Look towards global -->
+    	<set var="settings_as_extended" value="1"/>
+    	<set var="settings_as_loglo" value="1.0"/>
+    	<set var="settings_as_vmax" value="3.0"/>
+    	<set var="settings_as_circle_radius" value="4.0"/>
+    	<set var="settings_as_e" value="0.06"/> 
+    	<set var="settings_as_separation" value="2.5"/> <!--  2.0m separation -->
+    	<set var="settings_as_global_strength" value="1.0"/> <!--  100% global strength -->
+    	<call_once fun="setGlobalMode(2)"/> <!--  Bucket global field -->
       <call_once fun="NavKillThrottle()"/>
       <while cond="!GpsFixValid()"/>
     </block>
@@ -161,55 +170,20 @@
       <call_once fun="NavSetWaypointHere(WP_STDBY)"/>
       <stay wp="STDBY"/>
     </block>
-    <block name="Prepare (go p1)">
-       <go hmode="route" wp="p1"/>
-       <stay wp="p1"/>
+    <block name="Swarm" strip_button="Swarm" strip_icon="lookfore.png">
+    	<set var="viewvideo_recording" value="TRUE"/>
+		<call_once fun="setSwarmMode(2)"/>
+		<call_once fun="nav_set_heading_towards_waypoint(WP__CAM)"/>
+    	<stay wp="_GOAL"/>
     </block>
-    <block name="Test Line (p1 - p2)">
-        <go from="p1" hmode="route" wp="p2"/>
-        <stay until="stage_time > 3" wp="p2"/>
-        <go from="p2" hmode="route" wp="p1"/>
-        <deroute block="Prepare (go p1)"/>
-    </block>
-    <block name="Test Block (1x: p1, p2, p3, p4, p1)">
-    	<call_once fun="nav_set_heading_towards_waypoint(WP_p1)"/>
-        <stay until="stage_time > 3" wp="p1"/>
-        <call_once fun="nav_set_heading_towards_waypoint(WP_p2)"/>
-        <go from="p1" hmode="route" wp="p2"/>
-        <call_once fun="nav_set_heading_towards_waypoint(WP_p3)"/>
-        <go from="p2" hmode="route" wp="p3"/>
-        <call_once fun="nav_set_heading_towards_waypoint(WP_p4)"/>
-        <go from="p3" hmode="route" wp="p4"/>
-        <call_once fun="nav_set_heading_towards_waypoint(WP_p1)"/>
-        <go from="p4" hmode="route" wp="p1"/>
-        <deroute block="Prepare (go p1)"/>
-    </block>
-    <block name="Test Block (5x: p1, p2, p3, p4, p1)">
-	<for var="i" from="0" to="4">
-		<call_once fun="nav_set_heading_towards_waypoint(WP_p1)" />
-		<stay until="stage_time > 3" wp="p1" />
-		<call_once fun="nav_set_heading_towards_waypoint(WP_p2)" />
-		<go from="p1" hmode="route" wp="p2" />
-		<call_once fun="nav_set_heading_towards_waypoint(WP_p3)" />
-		<go from="p2" hmode="route" wp="p3" />
-		<call_once fun="nav_set_heading_towards_waypoint(WP_p4)" />
-		<go from="p3" hmode="route" wp="p4" />
-		<call_once fun="nav_set_heading_towards_waypoint(WP_p1)" />
-		<go from="p4" hmode="route" wp="p1" />
-	</for>
-	<deroute block="Prepare (go p1)" />
-    </block>
-    <block name="Test Yaw (go p1, 8 increments of 45 deg)">
-      <go wp="p1"/>
-      <for from="1" to="8" var="i">
-        <heading alt="WaypointAlt(WP_p1)" course="45 * ($i - 1)" until="stage_time > 1" />
-        <stay until="stage_time > 2" wp="p1"/>
-      </for>
-      <deroute block="Prepare (go p1)"/>
-    </block>
-    <block name="Test Circle (60 sec CAM, go p1)" pre_call="nav_set_heading_towards_waypoint(WP_CAM)">
-      <circle radius="5" wp="CAM" until="stage_time > 60"/>
-      <deroute block="Prepare (go p1)"/>
+    <block name="Swarm Home">
+    	<set var="viewvideo_recording" value="FALSE"/>
+    	<exception cond="amIhome()" deroute="land"/>
+		<call_once fun="NavCopyWaypointPositionOnly(WP_GLOBAL, WP__TD)"/>
+		<call_once fun="setGlobalMode(0)"/>
+		<call_once fun="setSwarmMode(1)"/>
+		<call_once fun="nav_set_heading_towards_waypoint(WP__CAM)"/>
+    	<stay wp="_GOAL"/>
     </block>
     <block name="land here" strip_button="Land Here" strip_icon="land-right.png">
       <call_once fun="NavSetWaypointHere(WP_TD)"/>
@@ -248,6 +222,34 @@
     	<stay climb="1*nav_descend_vspeed" vmode="climb" wp="TD" until="stage_time > 5"/>
     	<attitude pitch="0" roll="0" vmode="climb" climb="2*nav_descend_vspeed"/>
     	<exception cond="block_time > 10 && (GetAltRef() + 0.1) > GetPosAlt()" deroute="landed"/>
+    </block>
+<block name="circle_cw">
+      <set var="settings_as_attractor" value="2"/>
+      <deroute block="Swarm"/>
+    </block>
+    <block name="circle_ccw">
+      <set var="settings_as_attractor" value="3"/>
+      <deroute block="Swarm"/>
+    </block>
+    <block name="bucket">
+      <set var="settings_as_attractor" value="1"/>
+      <deroute block="Swarm"/>
+    </block>
+    <block name="spread_out">
+      <set var="settings_as_separation" value="settings_as_separation+0.125"/>
+      <deroute block="Swarm"/>
+    </block>
+    <block name="spread_in">
+      <set var="settings_as_separation" value="settings_as_separation-0.125"/>
+      <deroute block="Swarm"/>
+    </block>
+    <block name="inc_circle">
+      <set var="settings_as_circle_radius" value="settings_as_circle_radius+0.125"/>
+      <deroute block="Swarm"/>
+    </block>
+    <block name="dec_circle">
+      <set var="settings_as_circle_radius" value="settings_as_circle_radius-0.125"/>
+      <deroute block="Swarm"/>
     </block>
   </blocks>
 </flight_plan>
