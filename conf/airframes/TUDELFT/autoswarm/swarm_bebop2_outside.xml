@@ -23,10 +23,12 @@
 		<configure name="USE_MAGNETOMETER" value="TRUE" />
 		<define name="USE_GPS_UBX_RTCM" value="TRUE" />
 		<define name="GPS_UBX_ENABLE_NMEA" value="FALSE" />
-		<!--  Navigation -->
-		<define name="ARRIVED_AT_WAYPOINT" value="0.75" unit="meters"/> 
+		
 		<define name="NAV_ALTITUDE_DIFF" value="0.05" unit="meters"/>
+		<!--  Navigation -- was for UKF calib test
+		<define name="ARRIVED_AT_WAYPOINT" value="0.75" unit="meters"/> 
 		<define name="CARROT" value="0.5" unit="s"/>
+		-->
 
 		<define name="AHRS_FC_MAG_ID" value="MAG_CALIB_UKF_ID" />
 		<define name="INS_FINV_MAG_ID" value="MAG_CALIB_UKF_ID" />

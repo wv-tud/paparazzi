@@ -4,14 +4,9 @@
 	<firmware name="rotorcraft">
 		<target name="ap" board="bebop2">
 			<!-- PERIODIC_FREQUENCY should be least equal or greater than AHRS_PROPAGATE_FREQUENCY -->
-			<configure name="PERIODIC_FREQUENCY" value="512" /> <!-- unit="Hz" -->
 			<configure name="AHRS_PROPAGATE_FREQUENCY" value="500" /><!-- unit="Hz" -->
 			<configure name="AHRS_CORRECT_FREQUENCY" value="500" /> <!-- unit="Hz" -->
-
-			<configure name="NAVIGATION_FREQUENCY" value="64" /> <!-- unit="Hz" -->
-			<!-- <configure name="CONTROL_FREQUENCY" value="500"/> --> <!-- unit="Hz" -->
-			<configure name="TELEMETRY_FREQUENCY" value="60" /> <!-- unit="Hz" -->
-			<configure name="MODULES_FREQUENCY" value="512" /> <!-- unit="Hz" -->     
+			<configure name="NAVIGATION_FREQUENCY" value="64" /> <!-- unit="Hz" -->   
 		</target>
 		<!-- amount of time it take for the bat to trigger check -->
     	<!-- to avoid bat low spike detection when strong pullup withch draws short sudden power-->    
@@ -21,14 +16,18 @@
     	<define name="CATASTROPHIC_BATTERY_KILL_DELAY" value="30" unit="s/10"/> <!-- in tenth of seconds for engine kill -->
     
  		<!--  swarmhub -->
-		<configure name="HOST" value="192.168.40.$(AC_ID)" />
-		<configure name="MODEM_HOST" value="192.168.40.255" />
+		<configure name="HOST" value="192.168.0.$(AC_ID)" />
+		<configure name="MODEM_HOST" value="192.168.255.255" />
 		<!--  Baro, Sonar, RTK -->
 		<configure name="USE_BARO_BOARD" value="FALSE" />
 		<configure name="USE_MAGNETOMETER" value="FALSE" />
 		<configure name="USE_BARO" value="FALSE" />
 		<configure name="USE_SONAR" value="FALSE" />
 		<define name="USE_GPS_UBX_RTCM" value="FALSE" />
+		<define name="NAV_ALTITUDE_DIFF" value="0.05" unit="meters"/>
+		<define name="BEBOP_FACTORY_CALIB" value="1"/>
+		<define name="INS_PROPAGATE_FREQUENCY" value="500"/>
+		<define name="USE_AUTO_INS_FREQ" value="0"/>
 		<!--  Use magneto calib with ICQ AHRS 
 		<define name="AHRS_ICQ_MAG_ID" value="MAG_CALIB_UKF_ID" /> -->
 		<!-- Still to be tested
@@ -38,6 +37,7 @@
 		-->
 		<define name="GPS_TIMEOUT" value="1" />
 		<!-- Camera parameters -->
+		<define name="USE_H264" value="TRUE" />
 		<define name="H264_ROTATE" value="TRUE" />
 		<define name="MT9F002_SENSOR_WIDTH" value="1920" />
 		<define name="MT9F002_OUTPUT_WIDTH" value="960" /> <!-- 480 / 960 / 1920 / 3840 -->
@@ -49,18 +49,22 @@
 		<define name="MT9F002_GAIN_RED" value="13.1" />
 		<define name="MT9F002_GAIN_BLUE" value="17.0" />
 		<!-- Subsystem section -->
+		<!-- Subsystem section -->
 		<module name="telemetry" type="transparent_udp" />
 		<module name="radio_control" type="datalink" />
-		<module name="motor_mixing" />
+		<!-- <module name="motor_mixing" /> -->
 		<module name="actuators" type="bebop" />
-		<module name="imu" type="bebop"/>
+		<module name="imu" type="bebop" />
 		<module name="gps" type="datalink" />
-		<module name="stabilization" type="indi_simple" />
+		<module name="stabilization" type="indi">
+			<define name="INDI_RPM_FEEDBACK" value="TRUE" />
+		</module>
+		<module name="stabilization" type="rate_indi" />
 		<module name="guidance" type="indi" />
 		<module name="ahrs" type="int_cmpl_quat">
       		<configure name="AHRS_USE_MAGNETOMETER" value="FALSE"/>
-      		<define name="AHRS_USE_GPS_HEADING" value="TRUE" />
-      		<define name="AHRS_GRAVITY_HEURISTIC_FACTOR" value="0" />
+      		<define name="AHRS_USE_GPS_HEADING" value="1" />
+      		<define name="AHRS_GRAVITY_HEURISTIC_FACTOR" value="4" />
 		</module>
 		<module name="ins" type="extended" />
 	</firmware>
@@ -72,9 +76,6 @@
 		<!-- <module name="geo_mag" /> -->
 		<!-- <module name="air_data" /> -->
 		<!-- <module name="send_imu_mag_current" /> -->
-		<module name="logger_file">
-			<define name="FILE_LOGGER_PATH" value="/data/ftp/internal_000" />
-		</module>
 		<!-- <module name="nav_rotorcraft_shake_throw"/> -->
 		<!-- Modules for swarming -->
 		<module name="pose_history">
@@ -87,25 +88,32 @@
 		<module name="video_thread" />
 		<module name="cv_image_pose" />
 		<module name="cv_ae_awb">
-		  <define name="CV_AE_AWB_VERBOSE" value="FALSE" />
-		  <define name="CV_AE_MIDDLE_INDEX" value="95" />
-		  <define name="CV_AE_EXPOSURE_GAIN" value="2.5" />
-		  <define name="CV_AE_DARK_IGNORE" value="0.98" />
-		  <define name="CV_AE_BRIGHT_IGNORE" value="0.25" />
-		  <define name="CV_AE_DARK_BINS" value="55" />
-		  <define name="CV_AE_BRIGHT_BINS" value="40" />
-		  <define name="CV_AE_AWB_GAIN_SCHEDULING" value="0" />
+			<define name="CV_AE_MIDDLE_INDEX" value="105" />
+			<define name="CV_AE_EXPOSURE_GAIN" value="0.075" />
+			<define name="CV_AE_DARK_IGNORE" value="0.45" />
+			<define name="CV_AE_BRIGHT_IGNORE" value="0.70" />
+			<define name="CV_AE_DARK_BINS" value="15" />
+			<define name="CV_AE_BRIGHT_BINS" value="15" />
+			<define name="CV_AE_AWB_GAIN_SCHEDULING" value="0" />
+			<define name="CV_AE_AWB_GAIN" value="0.25" />
+			<define name="CV_AE_AWB_MIN_GREY_PIXELS" value="50000"/>
 		</module>
-		<module name="cv_bebop_camera_stabilization"/>
-		<module name="cv_active_random_filter"/>
+		<module name="cv_bebop_camera_stabilization" />
+		<module name="cv_active_random_filter" />
+		<module name="cv_frame_plotter" />
 		<module name="video_rtp_stream">
 			<configure name="VIEWVIDEO_BROADCAST" value="FALSE" />
+			<define name="VIEWVIDEO_STREAM" value="FALSE" />
 			<define name="VIEWVIDEO_CAMERA" value="front_camera" />
 			<define name="VIEWVIDEO_SHOT_PATH" value="/data/ftp/internal_000" />
-			<define name="VIEWVIDEO_FPS" value="20" />
-			<define name="VIEWVIDEO_WRITE_VIDEO" value="TRUE" />
-			<define name="VIEWVIDEO_VIDEO_FILE" value="experiment_group_motion" />
-			<define name="VIEWVIDEO_STREAM_VIDEO" value="FALSE" />
+			<define name="VIEWVIDEO_FPS" value="18" />
+			<define name="VIEWVIDEO_VIDEO_FILE" value="inside_demo" />
+			<define name="VIEWVIDEO_H264_BITRATE" value="4.0" />
+		</module>
+		<!-- File logger -->
+		<module name="logger_file">
+			<define name="FILE_LOGGER_PATH" value="/data/ftp/internal_000" />
+			<define name="FILE_LOGGER_DATETIME_NAME" value="1" />
 		</module>
 	</modules>
 	<!-- Misc. settings -->
@@ -123,13 +131,6 @@
 		<servo name="BOTTOM_LEFT" no="3" min="2500" neutral="2500" max="12000" />
 	</servos>
 
-	<section name="MAG_CALIB_UKF" prefix="MAG_CALIB_UKF_">
-		<define name="HOTSTART" value="TRUE"/>
-    	<define name="HOTSTART_SAVE_FILE" value="/data/ftp/internal_000/mag_ukf_calib.txt"/>
-    	<define name="CLEAN_START" value="FALSE"/>
-    	<define name="VERBOSE" value="FALSE"/>
-	</section>
-	
 	<section name="NAV_RC_SHAKE_THROW" prefix="NAV_RC_SHAKE_THROW_">
       <define name="GOTO_BLOCK" value="Standby"/>
       <define name="RESET_BLOCK" value="Landed"/>
@@ -142,34 +143,21 @@
 		<define name="MEASURE_TIME" value="30" />
 	</section>
 
-	<section name="MIXING" prefix="MOTOR_MIXING_">
-		<define name="TRIM_ROLL" value="0" />
-		<define name="TRIM_PITCH" value="0" />
-		<define name="TRIM_YAW" value="0" />
-		<define name="REVERSE" value="TRUE" />
-		<define name="TYPE" value="QUAD_X" />
-	</section>
-
+<!--  Command laws for full INDI -->
 	<command_laws>
-		<call fun="motor_mixing_run(autopilot_get_motors_on(),FALSE,values)" />
-		<set servo="TOP_LEFT" value="motor_mixing.commands[MOTOR_FRONT_LEFT]" />
-		<set servo="TOP_RIGHT" value="motor_mixing.commands[MOTOR_FRONT_RIGHT]" />
-		<set servo="BOTTOM_RIGHT" value="motor_mixing.commands[MOTOR_BACK_RIGHT]" />
-		<set servo="BOTTOM_LEFT" value="motor_mixing.commands[MOTOR_BACK_LEFT]" />
+		<set servo="TOP_LEFT" 		value="autopilot_get_motors_on() ? actuators_pprz[0] : -MAX_PPRZ" />
+		<set servo="TOP_RIGHT" 		value="autopilot_get_motors_on() ? actuators_pprz[1] : -MAX_PPRZ" />
+		<set servo="BOTTOM_RIGHT" 	value="autopilot_get_motors_on() ? actuators_pprz[2] : -MAX_PPRZ" />
+		<set servo="BOTTOM_LEFT" 	value="autopilot_get_motors_on() ? actuators_pprz[3] : -MAX_PPRZ" />
 	</command_laws>
-
-	<section name="AIR_DATA" prefix="AIR_DATA_">
-		<define name="CALC_AIRSPEED" value="FALSE" />
-		<define name="CALC_TAS_FACTOR" value="FALSE" />
-		<define name="CALC_AMSL_BARO" value="FALSE" />
-	</section>
 
 	<include href="conf/airframes/TUDELFT/calibrations/bebop2_$AC_ID.xml" />
 
 	<section name="AHRS" prefix="AHRS_">
 		<define name="HEADING_UPDATE_GPS_MIN_SPEED" value="0" />
+		<define name="USE_GPS_HEADING" value="1" />
 		<!-- For vibrating airframes -->
-		<define name="GRAVITY_HEURISTIC_FACTOR" value="0" />
+		<define name="GRAVITY_HEURISTIC_FACTOR" value="4" />
 		<!-- values used if no GPS fix, on 3D fix is update by geo_mag module -->
 		<!-- local magnetic field (Delft) -->
 		<!-- http://wiki.paparazziuav.org/wiki/Subsystem/ahrs#Local_Magnetic_Field -->
@@ -179,7 +167,7 @@
 	</section>
 
 	<section name="INS" prefix="INS_">
-		<define name="SONAR_MAX_RANGE" value="2.2" />
+		<define name="SONAR_MAX_RANGE" value="4.2" />
 		<define name="SONAR_UPDATE_ON_AGL" value="FALSE" />
 		<define name="USE_GPS_ALT" value="1" />     <!-- Use height from the optitrack -->
 		<define name="VFF_R_GPS" value="0.01" />   <!-- The optitrack has high accuracy -->
@@ -215,16 +203,21 @@
 	</section>
 
 	<section name="STABILIZATION_ATTITUDE_INDI" prefix="STABILIZATION_INDI_">
-		<!-- control effectiveness -
-		<define name="G1_P" value="0.05" />
-		<define name="G1_Q" value="0.025" />
-		<define name="G1_R" value="0.0022" />
-		<define name="G2_R" value="0.20" /> -->
+		<!-- control effectiveness -->
+		<define name="G1_ROLL" value="{17.541, 	-14.466, 	-16.632, 	23.559 }" />
+		<define name="G1_PITCH" value="{14.673, 	12.930, 	-16.854, 	-17.459 }" />
+		<define name="G1_YAW" value="{0.413, 		-1.071, 	0.573, 		-0.711}" />
+		<define name="G1_THRUST" value="{-0.561, 	-0.507, 	-0.566, 	-0.554}" />
+		<define name="G2" value="{112.015, 	-131.258, 	154.486, 	-66.862}" />
 
 		<!-- For the bebop2 we need to filter the roll rate due to the dampers -->
-		<define name="FILTER_ROLL_RATE" value="TRUE" />
+		<define name="FILTER_ROLL_RATE" value="FALSE" />
 		<define name="FILTER_PITCH_RATE" value="FALSE" />
 		<define name="FILTER_YAW_RATE" value="FALSE" />
+		<!--  Or else use these for first order filter (coef = 1 disables first order filter) -->
+		<define name="P_FILT_COEF" value="2"/>
+		<define name="Q_FILT_COEF" value="2"/>
+		<define name="R_FILT_COEF" value="2"/>
 
 		<!-- reference acceleration for attitude control -->
 		<define name="REF_ERR_P" value="170.0" />
@@ -236,36 +229,37 @@
 
 		<!-- second order filter parameters -->
 		<define name="ESTIMATION_FILT_CUTOFF" value="4.0" />
-		<define name="FILT_CUTOFF" value="2.75" />
-		<define name="FILT_CUTOFF_P" value="2.75" />
+		<define name="FILT_CUTOFF" value="4.5" />
+		<define name="FILT_CUTOFF_P" value="4.5" />
 
-		<!-- first order actuator dynamics (indi_simple) -->
-		<define name="ACT_DYN_P" value="0.06" />
-		<define name="ACT_DYN_Q" value="0.06" />
-		<define name="ACT_DYN_R" value="0.06" />
+		<!-- first order actuator dynamics -->
+		<define name="ACT_DYN" value="{0.072, 0.072, 0.072, 0.072}" />
 
 		<!-- Adaptive Learning Rate -->
 		<define name="USE_ADAPTIVE" value="TRUE" />
-		<define name="ADAPTIVE_MU" value="0.0005" />
+		<define name="ADAPTIVE_MU" value="0.0001" />
 
 		<!--Maxium yaw rate, to avoid instability -->
-		<define name="MAX_R" value="120" unit="deg/s" />
+		<define name="MAX_R" value="180" unit="deg/s" />
 	</section>
 
 	<section name="GUIDANCE_INDI" prefix="GUIDANCE_INDI_">
-		<define name="SPECIFIC_FORCE_GAIN" value="-300.0" />
-		<define name="THRUST_DYNAMICS" value="0.06" />
+		<define name="POS_GAIN" value="1.0" />
+		<define name="SPEED_GAIN" value="1.8" />
+		<define name="SPECIFIC_FORCE_GAIN" value="-400.0" />
+		<define name="THRUST_DYNAMICS" value="0.072" /> <!-- defaults to STABILIZATION_INDI_ACT_DYN_P which is only defined for indi_simple -->
+		<define name="RC_DEBUG" value="FALSE" />
 	</section>
 
 	<section name="GUIDANCE_V" prefix="GUIDANCE_V_">
 		<define name="HOVER_KP" value="350" />
-		<define name="HOVER_KD" value="85" />
-		<define name="HOVER_KI" value="20" />
-		<define name="NOMINAL_HOVER_THROTTLE" value="0.575" />
-		<define name="ADAPT_THROTTLE_ENABLED" value="FALSE" />
-		<define name="ADAPT_INITIAL_HOVER_THROTTLE" value="0.575" />
-		<define name="ADAPT_MIN_HOVER_THROTTLE" value="0.50" />
-		<define name="ADAPT_MAX_HOVER_THROTTLE" value="0.65" />
+		<define name="HOVER_KD" value="255" />
+		<define name="HOVER_KI" value="160" />
+		<define name="NOMINAL_HOVER_THROTTLE" value="0.655" unit="%" />
+		<define name="ADAPT_THROTTLE_ENABLED" value="TRUE" />
+		<define name="ADAPT_INITIAL_HOVER_THROTTLE" value="0.655" unit="%" />
+		<define name="ADAPT_MIN_HOVER_THROTTLE" value="0.55" unit="%" />
+		<define name="ADAPT_MAX_HOVER_THROTTLE" value="0.70" unit="%" />
 	</section>
 
 	<section name="GUIDANCE_H" prefix="GUIDANCE_H_">
@@ -277,6 +271,17 @@
 		<define name="IGAIN" value="30" />
 	</section>
 
+	<section name="FRAME_PLOTTER" prefix="FRAME_PLOTTER_">
+		<define name="SHOW_TOTV" value="1"/>
+		<define name="BALL_CIRCLES" value="1"/>
+		<define name="GATE_CORNERS" value="0"/>
+		<define name="PLOT_COORDS" value="1"/>
+		<define name="DISTANCE_PLOT" value="1"/>
+		<define name="SHOW_STATS" value="0"/>
+		<define name="SHOW_CAM_INFO" value="1"/>
+		<define name="SHOW_FPS" value="1"/>
+		<define name="SHOW_HISTOGRAM" value="1"/>
+	</section>
 
 	<section name="NAVIGATION" prefix="NAV_">
 		<define name="CLIMB_VSPEED" value="0.5" />
@@ -302,8 +307,12 @@
 	<section name="BAT">
 		<define name="MILLIAMP_AT_FULL_THROTTLE" value="8700" />
 		<define name="CATASTROPHIC_BAT_LEVEL" value="9.9" unit="V" />
-		<define name="CRITIC_BAT_LEVEL" value="11.0" unit="V" />
-		<define name="LOW_BAT_LEVEL" value="11.2" unit="V" />
+		<define name="CRITIC_BAT_LEVEL" value="10.4" unit="V" />
+		<define name="LOW_BAT_LEVEL" value="10.7" unit="V" />
 		<define name="MAX_BAT_LEVEL" value="12.4" unit="V" />
+	</section>
+	
+	<section name="GCS">
+		<define name="AC_ICON" value="quadrotor_xi" />
 	</section>
 </airframe>
